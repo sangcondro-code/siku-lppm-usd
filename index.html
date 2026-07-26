@@ -307,7 +307,8 @@
          yang perlu diverifikasi ketinggalan/tidak kelihatan. -->
     <div id="view-verifikasi" class="view d-none">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h5 class="page-title">Verifikasi Transaksi <span class="text-muted small">— Tahun <span id="vf-tahun-label"></span></span></h5>
+        <h5 class="page-title">Verifikasi Transaksi</h5>
+        <select id="sel-bulan-verifikasi" class="form-select form-select-sm" style="width:auto;"></select>
       </div>
 
       <div class="card mb-3"><div class="card-body">
@@ -320,7 +321,7 @@
         <div class="section-title mb-2"><i class="fas fa-clipboard-check"></i>Transaksi yang Sudah Saya Verifikasi</div>
         <p class="text-muted small mb-2">Riwayat transaksi yang sudah Anda akui sebagai milik Unit Anda. Kalau ternyata salah pilih Pos, gunakan "Ubah Pos" — bagian ini SENGAJA tidak menyediakan tombol hapus, karena datanya berasal dari rekening koran asli yang sudah dicatat Admin. Kalau memang perlu dihapus (misal ternyata bukan milik unit manapun), hubungi Admin.</p>
         <div class="table-responsive"><table class="table tbl mb-0">
-          <thead><tr><th>No</th><th>Bulan</th><th>Tanggal</th><th>Keterangan</th><th class="text-end">Debet</th><th class="text-end">Kredit</th><th>Pos Saat Ini</th><th class="no-print">Aksi</th></tr></thead>
+          <thead><tr><th>No</th><th>Tanggal</th><th>Keterangan</th><th class="text-end">Debet</th><th class="text-end">Kredit</th><th>Pos Saat Ini</th><th class="no-print">Aksi</th></tr></thead>
           <tbody id="vf-tbody-riwayat"></tbody>
         </table></div>
       </div></div>
@@ -987,7 +988,7 @@ function afterLogin(){
 function refreshViewSilently(name){
   if(name==='dashboard') loadDashboard();
   else if(name==='input'){ loadRekapBulan(); if(!document.getElementById('panel-input-nonunit').classList.contains('d-none')) loadTambahanForInput(); }
-  else if(name==='verifikasi') loadViewVerifikasi();
+  else if(name==='verifikasi') loadViewVerifikasiData();
   else if(name==='pos') renderPosUnitSayaForm();
   else if(name==='konsolidasi') loadKonsolidasi();
   else if(name==='unit') loadUnitPos();
@@ -2455,19 +2456,25 @@ function pilihModeBelumJelas(){
 // ============================================================
 // VERIFIKASI TRANSAKSI (UNIT) — HALAMAN TERSENDIRI, kode & tampilannya
 // SENGAJA dipisah dari initInputView()/loadRekapBulan() milik Admin, supaya
-// perubahan di satu sisi tidak berisiko mengganggu sisi lain. Menyapu
-// SELURUH bulan (1-12) tahun aktif via getSemuaBelumVerifikasiTahun &
-// getRiwayatVerifikasiSaya, bukan cuma bulan yang kebetulan dipilih di
-// Input Rekap Bulanan.
+// perubahan di satu sisi tidak berisiko mengganggu sisi lain. SENGAJA
+// dibatasi per-BULAN (default bulan berjalan, ada dropdown kalau perlu cek
+// bulan lain) -- transaksi belum terverifikasi memang tidak seharusnya
+// menumpuk lintas bulan, karena tiap bulan pada akhirnya dijadikan laporan.
+// Ringkasan gabungan semua Pos & bulan tetap bisa dilihat lewat menu Rekap
+// Konsolidasi seperti biasa.
 // ============================================================
-var _vfPerlu = []; // cache di memori: daftar transaksi perlu diverifikasi (semua bulan)
-var _vfRiwayat = []; // cache di memori: transaksi yang sudah SAYA verifikasi (semua bulan)
+var _vfPerlu = []; // cache di memori: daftar transaksi perlu diverifikasi (bulan terpilih)
+var _vfRiwayat = []; // cache di memori: transaksi yang sudah SAYA verifikasi (bulan terpilih)
 function loadViewVerifikasi(){
-  document.getElementById('vf-tahun-label').textContent = STATE.tahunAktif || '-';
+  initBulanSelect('sel-bulan-verifikasi', loadViewVerifikasiData);
+}
+function loadViewVerifikasiData(){
+  var bulan = document.getElementById('sel-bulan-verifikasi').value;
+  if(!bulan) return;
   showBar();
   Promise.all([
-    gasCall('getSemuaBelumVerifikasiTahun', STATE.tahunAktif, STATE.token),
-    gasCall('getRiwayatVerifikasiSaya', STATE.tahunAktif, STATE.token)
+    gasCall('getTransaksiBelumVerifikasi', STATE.tahunAktif, bulan, STATE.token),
+    gasCall('getRiwayatVerifikasiSaya', STATE.tahunAktif, bulan, STATE.token)
   ]).then(function(res){
     hideBar();
     var perlu = res[0], riwayat = res[1];
@@ -2477,18 +2484,19 @@ function loadViewVerifikasi(){
 }
 function renderVfPerlu(){
   var wrap = document.getElementById('vf-daftar-perlu');
-  if(!_vfPerlu.length){ wrap.innerHTML = '<p class="text-muted small mb-0">Tidak ada transaksi yang perlu diverifikasi saat ini. 🎉</p>'; return; }
+  if(!_vfPerlu.length){ wrap.innerHTML = '<p class="text-muted small mb-0">Tidak ada transaksi yang perlu diverifikasi bulan ini. 🎉</p>'; return; }
   wrap.innerHTML = _vfPerlu.map(function(r){
     return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 py-2 border-bottom">'
-      + '<div><b>'+_gcEsc(r.keterangan||'(tanpa keterangan)')+'</b> <span class="text-muted small">— '+(BULAN_NAMA[r.bulan-1]||r.bulan)+', '+r.tanggal+'</span><br>'
+      + '<div><b>'+_gcEsc(r.keterangan||'(tanpa keterangan)')+'</b> <span class="text-muted small">— '+r.tanggal+'</span><br>'
       + '<span class="small">'+(r.debet?('Debet Rp '+fmtRp(r.debet)):'')+(r.kredit?('Kredit Rp '+fmtRp(r.kredit)):'')+'</span></div>'
-      + '<button class="btn btn-sm" style="background:var(--maroon);color:white;" onclick="bukaVerifikasiTransaksiTahun(\''+r.id+'\','+r.bulan+')"><i class="fas fa-hand-point-up me-1"></i>Ini Punya Saya</button>'
+      + '<button class="btn btn-sm" style="background:var(--maroon);color:white;" onclick="bukaVerifikasiTransaksi(\''+r.id+'\')"><i class="fas fa-hand-point-up me-1"></i>Ini Punya Saya</button>'
       + '</div>';
   }).join('');
 }
-function bukaVerifikasiTransaksiTahun(id, bulan){
+function bukaVerifikasiTransaksi(id){
   var opsi = (STATE.myPos||[]).map(function(p){ return '<option value="'+p.kodePos+'">'+p.namaPos+'</option>'; }).join('');
   if(!opsi){ toast('error','Akun Anda belum terhubung ke Pos manapun.'); return; }
+  var bulan = document.getElementById('sel-bulan-verifikasi').value;
   Swal.fire({
     title:'Ini Transaksi Punya Unit Saya', html:
       '<div class="sw-field"><label>Masukkan ke Pos</label><select id="sw-pos" class="swal2-select">'+opsi+'</select></div>',
@@ -2501,23 +2509,24 @@ function bukaVerifikasiTransaksiTahun(id, bulan){
       toast('success','Dikonfirmasi, transaksi dipindahkan ke Pos terpilih');
       delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
       delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
-      loadViewVerifikasi();
+      loadViewVerifikasiData();
     });
   });
 }
 function renderVfRiwayat(){
   var tbody = document.getElementById('vf-tbody-riwayat');
-  if(!_vfRiwayat.length){ tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Belum ada transaksi yang Anda verifikasi.</td></tr>'; return; }
+  if(!_vfRiwayat.length){ tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Belum ada transaksi yang Anda verifikasi bulan ini.</td></tr>'; return; }
   tbody.innerHTML = _vfRiwayat.map(function(r,i){
-    return '<tr><td>'+(i+1)+'</td><td>'+(BULAN_NAMA[r.bulan-1]||r.bulan)+'</td><td>'+r.tanggal+'</td><td>'+_gcEsc(r.keterangan||'')+'</td>'
+    return '<tr><td>'+(i+1)+'</td><td>'+r.tanggal+'</td><td>'+_gcEsc(r.keterangan||'')+'</td>'
       + '<td class="text-end">'+(r.debet?fmtRp(r.debet):'')+'</td><td class="text-end">'+(r.kredit?fmtRp(r.kredit):'')+'</td>'
       + '<td>'+_gcEsc(r.namaPos||r.kodePos||'-')+'</td>'
-      + '<td class="no-print"><button class="btn btn-sm btn-outline-secondary" onclick="bukaUbahPosVerifikasi(\''+r.id+'\','+r.bulan+',\''+(r.kodePos||'')+'\')"><i class="fas fa-exchange-alt me-1"></i>Ubah Pos</button></td></tr>';
+      + '<td class="no-print"><button class="btn btn-sm btn-outline-secondary" onclick="bukaUbahPosVerifikasi(\''+r.id+'\',\''+(r.kodePos||'')+'\')"><i class="fas fa-exchange-alt me-1"></i>Ubah Pos</button></td></tr>';
   }).join('');
 }
-function bukaUbahPosVerifikasi(id, bulan, kodePosSaatIni){
+function bukaUbahPosVerifikasi(id, kodePosSaatIni){
   var opsi = (STATE.myPos||[]).map(function(p){ return '<option value="'+p.kodePos+'"'+(p.kodePos===kodePosSaatIni?' selected':'')+'>'+p.namaPos+'</option>'; }).join('');
   if(!opsi){ toast('error','Akun Anda belum terhubung ke Pos manapun.'); return; }
+  var bulan = document.getElementById('sel-bulan-verifikasi').value;
   Swal.fire({
     title:'Ubah Pos', html:
       '<div class="sw-field"><label>Pindahkan ke Pos</label><select id="sw-pos-ubah" class="swal2-select">'+opsi+'</select></div>',
@@ -2530,7 +2539,7 @@ function bukaUbahPosVerifikasi(id, bulan, kodePosSaatIni){
       if(!r.success){ toast('error', r.message); return; }
       toast('success','Pos berhasil diubah');
       delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
-      loadViewVerifikasi();
+      loadViewVerifikasiData();
     });
   });
 }
