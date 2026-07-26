@@ -38,6 +38,14 @@
   .stat-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0; }
   .page-title { font-size:1.25rem; font-weight:700; margin-bottom:0; color:#111; }
   .section-title { font-size:1rem; font-weight:700; color:var(--maroon); display:flex; align-items:center; gap:8px; margin-bottom:1.2rem; }
+  /* PERBAIKAN: "topbar tipis" yang sudah lama direncanakan (lihat komentar
+     showBar()/hideBar()) tapi belum pernah benar-benar dibuat -- ganti menu
+     jadi terasa macet/lambat tanpa tanda apa pun sedang terjadi. Garis tipis
+     ini merayap begitu ada permintaan ke server, lalu menyelesaikan diri
+     begitu selesai -- BUKAN overlay penuh, cukup jadi tanda "sedang proses". */
+  #top-progress-bar { position:fixed; top:0; left:0; height:3px; width:0; background:var(--maroon); z-index:9999; opacity:0; pointer-events:none; }
+  #top-progress-bar.tpb-show { opacity:1; width:70%; transition:width 1.4s cubic-bezier(.1,.6,.2,1); }
+  #top-progress-bar.tpb-done { width:100%; opacity:1; transition:width .25s ease; }
   .tbl thead { background:var(--maroon); color:white; }
   .tbl th { padding:10px 12px; font-size:.75rem; text-transform:uppercase; letter-spacing:.6px; font-weight:600; border:none; white-space:nowrap; }
   .tbl td { padding:10px 12px; vertical-align:middle; border-bottom:1px solid #f3f4f6; color:#374151; }
@@ -121,6 +129,7 @@
 </head>
 <body>
 
+<div id="top-progress-bar"></div>
 <div id="loading"><div class="spinner-border mb-3" style="width:2.5rem;height:2.5rem;"></div><div id="loading-msg">Memuat...</div></div>
 
 <!-- LOGIN -->
@@ -282,7 +291,7 @@
               <select class="form-select form-select-sm" id="tb-kategori"></select>
             </div>
             <div class="col-6 col-md-2"><label class="form-label small mb-1">Tanggal</label><input type="date" class="form-control form-control-sm" id="tb-tanggal" required onkeydown="enterPindah(event,'tb-keterangan')"></div>
-            <div class="col-12 col-md-3"><label class="form-label small mb-1">Keterangan</label><input type="text" class="form-control form-control-sm" id="tb-keterangan" placeholder="mis. Penarikan Cek BAE 1847296" onkeydown="enterPindah(event,'tb-debet')"></div>
+            <div class="col-12 col-md-3"><label class="form-label small mb-1">Keterangan</label><input type="text" class="form-control form-control-sm" id="tb-keterangan" placeholder="mis. Penarikan Cek BAE 1847296" autocomplete="off" oninput="tbKetInput()" onfocus="tbKetFocus()" onkeydown="tbKetKey(event)" onblur="tbKetBlur()"></div>
             <div class="col-6 col-md-2"><label class="form-label small mb-1">Debet</label><input type="text" inputmode="decimal" class="form-control form-control-sm text-end" id="tb-debet" value="0,00" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()" onkeydown="enterPindah(event,'tb-kredit')"></div>
             <div class="col-6 col-md-2"><label class="form-label small mb-1">Kredit</label><input type="text" inputmode="decimal" class="form-control form-control-sm text-end" id="tb-kredit" value="0,00" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()" onkeydown="enterPindah(event,null)"></div>
             <div class="col-12"><button class="btn btn-sm" style="background:var(--maroon);color:white;" type="submit"><i class="fas fa-save me-1"></i>Simpan <span class="text-white-50 small">(atau tekan Enter)</span></button></div>
@@ -636,8 +645,29 @@ function hideLoading(){ document.getElementById('loading').classList.remove('sho
 // hapus, pindah tab, auto-refresh) — semuanya optimistic & instan. showLoading
 // penuh cuma dipakai untuk 2 aksi yang memang makan waktu: login & rollover
 // tahun (bikin spreadsheet+folder baru).
-function showBar(){}
-function hideBar(){}
+// PERBAIKAN: showBar()/hideBar() SEMPAT DIBIARKAN KOSONG (belum pernah
+// benar-benar dibuat, walau sudah dipanggil di banyak tempat sejak awal) --
+// akibatnya pindah menu/tab terasa macet/lambat tanpa tanda apa pun sedang
+// terjadi, padahal server memang butuh waktu nyata (Apps Script punya jeda
+// network+eksekusi, ~1-3 detik per panggilan, di luar kendali kita). Sekarang
+// benar-benar diisi: garis tipis di paling atas layar yang merayap lalu
+// menyelesaikan diri begitu data datang -- TETAP BUKAN overlay penuh (prinsip
+// awal tidak berubah), cukup memberi tanda "sedang memproses" supaya jeda
+// tidak terasa seperti aplikasi macet/nge-hang.
+var _tpbHideTimer = null;
+function showBar(){
+  var el = document.getElementById('top-progress-bar'); if(!el) return;
+  clearTimeout(_tpbHideTimer);
+  el.classList.remove('tpb-done');
+  void el.offsetWidth; // paksa reflow supaya transisi berikutnya mulai dari 0 lagi
+  el.classList.add('tpb-show');
+}
+function hideBar(){
+  var el = document.getElementById('top-progress-bar'); if(!el) return;
+  el.classList.remove('tpb-show');
+  el.classList.add('tpb-done'); // lompat cepat ke 100% lalu ilang
+  _tpbHideTimer = setTimeout(function(){ el.classList.remove('tpb-done'); el.style.opacity=''; }, 300);
+}
 // Spinner KECIL di tombol itu sendiri — dipakai untuk aksi yang MEMANG masih
 // perlu menunggu server (belum/tidak bisa dibuat optimistic, mis. Unit/Pos/
 // Kategori/User/Rekonsiliasi), supaya jelas ada proses jalan tanpa mengunci
@@ -1079,35 +1109,50 @@ function initBulanSelect(id, onChangeFn){
 // DASHBOARD
 // ============================================================
 var chartTahun = null;
+// PERBAIKAN: Dashboard adalah halaman PALING SERING dibuka (tampil tiap
+// habis login, dan tiap kali balik ke menu ini) tapi sebelumnya SELALU
+// fetch ulang penuh ke server setiap kali dibuka -- terasa "loading lagi"
+// setiap ganti-ganti menu balik ke Dashboard walau datanya baru saja
+// ditampilkan beberapa detik lalu. Sekarang disimpan di memori per tahun
+// (_dashboardCache) -- kalau tahun yang sama sudah pernah dimuat di sesi
+// ini, tampilkan LANGSUNG dari cache (instan, tanpa nunggu server), lalu
+// tetap refresh diam-diam di belakang layar supaya data selalu ikut
+// terbaru kalau ada perubahan.
+var _dashboardCache = {}; // tahun -> data mentah dari getRingkasanTahun
 function loadDashboard(){
   document.getElementById('db-tahun-label').textContent = STATE.tahunAktif || '-';
-  showBar();
+  var cached = _dashboardCache[STATE.tahunAktif];
+  if(cached){ _renderDashboard(cached); } else { showBar(); }
   gasCall('getRingkasanTahun', STATE.tahunAktif, STATE.token).then(function(res){
-    hideBar();
-    if(!res.success){ toast('error', res.message); return; }
-    var totDebet=0, totKredit=0, totTrx=0;
-    res.data.forEach(function(b){ totDebet+=b.debet; totKredit+=b.kredit; totTrx+=b.jumlahTransaksi; });
-    document.getElementById('db-stat-cards').innerHTML = [
-      statCard('fa-arrow-up','#16a34a', 'Total Kredit (uang masuk)', 'Rp '+fmtRp(totKredit)),
-      statCard('fa-arrow-down','#dc2626', 'Total Debet (uang keluar)', 'Rp '+fmtRp(totDebet)),
-      statCard('fa-list','#800000', 'Jumlah Transaksi', totTrx)
-    ].join('');
-    var ctx = document.getElementById('chart-tahun').getContext('2d');
-    if(chartTahun) chartTahun.destroy();
-    // PERBAIKAN KONSISTENSI FONT: seluruh UI aplikasi pakai 'Segoe UI', tapi
-    // Chart.js dirender ke <canvas> dan TIDAK ikut CSS halaman -- kalau
-    // tidak diatur eksplisit, dia pakai font bawaannya sendiri (beda dari
-    // teks lain di sekitarnya). Disamakan di sini, tepat sebelum grafik
-    // dibuat (Chart.js dimuat via <script defer>, jadi baru pasti sudah
-    // ada begitu fungsi ini benar-benar dipanggil user, bukan lebih awal).
-    Chart.defaults.font.family = "'Segoe UI', sans-serif";
-    chartTahun = new Chart(ctx, { type:'bar', data:{
-      labels: res.data.map(function(b){return b.namaBulan.slice(0,3);}),
-      datasets:[
-        {label:'Debet', data:res.data.map(function(b){return b.debet;}), backgroundColor:'#dc2626'},
-        {label:'Kredit', data:res.data.map(function(b){return b.kredit;}), backgroundColor:'#16a34a'}
-      ]}, options:{ responsive:true, plugins:{legend:{position:'bottom'}} } });
-  }).catch(function(){ hideBar(); toast('error','Gagal memuat dashboard'); });
+    if(!cached) hideBar();
+    if(!res.success){ if(!cached) toast('error', res.message); return; }
+    _dashboardCache[STATE.tahunAktif] = res.data;
+    _renderDashboard(res.data);
+  }).catch(function(){ if(!cached){ hideBar(); toast('error','Gagal memuat dashboard'); } });
+}
+function _renderDashboard(data){
+  var totDebet=0, totKredit=0, totTrx=0;
+  data.forEach(function(b){ totDebet+=b.debet; totKredit+=b.kredit; totTrx+=b.jumlahTransaksi; });
+  document.getElementById('db-stat-cards').innerHTML = [
+    statCard('fa-arrow-up','#16a34a', 'Total Kredit (uang masuk)', 'Rp '+fmtRp(totKredit)),
+    statCard('fa-arrow-down','#dc2626', 'Total Debet (uang keluar)', 'Rp '+fmtRp(totDebet)),
+    statCard('fa-list','#800000', 'Jumlah Transaksi', totTrx)
+  ].join('');
+  var ctx = document.getElementById('chart-tahun').getContext('2d');
+  if(chartTahun) chartTahun.destroy();
+  // PERBAIKAN KONSISTENSI FONT: seluruh UI aplikasi pakai 'Segoe UI', tapi
+  // Chart.js dirender ke <canvas> dan TIDAK ikut CSS halaman -- kalau
+  // tidak diatur eksplisit, dia pakai font bawaannya sendiri (beda dari
+  // teks lain di sekitarnya). Disamakan di sini, tepat sebelum grafik
+  // dibuat (Chart.js dimuat via <script defer>, jadi baru pasti sudah
+  // ada begitu fungsi ini benar-benar dipanggil user, bukan lebih awal).
+  Chart.defaults.font.family = "'Segoe UI', sans-serif";
+  chartTahun = new Chart(ctx, { type:'bar', data:{
+    labels: data.map(function(b){return b.namaBulan.slice(0,3);}),
+    datasets:[
+      {label:'Debet', data:data.map(function(b){return b.debet;}), backgroundColor:'#dc2626'},
+      {label:'Kredit', data:data.map(function(b){return b.kredit;}), backgroundColor:'#16a34a'}
+    ]}, options:{ responsive:true, plugins:{legend:{position:'bottom'}} } });
 }
 function statCard(icon,color,label,val){
   return '<div class="col-md-4"><div class="stat-card"><div class="stat-icon" style="background:'+color+'22;color:'+color+';"><i class="fas '+icon+'"></i></div>'+
@@ -2156,11 +2201,20 @@ function _gcKetPlace(id){
 // Muat riwayat Keterangan utk 1 kodePos dari server (sekali saja per kodePos
 // per sesi grid ini -- baris lain yang pakai Pos sama otomatis pakai hasil
 // yang sudah ada, tidak nanya server berulang-ulang).
+// PERBAIKAN: baris "Belum Jelas Milik Pos Mana" (kodePos-nya sentinel
+// POS_BELUM_JELAS, bukan kode Pos asli) sebelumnya IKUT lewat sini juga,
+// padahal getRiwayatKeterangan hanya mencocokkan kodePos ASLI -- sentinel
+// itu tidak pernah cocok, jadi hint-nya selalu kosong. Sekarang baris
+// Belum Jelas dialihkan ke getRiwayatKeteranganBelumJelas (riwayat khusus
+// utk baris rekening koran yang belum jelas Pos-nya).
 function _gcMuatRiwayatKet(kodePos){
   var c = _gcRiwayatKetCache[kodePos];
   if(Array.isArray(c)) return Promise.resolve(c);
   if(c) return c; // promise sedang berjalan
-  var p = gasCall('getRiwayatKeterangan', STATE.tahunAktif, kodePos, STATE.token).then(function(res){
+  var panggilan = (kodePos===POS_BELUM_JELAS)
+    ? gasCall('getRiwayatKeteranganBelumJelas', STATE.tahunAktif, STATE.token)
+    : gasCall('getRiwayatKeterangan', STATE.tahunAktif, kodePos, STATE.token);
+  var p = panggilan.then(function(res){
     var list = (res && res.success) ? res.data : [];
     _gcRiwayatKetCache[kodePos] = list;
     return list;
@@ -2229,6 +2283,101 @@ function gcKetBlur(id){
 window.addEventListener('scroll', function(){ if(_gcKetActiveId!=null) _gcKetPlace(_gcKetActiveId); }, true);
 window.addEventListener('resize', function(){ if(_gcKetActiveId!=null) _gcKetPlace(_gcKetActiveId); });
 
+// ── Saran Keterangan untuk form "Tambah Item Non-Unit" -- SEBELUMNYA belum
+// ada sama sekali (beda dari Input Cepat & Input Unit yang sudah lebih dulu
+// punya). Pola & mekanismenya SENGAJA dibuat identik dengan gcKet* di atas,
+// cuma disederhanakan karena di sini cuma ada 1 field (bukan banyak baris
+// grid) dan kuncinya kodeKategori (bukan kodePos). ──
+var _tbKetFiltered = [];
+var _tbKetHiIdx = -1;
+var _tbRiwayatKetCache = {}; // kodeKategori -> array hasil (selesai) ATAU Promise (sedang dimuat)
+function _tbKetDd(){ return document.getElementById('tb-ket-dd'); }
+function _tbKetPlace(){
+  var inp=document.getElementById('tb-keterangan'); var dd=_tbKetDd(); if(!inp||!dd) return;
+  var r=inp.getBoundingClientRect();
+  dd.style.left='0px'; dd.style.width='max-content'; dd.style.minWidth=r.width+'px';
+  dd.style.maxWidth=Math.max(320, window.innerWidth-24)+'px';
+  dd.style.top=(r.bottom+3)+'px';
+  var ddW=dd.offsetWidth; var left=r.left;
+  if(left+ddW>window.innerWidth-12) left=Math.max(12, window.innerWidth-12-ddW);
+  dd.style.left=left+'px';
+}
+function _tbMuatRiwayatKet(kodeKategori){
+  var c=_tbRiwayatKetCache[kodeKategori];
+  if(Array.isArray(c)) return Promise.resolve(c);
+  if(c) return c; // promise sedang berjalan
+  var p = gasCall('getRiwayatKeteranganTambahan', STATE.tahunAktif, kodeKategori, STATE.token).then(function(res){
+    var list=(res&&res.success)?res.data:[];
+    _tbRiwayatKetCache[kodeKategori]=list;
+    return list;
+  }).catch(function(){ _tbRiwayatKetCache[kodeKategori]=[]; return []; });
+  _tbRiwayatKetCache[kodeKategori]=p;
+  return p;
+}
+function tbKetFocus(){
+  var inp=document.getElementById('tb-keterangan'); if(inp) inp.select();
+  var kodeKategori = document.getElementById('tb-kategori').value;
+  if(!kodeKategori) return; // belum pilih Kategori -> belum ada riwayat utk ditawarkan
+  _tbMuatRiwayatKet(kodeKategori).then(function(){
+    var el=document.getElementById('tb-keterangan');
+    tbKetFilter(el?el.value:'');
+  });
+}
+function tbKetInput(){ _tbKetPlace(); var inp=document.getElementById('tb-keterangan'); tbKetFilter(inp?inp.value:''); }
+function tbKetFilter(q){
+  var kodeKategori = document.getElementById('tb-kategori').value;
+  if(!kodeKategori){ var dd0=_tbKetDd(); if(dd0) dd0.classList.add('d-none'); return; }
+  var cached = _tbRiwayatKetCache[kodeKategori];
+  var all = Array.isArray(cached) ? cached : [];
+  q=(q||'').trim().toLowerCase();
+  var list = q ? all.filter(function(o){ return o.keterangan.toLowerCase().indexOf(q)>-1; }) : all;
+  _tbKetFiltered=list; _tbKetHiIdx=list.length?0:-1;
+  var dd=_tbKetDd(); if(!dd) return;
+  if(!list.length){ dd.classList.add('d-none'); return; }
+  _tbKetPlace();
+  dd.innerHTML = list.map(function(o,i){
+    return '<div class="tx-pos-opt'+(i===_tbKetHiIdx?' tx-pos-opt-hi':'')+'" onmousedown="event.preventDefault();tbKetPick('+i+')" onmouseenter="_tbKetHiIdx='+i+';tbKetHi()">'
+      + '<span class="tx-pos-nama">'+_gcEsc(o.keterangan)+'</span>'
+      + '<span class="text-muted ms-2" style="font-size:.72rem;white-space:nowrap;">'+o.jumlah+'x &middot; terakhir '+_gcEsc(o.terakhirTanggal||'')+'</span>'
+      + '</div>';
+  }).join('');
+  dd.classList.remove('d-none');
+}
+function tbKetHi(){ var dd=_tbKetDd(); if(!dd) return; Array.prototype.forEach.call(dd.children, function(c,i){ c.classList.toggle('tx-pos-opt-hi', i===_tbKetHiIdx); }); var opt=dd.children[_tbKetHiIdx]; if(opt && opt.scrollIntoView) opt.scrollIntoView({ block:'nearest' }); }
+function tbKetKey(e){
+  var dd=_tbKetDd(); var terbuka = dd && !dd.classList.contains('d-none') && _tbKetFiltered.length;
+  if(e.key==='ArrowDown' && terbuka){ e.preventDefault(); _tbKetHiIdx=(_tbKetHiIdx+1)%_tbKetFiltered.length; tbKetHi(); return; }
+  if(e.key==='ArrowUp' && terbuka){ e.preventDefault(); _tbKetHiIdx=(_tbKetHiIdx-1+_tbKetFiltered.length)%_tbKetFiltered.length; tbKetHi(); return; }
+  if(e.key==='Escape'){ if(dd) dd.classList.add('d-none'); return; }
+  if(e.key==='Enter' || (e.key==='Tab' && !e.shiftKey)){
+    if(terbuka && _tbKetHiIdx>-1){ e.preventDefault(); tbKetPick(_tbKetHiIdx); return; }
+    // tidak ada saran yang disorot -> teks ketikan user dipakai apa adanya, lanjut navigasi biasa
+    if(e.key==='Enter') enterPindah(e, 'tb-debet');
+    return;
+  }
+}
+function tbKetPick(i){
+  var o=_tbKetFiltered[i]; if(!o) return;
+  var inp=document.getElementById('tb-keterangan'); if(inp) inp.value=o.keterangan;
+  var dd=_tbKetDd(); if(dd) dd.classList.add('d-none');
+  var deb=document.getElementById('tb-debet'); if(deb){ deb.focus(); deb.select(); }
+}
+function tbKetBlur(){
+  setTimeout(function(){
+    var dd=_tbKetDd(); if(dd) dd.classList.add('d-none');
+  }, 150);
+}
+// Kategori diganti -> tutup dropdown saran lama (punya kategori sebelumnya)
+// supaya tidak nyangkut menampilkan saran dari kategori yang tidak lagi
+// aktif; cache per-kodeKategori sendiri tetap disimpan (kalau user balik
+// pilih kategori yang sama lagi, hasilnya sudah tersedia tanpa nanya server).
+(function(){
+  var selKategori = document.getElementById('tb-kategori');
+  if(selKategori) selKategori.addEventListener('change', function(){
+    var dd=_tbKetDd(); if(dd) dd.classList.add('d-none');
+  });
+})();
+
 // ── Tempel banyak baris dari rekening koran (Excel/Sheets) ──
 function gcBukaTempel(){
   Swal.fire({
@@ -2279,28 +2428,23 @@ function gcSimpanSemua(){
       html:'<div class="text-start small"><b>'+bulanBeda.length+'</b> dari '+valid.length+' baris tanggalnya BUKAN '+labelBulan+' (mis. "'+bulanBeda[0].tgl+'").<br>Ganti bulan aktif di atas atau perbaiki tanggalnya. Dibatalkan supaya tidak masuk bulan yang salah.</div>', width:'460px' });
     return;
   }
-  // Kelompokkan per kodePos, pecah jadi batch <=400 (batas backend 500)
-  var grup = {};
-  valid.forEach(function(r){ (grup[r.kodePos]=grup[r.kodePos]||[]).push({ tanggal:r.tgl, keterangan:r.ket, debet:r.debet, kredit:r.kredit }); });
-  var tugas = [];
-  Object.keys(grup).forEach(function(kp){ var arr=grup[kp]; for(var i=0;i<arr.length;i+=400) tugas.push({ kodePos:kp, baris:arr.slice(i,i+400) }); });
+  // PERBAIKAN BUG URUTAN: sebelumnya baris dikelompokkan per kodePos DULU
+  // sebelum dikirim ke server (grup[kodePos] = [...baris]) -- kalau grid
+  // berselang-seling Pos (mis. baris1=Pos A, baris2=Pos B, baris3=Pos A),
+  // pengelompokan ini membuang informasi urutan ASLI sebelum sempat sampai
+  // ke server, sehingga baris tersimpan fisik sebagai A,A,B bukan A,B,A
+  // seperti yang diketik -- inilah yang bikin urutan di Rekening Koran jadi
+  // berantakan & harus digeser manual. Sekarang baris dikirim APA ADANYA,
+  // rata (flat), persis urutan tampil di grid -- tiap baris membawa
+  // kodePos-nya sendiri, dan backend (simpanTransaksiGabungan) menuliskannya
+  // ke sheet dalam urutan yang SAMA PERSIS.
+  var barisKirim = valid.map(function(r){ return { kodePos: r.kodePos===POS_BELUM_JELAS ? '' : r.kodePos, tanggal:r.tgl, keterangan:r.ket, debet:r.debet, kredit:r.kredit }; });
 
   var btn = document.getElementById('gc-btn-simpan');
   btnBusy(btn, true);
-  // PERBAIKAN PERFORMA PENTING: sebelumnya tiap kelompok Pos dikirim sebagai
-  // PANGGILAN TERPISAH (walau sudah dikirim paralel dari browser) -- di sisi
-  // SERVER, setiap panggilan tetap harus antre kunci LockService yang SAMA
-  // (global, bukan per-Pos), jadi kalau isian tersebar ke banyak Pos
-  // berbeda (mis. 19 baris utk 8 Pos), total waktu tunggu = 8x waktu 1 kali
-  // simpan, BUKAN cuma 1x seperti yang diharapkan dari "dikirim paralel".
-  // Ini juga bikin peluang tabrakan dengan Admin LAIN yang menyimpan
-  // bersamaan jadi lebih besar (lock dipegang bergantian lebih lama total).
-  // Sekarang SEMUA kelompok Pos dikirim dalam SATU panggilan gabungan --
-  // server cukup 1x kunci + 1x tulis untuk SEMUA Pos sekaligus.
-  var adaBV = tugas.some(function(t){ return t.kodePos===POS_BELUM_JELAS; });
-  var tugasKirim = tugas.map(function(t){ return { kodePos: t.kodePos===POS_BELUM_JELAS ? '' : t.kodePos, baris:t.baris }; });
-  var idKeyGabungan = _idemKey('gcgab'+bulan+'_'+STATE.tahunAktif, tugasKirim);
-  gasCall('simpanTransaksiGabungan', STATE.tahunAktif, bulan, tugasKirim, STATE.token, idKeyGabungan).then(function(res){
+  var adaBV = valid.some(function(r){ return r.kodePos===POS_BELUM_JELAS; });
+  var idKeyGabungan = _idemKey('gcgab'+bulan+'_'+STATE.tahunAktif, barisKirim);
+  gasCall('simpanTransaksiGabungan', STATE.tahunAktif, bulan, barisKirim, STATE.token, idKeyGabungan).then(function(res){
     btnBusy(btn, false);
     if(!res.success){ toast('error', res.message); return; }
     var totalMasuk = res.jumlah || 0;
@@ -2674,12 +2818,14 @@ function loadKonsolidasi(){
   var namaBulanLabel = BULAN_NAMA[Number(bulan)-1] + ' ' + STATE.tahunAktif;
   document.getElementById('rp-bulan-label').textContent = namaBulanLabel;
   document.getElementById('rk-bulan-label').textContent = namaBulanLabel;
+  showBar();
   gasCallBatch([
     { fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getRekonsiliasi', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getTambahanBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getKategoriTambahanList', args:[STATE.token] }
   ]).then(function(hasil){
+    hideBar();
     var res = hasil[0], rek = hasil[1], tb = hasil[2], katRes = hasil[3];
     if(!res.success){ toast('error', res.message); return; }
     var key = STATE.tahunAktif + '_' + bulan;
@@ -2732,7 +2878,7 @@ function loadKonsolidasi(){
     renderKategoriBagian(key); // isi kategoriAtas/Bawah, dropdown, grand total, & hitungRekonsiliasi
     hitungRekonsiliasi();
     rkBatalForm(); // pastikan tampil sebagai tampilan statis, form disembunyikan
-  }).catch(function(){ toast('error','Gagal memuat konsolidasi'); });
+  }).catch(function(){ hideBar(); toast('error','Gagal memuat konsolidasi'); });
 }
 // ── KELOMPOK PEMASUKAN (POS) SAYA — self-service, semua role boleh pakai.
 // Untuk role UNIT dibatasi server-side (savePos) hanya untuk unit sendiri.
@@ -4317,5 +4463,6 @@ function loadLogView(){
 </script>
 <div class="tx-pos-dropdown d-none" id="gc-pos-dd-shared" style="position:fixed;"></div>
 <div class="tx-pos-dropdown d-none" id="gc-ket-dd-shared" style="position:fixed;"></div>
+<div class="tx-pos-dropdown d-none" id="tb-ket-dd" style="position:fixed;"></div>
 </body>
 </html>
