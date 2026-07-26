@@ -190,7 +190,8 @@
   <div class="sidebar" id="sidebar">
     <div class="nav-label">Menu</div>
     <div class="nav-item active" data-view="dashboard" onclick="gotoView('dashboard')"><i class="fas fa-chart-pie"></i> Dashboard</div>
-    <div class="nav-item" data-view="input" onclick="gotoView('input')"><i class="fas fa-edit"></i> <span id="nav-label-input">Input Rekap Bulanan</span></div>
+    <div class="nav-item admin-only" data-view="input" onclick="gotoView('input')"><i class="fas fa-edit"></i> <span id="nav-label-input">Input Rekap Bulanan</span></div>
+    <div class="nav-item unit-only" data-view="verifikasi" onclick="gotoView('verifikasi')"><i class="fas fa-check-circle"></i> Verifikasi Transaksi</div>
     <div class="nav-item admin-only" data-view="rekkoran" onclick="gotoView('rekkoran')"><i class="fas fa-list-ol"></i> Rekap Rekening Koran</div>
     <div class="nav-item" data-view="konsolidasi" onclick="gotoView('konsolidasi')"><i class="fas fa-layer-group"></i> Rekap Konsolidasi</div>
     <div class="nav-item admin-only" data-view="memorial" onclick="gotoView('memorial')"><i class="fas fa-file-invoice"></i> Jurnal Memorial</div>
@@ -249,11 +250,11 @@
             <tfoot><tr><td colspan="4" class="text-end">TOTAL</td><td class="text-end" id="gc-tot-debet">0</td><td class="text-end" id="gc-tot-kredit">0</td><td colspan="2"></td></tr></tfoot>
           </table></div>
         </div></div>
-        <div class="card mb-3 d-none" id="card-perlu-verifikasi"><div class="card-body">
-          <div class="section-title mb-2"><i class="fas fa-question-circle"></i>Perlu Verifikasi — Transaksi Belum Jelas Milik Pos Mana</div>
-          <p class="text-muted small mb-2">Kalau salah satu transaksi di bawah ini memang punya Unit Anda, klik "Ini Punya Saya" lalu pilih Pos yang sesuai.</p>
-          <div id="daftar-perlu-verifikasi"></div>
-        </div></div>
+        <!-- Kartu "Perlu Verifikasi" DIPINDAH ke halaman tersendiri "Verifikasi
+             Transaksi" (menu khusus role UNIT, lihat view-verifikasi di bawah)
+             -- supaya kode & tampilannya terpisah dari halaman Input Rekap
+             Bulanan milik Admin, dan tidak lagi tergantung bulan mana yang
+             kebetulan sedang dibuka di sini. -->
         <div class="card"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
             <div class="section-title mb-0"><i class="fas fa-table"></i>Daftar Transaksi — <span id="pos-aktif-nama">-</span></div>
@@ -298,6 +299,34 @@
         </div></div>
       </div>
     </div>
+
+    <!-- VERIFIKASI TRANSAKSI (UNIT) — HALAMAN TERSENDIRI, kode & tampilannya
+         terpisah penuh dari Input Rekap Bulanan milik Admin, supaya tidak
+         saling mengganggu. Menyapu SELURUH bulan di tahun aktif sekaligus
+         (bukan cuma bulan yang kebetulan terbuka), jadi tidak ada transaksi
+         yang perlu diverifikasi ketinggalan/tidak kelihatan. -->
+    <div id="view-verifikasi" class="view d-none">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="page-title">Verifikasi Transaksi <span class="text-muted small">— Tahun <span id="vf-tahun-label"></span></span></h5>
+      </div>
+
+      <div class="card mb-3"><div class="card-body">
+        <div class="section-title mb-2"><i class="fas fa-question-circle"></i>Perlu Diverifikasi — Transaksi Belum Jelas Milik Pos Mana</div>
+        <p class="text-muted small mb-2">Daftar di bawah ini merangkum SEMUA bulan di tahun ini. Kalau salah satu transaksi memang punya Unit Anda, klik "Ini Punya Saya" lalu pilih Pos yang sesuai.</p>
+        <div id="vf-daftar-perlu"><p class="text-muted small mb-0">Memuat...</p></div>
+      </div></div>
+
+      <div class="card"><div class="card-body">
+        <div class="section-title mb-2"><i class="fas fa-clipboard-check"></i>Transaksi yang Sudah Saya Verifikasi</div>
+        <p class="text-muted small mb-2">Riwayat transaksi yang sudah Anda akui sebagai milik Unit Anda. Kalau ternyata salah pilih Pos, gunakan "Ubah Pos" — bagian ini SENGAJA tidak menyediakan tombol hapus, karena datanya berasal dari rekening koran asli yang sudah dicatat Admin. Kalau memang perlu dihapus (misal ternyata bukan milik unit manapun), hubungi Admin.</p>
+        <div class="table-responsive"><table class="table tbl mb-0">
+          <thead><tr><th>No</th><th>Bulan</th><th>Tanggal</th><th>Keterangan</th><th class="text-end">Debet</th><th class="text-end">Kredit</th><th>Pos Saat Ini</th><th class="no-print">Aksi</th></tr></thead>
+          <tbody id="vf-tbody-riwayat"></tbody>
+        </table></div>
+      </div></div>
+    </div>
+
+    <!-- akhir VERIFIKASI TRANSAKSI -->
 
     <!-- REKAP REKENING KORAN — tabel GABUNGAN semua Unit/Pos, urut tanggal,
          khusus untuk disamakan urutannya PERSIS dengan rekening koran/
@@ -903,6 +932,14 @@ function afterLogin(){
   // yang mungkin ditambah lagi nanti.
   document.querySelectorAll('.admin-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role!=='ADMIN'); });
   document.querySelectorAll('.unit-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role==='ADMIN'); });
+  // PERBAIKAN BUG: label menu "Input Rekap Bulanan"/"Daftar Transaksi Saya"
+  // sebelumnya BARU berganti sesuai role begitu menu itu benar-benar dibuka
+  // (di initInputView()) -- karena tampilan awal setelah login selalu
+  // Dashboard, sidebar sempat menampilkan label bawaan HTML ("Input Rekap
+  // Bulanan") walau yang login role UNIT, sampai menu itu diklik sendiri.
+  // Sekarang label langsung disesuaikan di sini, begitu role diketahui.
+  var _navLabelInputAwal = document.getElementById('nav-label-input');
+  if(_navLabelInputAwal) _navLabelInputAwal.textContent = (STATE.role==='ADMIN') ? 'Input Rekap Bulanan' : 'Daftar Transaksi Saya';
 
   // 1) Tampilkan dulu dari cache lokal kalau ada (instan, tanpa spinner)
   var cachedInit = lsGet('init_' + STATE.username);
@@ -950,6 +987,7 @@ function afterLogin(){
 function refreshViewSilently(name){
   if(name==='dashboard') loadDashboard();
   else if(name==='input'){ loadRekapBulan(); if(!document.getElementById('panel-input-nonunit').classList.contains('d-none')) loadTambahanForInput(); }
+  else if(name==='verifikasi') loadViewVerifikasi();
   else if(name==='pos') renderPosUnitSayaForm();
   else if(name==='konsolidasi') loadKonsolidasi();
   else if(name==='unit') loadUnitPos();
@@ -1015,6 +1053,7 @@ function gotoView(name){
   document.getElementById('sidebar').classList.remove('open');
   if(name==='dashboard') loadDashboard();
   if(name==='input') initInputView();
+  if(name==='verifikasi') loadViewVerifikasi();
   if(name==='rekkoran') initBulanSelect('sel-bulan-rekkoran', loadRekapRekeningKoran);
   if(name==='pos') renderPosUnitSayaForm();
   if(name==='konsolidasi') initBulanSelect('sel-bulan-konsolidasi', loadKonsolidasi);
@@ -1080,12 +1119,14 @@ function statCard(icon,color,label,val){
 var STATE_posAktif = null;
 var POS_BELUM_JELAS = '__BELUM_JELAS__'; // sentinel: transaksi rekening koran yang belum jelas Pos-nya, input di FORM YANG SAMA — tinggal pilih ini di dropdown Unit
 function initInputView(){
-  // PERBAIKAN: role UNIT tidak lagi butuh Input Cepat (transaksi baru masuk
-  // lewat proses lain / diinput Admin) -- tugas Unit di halaman ini murni
-  // MEMVERIFIKASI transaksi yang sudah ada (lihat card "Perlu Verifikasi" +
-  // "Daftar Transaksi"). Label menu & judul halaman disesuaikan supaya
-  // jelas bedanya dari sisi Admin.
-  var labelHalaman = STATE.role==='ADMIN' ? 'Input Rekap Bulanan' : 'Verifikasi Transaksi';
+  // PERBAIKAN: fitur "Perlu Verifikasi" (klaim transaksi belum jelas Pos-nya)
+  // sudah DIPINDAH ke halaman tersendiri "Verifikasi Transaksi" (menu khusus
+  // role UNIT, lihat loadViewVerifikasi) -- supaya kodenya benar-benar
+  // terpisah dari halaman Input Rekap Bulanan milik Admin dan tidak lagi
+  // terikat ke bulan yang kebetulan sedang dibuka di sini. Halaman ini kini
+  // murni untuk MENINJAU/MENGUBAH/MENGHAPUS transaksi yang sudah tercatat di
+  // Pos milik Unit tersebut, per bulan (lihat "Daftar Transaksi" di bawah).
+  var labelHalaman = STATE.role==='ADMIN' ? 'Input Rekap Bulanan' : 'Daftar Transaksi Saya';
   var navLabel = document.getElementById('nav-label-input'); if(navLabel) navLabel.textContent = labelHalaman;
   var pageTitle = document.getElementById('page-title-input'); if(pageTitle) pageTitle.textContent = labelHalaman;
   _gcBuildPosOpsi();
@@ -1404,6 +1445,15 @@ function renderTransaksiTable(){
   var all = CACHE.rekap[key] || [];
   var wrapSatu = document.getElementById('wrap-transaksi-satupos');
   var wrapSemua = document.getElementById('wrap-transaksi-semuapos');
+
+  // PERBAIKAN: role UNIT tidak boleh sampai ke mode tampilan gabungan
+  // "Semua Pos Saya" (lihat catatan di initRevPos) -- jaga-jaga kalau
+  // STATE_posAktif kebetulan ter-set null dari jalur lain, langsung
+  // dialihkan ke Pos pertama miliknya alih-alih menampilkan gabungan.
+  if(STATE_posAktif === null && STATE.role !== 'ADMIN'){
+    var posFallback = (STATE.myPos||[])[0];
+    if(posFallback) STATE_posAktif = posFallback.kodePos;
+  }
 
   if(STATE_posAktif === POS_BELUM_JELAS){
     // Mode "Belum Jelas Pos Mana" — pakai TABEL & KOLOM YANG SAMA seperti
@@ -2283,14 +2333,16 @@ function initRevPos(){
   } else {
     var pos = STATE.myPos || [];
     if(!pos.length){ wrap.innerHTML='<span class="text-muted small">Belum ada Pos</span>'; STATE_posAktif=null; return; }
-    // PERBAIKAN: tambahkan opsi "Semua Pos Saya" (STATE_posAktif=null) --
-    // sebelumnya role UNIT dipaksa pilih 1 Pos dulu, tidak ada cara melihat
-    // semua Pos miliknya sekaligus seperti yang bisa dilakukan Admin.
-    STATE_posAktif = null;
+    // PERBAIKAN: opsi "Semua Pos Saya" (tampilan gabungan lintas-Pos) DIHAPUS
+    // lagi untuk role UNIT -- tampilan gabungan bikin baris dari beberapa Pos
+    // sekaligus kelihatan berdekatan di layar, meningkatkan risiko salah
+    // pencet hapus di baris Pos yang bukan dimaksud. Sekarang role UNIT
+    // SELALU melihat 1 Pos spesifik dulu (dipilih lewat dropdown ini),
+    // seperti sebelum fitur "Semua Pos Saya" ditambahkan.
+    if(!STATE_posAktif || !pos.some(function(p){ return p.kodePos===STATE_posAktif; })) STATE_posAktif = pos[0].kodePos;
     wrap.innerHTML = '<label class="small text-muted mb-0">Lihat pos:</label>'
       + '<select class="form-select form-select-sm" style="width:auto;" id="rev-pos-select" onchange="revPilih(this.value)">'
-      + '<option value="">- Semua Pos Saya -</option>'
-      + pos.map(function(p){ return '<option value="'+p.kodePos+'">'+_gcEsc(p.namaPos)+'</option>'; }).join('')
+      + pos.map(function(p){ return '<option value="'+p.kodePos+'"'+(p.kodePos===STATE_posAktif?' selected':'')+'>'+_gcEsc(p.namaPos)+'</option>'; }).join('')
       + '</select>';
   }
 }
@@ -2373,6 +2425,12 @@ function submitTransaksi(e){
 // PDF), copy, paste di sini — semua baris masuk sekaligus dalam satu proses.
 // ── TRANSAKSI BELUM TERVERIFIKASI — Admin catat dulu tanpa Pos kalau belum
 // jelas, semua Unit lihat & bisa mengaku kalau memang transaksinya sendiri.
+// PERBAIKAN: fungsi ini sekarang HANYA mengisi cache CACHE.belumVerifikasi
+// (dipakai Admin utk mode "Belum Jelas Pos Mana" di tabel Daftar Transaksi,
+// lihat renderTransaksiTable) -- bagian kartu "Perlu Verifikasi" beserta
+// tombol "Ini Punya Saya" SUDAH DIPINDAH ke halaman tersendiri "Verifikasi
+// Transaksi" (lihat loadViewVerifikasi di bawah), supaya kodenya terpisah
+// dari halaman Input Rekap Bulanan ini.
 function loadPerluVerifikasi(){
   var bulan = document.getElementById('sel-bulan-input').value;
   if(!bulan) return;
@@ -2381,16 +2439,6 @@ function loadPerluVerifikasi(){
     if(!res.success) return;
     CACHE.belumVerifikasi[key] = res.data;
     if(STATE_posAktif === POS_BELUM_JELAS && key === _rekapCacheKey()) renderTransaksiTable();
-    var card = document.getElementById('card-perlu-verifikasi');
-    if(!res.data.length){ card.classList.add('d-none'); return; }
-    card.classList.remove('d-none');
-    document.getElementById('daftar-perlu-verifikasi').innerHTML = res.data.map(function(r){
-      return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 py-2 border-bottom">'
-        + '<div><b>'+_gcEsc(r.keterangan||'(tanpa keterangan)')+'</b> <span class="text-muted small">— '+r.tanggal+'</span><br>'
-        + '<span class="small">'+(r.debet?('Debet Rp '+fmtRp(r.debet)):'')+(r.kredit?('Kredit Rp '+fmtRp(r.kredit)):'')+'</span></div>'
-        + '<button class="btn btn-sm" style="background:var(--maroon);color:white;" onclick="bukaVerifikasiTransaksi(\''+r.id+'\')"><i class="fas fa-hand-point-up me-1"></i>Ini Punya Saya</button>'
-        + '</div>';
-    }).join('');
   });
 }
 // Tombol "Belum Jelas Milik Pos Mana?" sekarang cuma memindahkan dropdown
@@ -2403,7 +2451,42 @@ function pilihModeBelumJelas(){
   document.getElementById('form-transaksi').scrollIntoView({behavior:'smooth', block:'center'});
   toast('success','Mode "Belum Jelas Pos Mana" aktif — isi form di atas seperti biasa, atau pakai "Import dari Excel" untuk tempel banyak baris sekaligus.');
 }
-function bukaVerifikasiTransaksi(id){
+
+// ============================================================
+// VERIFIKASI TRANSAKSI (UNIT) — HALAMAN TERSENDIRI, kode & tampilannya
+// SENGAJA dipisah dari initInputView()/loadRekapBulan() milik Admin, supaya
+// perubahan di satu sisi tidak berisiko mengganggu sisi lain. Menyapu
+// SELURUH bulan (1-12) tahun aktif via getSemuaBelumVerifikasiTahun &
+// getRiwayatVerifikasiSaya, bukan cuma bulan yang kebetulan dipilih di
+// Input Rekap Bulanan.
+// ============================================================
+var _vfPerlu = []; // cache di memori: daftar transaksi perlu diverifikasi (semua bulan)
+var _vfRiwayat = []; // cache di memori: transaksi yang sudah SAYA verifikasi (semua bulan)
+function loadViewVerifikasi(){
+  document.getElementById('vf-tahun-label').textContent = STATE.tahunAktif || '-';
+  showBar();
+  Promise.all([
+    gasCall('getSemuaBelumVerifikasiTahun', STATE.tahunAktif, STATE.token),
+    gasCall('getRiwayatVerifikasiSaya', STATE.tahunAktif, STATE.token)
+  ]).then(function(res){
+    hideBar();
+    var perlu = res[0], riwayat = res[1];
+    if(perlu.success){ _vfPerlu = perlu.data; renderVfPerlu(); }
+    if(riwayat.success){ _vfRiwayat = riwayat.data; renderVfRiwayat(); }
+  }).catch(function(){ hideBar(); toast('error','Gagal memuat data verifikasi'); });
+}
+function renderVfPerlu(){
+  var wrap = document.getElementById('vf-daftar-perlu');
+  if(!_vfPerlu.length){ wrap.innerHTML = '<p class="text-muted small mb-0">Tidak ada transaksi yang perlu diverifikasi saat ini. 🎉</p>'; return; }
+  wrap.innerHTML = _vfPerlu.map(function(r){
+    return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 py-2 border-bottom">'
+      + '<div><b>'+_gcEsc(r.keterangan||'(tanpa keterangan)')+'</b> <span class="text-muted small">— '+(BULAN_NAMA[r.bulan-1]||r.bulan)+', '+r.tanggal+'</span><br>'
+      + '<span class="small">'+(r.debet?('Debet Rp '+fmtRp(r.debet)):'')+(r.kredit?('Kredit Rp '+fmtRp(r.kredit)):'')+'</span></div>'
+      + '<button class="btn btn-sm" style="background:var(--maroon);color:white;" onclick="bukaVerifikasiTransaksiTahun(\''+r.id+'\','+r.bulan+')"><i class="fas fa-hand-point-up me-1"></i>Ini Punya Saya</button>'
+      + '</div>';
+  }).join('');
+}
+function bukaVerifikasiTransaksiTahun(id, bulan){
   var opsi = (STATE.myPos||[]).map(function(p){ return '<option value="'+p.kodePos+'">'+p.namaPos+'</option>'; }).join('');
   if(!opsi){ toast('error','Akun Anda belum terhubung ke Pos manapun.'); return; }
   Swal.fire({
@@ -2413,13 +2496,41 @@ function bukaVerifikasiTransaksi(id){
     preConfirm: function(){ return document.getElementById('sw-pos').value; }
   }).then(function(res){
     if(!res.isConfirmed) return;
-    var bulan = document.getElementById('sel-bulan-input').value;
     gasCall('verifikasiTransaksi', STATE.tahunAktif, bulan, id, res.value, STATE.token).then(function(r){
       if(!r.success){ toast('error', r.message); return; }
       toast('success','Dikonfirmasi, transaksi dipindahkan ke Pos terpilih');
-      loadPerluVerifikasi();
-      delete CACHE.rekap[_rekapCacheKey()];
-      loadRekapBulan();
+      delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
+      delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
+      loadViewVerifikasi();
+    });
+  });
+}
+function renderVfRiwayat(){
+  var tbody = document.getElementById('vf-tbody-riwayat');
+  if(!_vfRiwayat.length){ tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Belum ada transaksi yang Anda verifikasi.</td></tr>'; return; }
+  tbody.innerHTML = _vfRiwayat.map(function(r,i){
+    return '<tr><td>'+(i+1)+'</td><td>'+(BULAN_NAMA[r.bulan-1]||r.bulan)+'</td><td>'+r.tanggal+'</td><td>'+_gcEsc(r.keterangan||'')+'</td>'
+      + '<td class="text-end">'+(r.debet?fmtRp(r.debet):'')+'</td><td class="text-end">'+(r.kredit?fmtRp(r.kredit):'')+'</td>'
+      + '<td>'+_gcEsc(r.namaPos||r.kodePos||'-')+'</td>'
+      + '<td class="no-print"><button class="btn btn-sm btn-outline-secondary" onclick="bukaUbahPosVerifikasi(\''+r.id+'\','+r.bulan+',\''+(r.kodePos||'')+'\')"><i class="fas fa-exchange-alt me-1"></i>Ubah Pos</button></td></tr>';
+  }).join('');
+}
+function bukaUbahPosVerifikasi(id, bulan, kodePosSaatIni){
+  var opsi = (STATE.myPos||[]).map(function(p){ return '<option value="'+p.kodePos+'"'+(p.kodePos===kodePosSaatIni?' selected':'')+'>'+p.namaPos+'</option>'; }).join('');
+  if(!opsi){ toast('error','Akun Anda belum terhubung ke Pos manapun.'); return; }
+  Swal.fire({
+    title:'Ubah Pos', html:
+      '<div class="sw-field"><label>Pindahkan ke Pos</label><select id="sw-pos-ubah" class="swal2-select">'+opsi+'</select></div>',
+    confirmButtonText:'Simpan', confirmButtonColor:'#800000', showCancelButton:true,
+    preConfirm: function(){ return document.getElementById('sw-pos-ubah').value; }
+  }).then(function(res){
+    if(!res.isConfirmed) return;
+    if(res.value === kodePosSaatIni) return; // tidak berubah, tidak perlu panggil server
+    gasCall('ubahPosVerifikasi', STATE.tahunAktif, bulan, id, res.value, STATE.token).then(function(r){
+      if(!r.success){ toast('error', r.message); return; }
+      toast('success','Pos berhasil diubah');
+      delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
+      loadViewVerifikasi();
     });
   });
 }
