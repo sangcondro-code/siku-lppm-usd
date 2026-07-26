@@ -38,14 +38,6 @@
   .stat-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0; }
   .page-title { font-size:1.25rem; font-weight:700; margin-bottom:0; color:#111; }
   .section-title { font-size:1rem; font-weight:700; color:var(--maroon); display:flex; align-items:center; gap:8px; margin-bottom:1.2rem; }
-  /* PERBAIKAN: "topbar tipis" yang sudah lama direncanakan (lihat komentar
-     showBar()/hideBar()) tapi belum pernah benar-benar dibuat -- ganti menu
-     jadi terasa macet/lambat tanpa tanda apa pun sedang terjadi. Garis tipis
-     ini merayap begitu ada permintaan ke server, lalu menyelesaikan diri
-     begitu selesai -- BUKAN overlay penuh, cukup jadi tanda "sedang proses". */
-  #top-progress-bar { position:fixed; top:0; left:0; height:3px; width:0; background:var(--maroon); z-index:9999; opacity:0; pointer-events:none; }
-  #top-progress-bar.tpb-show { opacity:1; width:70%; transition:width 1.4s cubic-bezier(.1,.6,.2,1); }
-  #top-progress-bar.tpb-done { width:100%; opacity:1; transition:width .25s ease; }
   .tbl thead { background:var(--maroon); color:white; }
   .tbl th { padding:10px 12px; font-size:.75rem; text-transform:uppercase; letter-spacing:.6px; font-weight:600; border:none; white-space:nowrap; }
   .tbl td { padding:10px 12px; vertical-align:middle; border-bottom:1px solid #f3f4f6; color:#374151; }
@@ -129,7 +121,6 @@
 </head>
 <body>
 
-<div id="top-progress-bar"></div>
 <div id="loading"><div class="spinner-border mb-3" style="width:2.5rem;height:2.5rem;"></div><div id="loading-msg">Memuat...</div></div>
 
 <!-- LOGIN -->
@@ -645,29 +636,8 @@ function hideLoading(){ document.getElementById('loading').classList.remove('sho
 // hapus, pindah tab, auto-refresh) — semuanya optimistic & instan. showLoading
 // penuh cuma dipakai untuk 2 aksi yang memang makan waktu: login & rollover
 // tahun (bikin spreadsheet+folder baru).
-// PERBAIKAN: showBar()/hideBar() SEMPAT DIBIARKAN KOSONG (belum pernah
-// benar-benar dibuat, walau sudah dipanggil di banyak tempat sejak awal) --
-// akibatnya pindah menu/tab terasa macet/lambat tanpa tanda apa pun sedang
-// terjadi, padahal server memang butuh waktu nyata (Apps Script punya jeda
-// network+eksekusi, ~1-3 detik per panggilan, di luar kendali kita). Sekarang
-// benar-benar diisi: garis tipis di paling atas layar yang merayap lalu
-// menyelesaikan diri begitu data datang -- TETAP BUKAN overlay penuh (prinsip
-// awal tidak berubah), cukup memberi tanda "sedang memproses" supaya jeda
-// tidak terasa seperti aplikasi macet/nge-hang.
-var _tpbHideTimer = null;
-function showBar(){
-  var el = document.getElementById('top-progress-bar'); if(!el) return;
-  clearTimeout(_tpbHideTimer);
-  el.classList.remove('tpb-done');
-  void el.offsetWidth; // paksa reflow supaya transisi berikutnya mulai dari 0 lagi
-  el.classList.add('tpb-show');
-}
-function hideBar(){
-  var el = document.getElementById('top-progress-bar'); if(!el) return;
-  el.classList.remove('tpb-show');
-  el.classList.add('tpb-done'); // lompat cepat ke 100% lalu ilang
-  _tpbHideTimer = setTimeout(function(){ el.classList.remove('tpb-done'); el.style.opacity=''; }, 300);
-}
+function showBar(){}
+function hideBar(){}
 // Spinner KECIL di tombol itu sendiri — dipakai untuk aksi yang MEMANG masih
 // perlu menunggu server (belum/tidak bisa dibuat optimistic, mis. Unit/Pos/
 // Kategori/User/Rekonsiliasi), supaya jelas ada proses jalan tanpa mengunci
@@ -1109,15 +1079,8 @@ function initBulanSelect(id, onChangeFn){
 // DASHBOARD
 // ============================================================
 var chartTahun = null;
-// PERBAIKAN: Dashboard adalah halaman PALING SERING dibuka (tampil tiap
-// habis login, dan tiap kali balik ke menu ini) tapi sebelumnya SELALU
-// fetch ulang penuh ke server setiap kali dibuka -- terasa "loading lagi"
-// setiap ganti-ganti menu balik ke Dashboard walau datanya baru saja
-// ditampilkan beberapa detik lalu. Sekarang disimpan di memori per tahun
-// (_dashboardCache) -- kalau tahun yang sama sudah pernah dimuat di sesi
-// ini, tampilkan LANGSUNG dari cache (instan, tanpa nunggu server), lalu
-// tetap refresh diam-diam di belakang layar supaya data selalu ikut
-// terbaru kalau ada perubahan.
+// Dashboard di-cache per tahun di memori -- kalau tahun yang sama sudah
+// pernah dimuat di sesi ini, tampil instan dari cache, lalu refresh diam-diam.
 var _dashboardCache = {}; // tahun -> data mentah dari getRingkasanTahun
 function loadDashboard(){
   document.getElementById('db-tahun-label').textContent = STATE.tahunAktif || '-';
@@ -2818,14 +2781,12 @@ function loadKonsolidasi(){
   var namaBulanLabel = BULAN_NAMA[Number(bulan)-1] + ' ' + STATE.tahunAktif;
   document.getElementById('rp-bulan-label').textContent = namaBulanLabel;
   document.getElementById('rk-bulan-label').textContent = namaBulanLabel;
-  showBar();
   gasCallBatch([
     { fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getRekonsiliasi', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getTambahanBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getKategoriTambahanList', args:[STATE.token] }
   ]).then(function(hasil){
-    hideBar();
     var res = hasil[0], rek = hasil[1], tb = hasil[2], katRes = hasil[3];
     if(!res.success){ toast('error', res.message); return; }
     var key = STATE.tahunAktif + '_' + bulan;
@@ -2878,7 +2839,7 @@ function loadKonsolidasi(){
     renderKategoriBagian(key); // isi kategoriAtas/Bawah, dropdown, grand total, & hitungRekonsiliasi
     hitungRekonsiliasi();
     rkBatalForm(); // pastikan tampil sebagai tampilan statis, form disembunyikan
-  }).catch(function(){ hideBar(); toast('error','Gagal memuat konsolidasi'); });
+  }).catch(function(){ toast('error','Gagal memuat konsolidasi'); });
 }
 // ── KELOMPOK PEMASUKAN (POS) SAYA — self-service, semua role boleh pakai.
 // Untuk role UNIT dibatasi server-side (savePos) hanya untuk unit sendiri.
