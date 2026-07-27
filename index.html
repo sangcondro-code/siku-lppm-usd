@@ -4476,7 +4476,19 @@ function _luPeriode(){
   return { dari:ym, sampai:ym, label:BULAN_NAMA[bulan-1] + ' ' + STATE.tahunAktif };
 }
 function loadLaporanUnitIsi(kodeUnitUnit){
-  var kodeUnit = kodeUnitUnit || (document.getElementById('lu-pilih-unit') ? document.getElementById('lu-pilih-unit').value : '');
+  // PERBAIKAN: sebelumnya fallback-nya selalu baca .value dari dropdown
+  // "#lu-pilih-unit" -- tapi dropdown itu HANYA diisi <option> kalau role
+  // ADMIN (lihat loadLaporanUnit di atas). Untuk role non-admin (Unit),
+  // dropdown itu selalu kosong -> .value selalu '' -> setiap kali Unit user
+  // ganti pilihan bulan (onchange cuma panggil loadLaporanUnitIsi() tanpa
+  // argumen), fungsi ini langsung berhenti diam-diam ("if(!kodeUnit)
+  // return;") tanpa data apa pun tampil -- makanya kelihatan kayak "tidak
+  // bisa lihat bulan lain". Sekarang fallback-nya sama seperti yang sudah
+  // dipakai di fungsi cetak (lihat cetakLaporanUnit): ADMIN baca dropdown,
+  // non-admin ambil dari STATE.myUnits (Unit yang jadi miliknya).
+  var kodeUnit = kodeUnitUnit || (STATE.role==='ADMIN'
+    ? (document.getElementById('lu-pilih-unit') ? document.getElementById('lu-pilih-unit').value : '')
+    : ((STATE.myUnits||[])[0]||{}).kodeUnit);
   if(!kodeUnit) return;
   var bulan = document.getElementById('lu-pilih-bulan').value;
   var periode = _luPeriode();
