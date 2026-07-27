@@ -81,12 +81,6 @@
   .unit-block-header { background:var(--maroon); color:white; padding:8px 14px; border-radius:8px 8px 0 0; font-weight:700; font-size:.92rem; }
   .unit-block .card:first-of-type { border-top-left-radius:0; border-top-right-radius:0; }
   .pos-tab .dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
-  .pos-chip { cursor:pointer; padding:6px 12px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; min-width:120px; transition:.15s; }
-  .pos-chip:hover { border-color:var(--maroon); background:var(--maroon-light); }
-  .pos-chip.active { border-color:var(--maroon); background:var(--maroon); }
-  .pos-chip.active .pos-chip-nama, .pos-chip.active .pos-chip-total { color:#fff; }
-  .pos-chip-nama { font-weight:700; font-size:.78rem; color:#111; }
-  .pos-chip-total { font-size:.7rem; color:#6b7280; }
   .unit-group-header { background:#f9fafb; font-weight:700; color:var(--maroon); }
   /* Kombobox pencarian Unit/Pos (gabungan, bisa dinavigasi full keyboard):
      ketik sebagian nama -> muncul daftar tersaring -> panah Atas/Bawah untuk
@@ -1147,237 +1141,6 @@ function initInputView(){
   });
   if(STATE.role==='ADMIN') initGridCepat(); // role UNIT tidak menampilkan grid ini sama sekali, tidak perlu dirender
 }
-// ============================================================
-// FREEZE TANGGAL — supaya tanggal tidak perlu diketik ulang setiap input
-// transaksi baru (rawan salah ketik kalau berulang-ulang). Berlaku untuk
-// SEMUA role (ADMIN maupun UNIT) — disimpan per-username di localStorage
-// jadi tetap "nempel" walau pindah menu atau reload halaman, sampai
-// di-lepas (unfreeze) manual atau ganti tanggalnya sendiri.
-// ============================================================
-function _freezeTanggalKey(){ return 'freezeTanggal_' + STATE.username; }
-function toggleFreezeTanggal(){
-  var input = document.getElementById('tx-tanggal');
-  var sedangBeku = input.disabled;
-  if(sedangBeku){
-    // Lepas kunci
-    input.disabled = false;
-    lsSet(_freezeTanggalKey(), null);
-    _setUiFreezeTanggal(false);
-    input.focus();
-  } else {
-    // Kunci pakai tanggal yang sedang terisi
-    if(!input.value){ toast('error','Isi tanggalnya dulu, baru bisa dikunci.'); return; }
-    input.disabled = true;
-    lsSet(_freezeTanggalKey(), input.value);
-    _setUiFreezeTanggal(true);
-    toast('success','Tanggal dikunci: ' + input.value + '. Klik lagi ikon gembok untuk lepas.');
-  }
-}
-function _setUiFreezeTanggal(beku){
-  var btn = document.getElementById('btn-freeze-tanggal');
-  if(!btn) return;
-  btn.innerHTML = beku ? '<i class="fas fa-lock"></i>' : '<i class="fas fa-lock-open"></i>';
-  btn.classList.toggle('btn-outline-secondary', !beku);
-  btn.classList.toggle('btn-maroon-solid', beku);
-  btn.style.background = beku ? 'var(--maroon)' : '';
-  btn.style.color = beku ? '#fff' : '';
-  btn.style.borderColor = beku ? 'var(--maroon)' : '';
-  btn.title = beku ? 'Tanggal terkunci di ' + (document.getElementById('tx-tanggal').value||'') + ' — klik untuk lepas' : 'Kunci tanggal ini supaya tidak perlu diketik ulang tiap input';
-}
-// Dipanggil tiap kali form Input dibuka (initInputView) DAN sesudah pemulihan
-// sesi/reload — kalau ada tanggal yang pernah dikunci, langsung isi & kunci
-// lagi otomatis tanpa perlu diketik ulang.
-function pulihkanFreezeTanggal(){
-  var beku = lsGet(_freezeTanggalKey());
-  var input = document.getElementById('tx-tanggal');
-  if(!input) return;
-  if(beku){
-    input.value = beku;
-    input.disabled = true;
-    _setUiFreezeTanggal(true);
-  } else {
-    input.disabled = false;
-    _setUiFreezeTanggal(false);
-  }
-}
-// Kombobox Unit & Pos — TETAP 2 KOLOM TERPISAH seperti dropdown aslinya
-// (bukan digabung 1 field). Kotaknya READONLY (tidak bisa diketik sama
-// sekali) — murni diklik atau dibuka lewat keyboard, lalu dioperasikan
-// dengan panah Atas/Bawah untuk menggeser opsi yang disorot, dan Tab / panah
-// Kanan / Enter untuk memilih opsi yang sedang disorot itu. Pilih Unit dulu
-// -> daftar Pos otomatis mengikuti Unit itu & fokus lompat ke kotak Pos
-// (dropdown Pos langsung terbuka) -> pilih Pos -> fokus lompat ke Tanggal.
-// Setelah baris tersimpan (Enter di Kredit), fokus balik ke kotak Unit dan
-// dropdown-nya otomatis terbuka lagi supaya baris berikutnya bisa langsung
-// disorot & dipilih tanpa mouse ataupun mengetik apa pun.
-var _txUnitDaftar = [];    // semua opsi Unit yang boleh dipakai user ini
-var _txUnitHasil = [];     // daftar Unit yang sedang ditampilkan di dropdown (selalu daftar penuh)
-var _txUnitHiIdx = -1;     // index opsi Unit yang sedang disorot (panah Atas/Bawah)
-var _txPosDaftarUnit = []; // opsi Pos milik Unit yang SEDANG dipilih
-var _txPosHasil = [];      // daftar Pos yang sedang ditampilkan di dropdown (selalu daftar penuh)
-var _txPosHiIdx = -1;      // index opsi Pos yang sedang disorot (panah Atas/Bawah)
-// Geser highlight sebanyak `delta` (+1 = ke bawah, -1 = ke atas) dalam daftar
-// `hasil`, berputar (dari opsi terakhir balik ke opsi pertama & sebaliknya).
-function _geserHighlight(hiIdx, delta, hasil){
-  if(!hasil.length) return -1;
-  var n = hasil.length;
-  var idx = hiIdx<0 ? (delta>0 ? 0 : n-1) : (hiIdx + delta + n) % n;
-  return idx;
-}
-function _scrollTxOptIntoView(ddId, idx){
-  var dd = document.getElementById(ddId);
-  var opt = dd && dd.children[idx];
-  if(opt && opt.scrollIntoView) opt.scrollIntoView({ block:'nearest' });
-}
-
-function initTxUnitPosSearch(){
-  if(!STATE.myPos.length && STATE.role!=='ADMIN'){
-    _txUnitDaftar = []; _txPosDaftarUnit = [];
-    document.getElementById('tx-unit-cari').value = ''; document.getElementById('tx-unit-cari').placeholder = '- Belum ada Pos -'; document.getElementById('tx-unit-cari').disabled = true;
-    document.getElementById('tx-pos-cari').value = ''; document.getElementById('tx-pos-cari').disabled = true;
-    document.getElementById('form-transaksi').querySelector('button[type="submit"]').disabled = true;
-    return;
-  }
-  document.getElementById('tx-unit-cari').disabled = false;
-  document.getElementById('form-transaksi').querySelector('button[type="submit"]').disabled = false;
-  // PENTING: urutan daftar ini HARUS ikut urutan Unit di "Kelola Unit & Pos"
-  // (STATE.myUnits, sudah terurut dari server sesuai kolom Urutan) — supaya
-  // kalau admin geser urutan Unit, hasil pencarian ikut berubah konsisten juga.
-  var kodeUnitPunyaPos = {}; STATE.myPos.forEach(function(p){ kodeUnitPunyaPos[p.kodeUnit]=true; });
-  var kodeUnitTersedia = (STATE.myUnits||[]).filter(function(u){ return kodeUnitPunyaPos[u.kodeUnit]; }).map(function(u){ return u.kodeUnit; });
-  var unitByKode = {}; (STATE.myUnits||[]).forEach(function(u){ unitByKode[u.kodeUnit]=u.namaUnit; });
-  _txUnitDaftar = kodeUnitTersedia.map(function(ku){ return { kodeUnit:ku, namaUnit:unitByKode[ku]||ku }; });
-  if(STATE.role==='ADMIN') _txUnitDaftar.push({ kodeUnit:POS_BELUM_JELAS, namaUnit:'❓ Belum Jelas Pos Mana (rekening koran)' });
-  // pilih Unit sesuai pos aktif sebelumnya (kalau ada & masih tersedia), atau opsi pertama
-  var posAktifInfo = STATE.myPos.filter(function(p){ return p.kodePos===STATE_posAktif; })[0];
-  var kodeUnitDefault = STATE_posAktif===POS_BELUM_JELAS ? POS_BELUM_JELAS : (posAktifInfo ? posAktifInfo.kodeUnit : null);
-  var default_ = _txUnitDaftar.filter(function(u){ return u.kodeUnit===kodeUnitDefault; })[0] || _txUnitDaftar[0];
-  if(default_) terapkanTxUnit(default_, false);
-}
-// Menerapkan 1 Unit terpilih: isi field tersembunyi & teks kotak Unit, lalu
-// bangun ulang daftar Pos khusus utk Unit ini (dan pilihkan Pos default-nya).
-function terapkanTxUnit(u, pindahFokus){
-  document.getElementById('tx-unit').value = u.kodeUnit;
-  document.getElementById('tx-unit-cari').value = u.namaUnit;
-  sembunyikanTxUnitDropdown();
-  isiPosUntukUnitTerpilih(u.kodeUnit, pindahFokus);
-}
-function isiPosUntukUnitTerpilih(kodeUnit, pindahFokus){
-  if(kodeUnit === POS_BELUM_JELAS){
-    _txPosDaftarUnit = [{ kodePos:POS_BELUM_JELAS, namaPos:'Belum Terverifikasi' }];
-    document.getElementById('tx-pos-cari').disabled = true;
-    document.getElementById('pos-chip-wrap').classList.add('d-none');
-    terapkanTxPos(_txPosDaftarUnit[0], false);
-    STATE_posAktif = POS_BELUM_JELAS;
-    renderTransaksiTable();
-    if(pindahFokus){
-      var tgl = document.getElementById('tx-tanggal');
-      if(tgl && !tgl.disabled){ tgl.focus(); } else { document.getElementById('tx-keterangan').focus(); }
-    }
-    return;
-  }
-  document.getElementById('tx-pos-cari').disabled = false;
-  var posUnit = STATE.myPos.filter(function(p){ return p.kodeUnit===kodeUnit; });
-  _txPosDaftarUnit = posUnit.map(function(p){ return { kodePos:p.kodePos, namaPos:p.namaPos }; });
-  var mauDipilih = _txPosDaftarUnit.filter(function(p){ return p.kodePos===STATE_posAktif; })[0] || _txPosDaftarUnit[0];
-  if(mauDipilih){ terapkanTxPos(mauDipilih, false); }
-  else { STATE_posAktif = null; document.getElementById('tx-pos').value=''; document.getElementById('tx-pos-cari').value=''; renderTransaksiTable(); }
-  if(pindahFokus){
-    setTimeout(function(){
-      var posEl = document.getElementById('tx-pos-cari');
-      posEl.focus(); posEl.select(); renderTxPosDropdown();
-    }, 10);
-  }
-}
-// Menerapkan 1 Pos terpilih (dalam Unit yang sedang aktif): isi field
-// tersembunyi & teks kotak Pos, update STATE_posAktif, render ulang tabel.
-function terapkanTxPos(p, pindahFokus){
-  document.getElementById('tx-pos').value = p.kodePos;
-  document.getElementById('tx-pos-cari').value = p.namaPos;
-  sembunyikanTxPosDropdown();
-  STATE_posAktif = p.kodePos;
-  renderPosChips();
-  renderTransaksiTable();
-  if(pindahFokus){
-    var tgl = document.getElementById('tx-tanggal');
-    if(tgl && !tgl.disabled){ tgl.focus(); } else { document.getElementById('tx-keterangan').focus(); }
-  }
-}
-// ── Render dropdown UNIT — SELALU daftar penuh (kotaknya readonly, tidak
-// ada lagi ketikan yang menyaring). Yang disorot pertama kali dibuka adalah
-// Unit yang sedang aktif (kalau ada), supaya panah tinggal geser dari situ. ──
-function renderTxUnitDropdown(){
-  var dd = document.getElementById('tx-unit-dropdown');
-  _txUnitHasil = _txUnitDaftar.slice();
-  var kodeSekarang = document.getElementById('tx-unit').value;
-  var idxSekarang = _txUnitHasil.findIndex(function(u){ return u.kodeUnit===kodeSekarang; });
-  _txUnitHiIdx = idxSekarang>-1 ? idxSekarang : (_txUnitHasil.length?0:-1);
-  _renderTxUnitDropdownHtml();
-  dd.classList.remove('d-none');
-  _scrollTxOptIntoView('tx-unit-dropdown', _txUnitHiIdx);
-}
-function _renderTxUnitDropdownHtml(){
-  var dd = document.getElementById('tx-unit-dropdown');
-  dd.innerHTML = _txUnitHasil.length ? _txUnitHasil.map(function(u,i){
-    return '<div class="tx-pos-opt'+(i===_txUnitHiIdx?' tx-pos-opt-hi':'')+'" onmousedown="event.preventDefault();pilihTxUnitDariHasil('+i+')" onmouseenter="_txUnitHiIdx='+i+';_renderTxUnitDropdownHtml();">'
-      + '<span class="tx-pos-nama">'+u.namaUnit+'</span></div>';
-  }).join('') : '<div class="tx-pos-empty">Belum ada Unit</div>';
-}
-function sembunyikanTxUnitDropdown(){
-  setTimeout(function(){ var dd=document.getElementById('tx-unit-dropdown'); if(dd) dd.classList.add('d-none'); }, 150);
-}
-function pilihTxUnitDariHasil(idx){
-  var u = _txUnitHasil[idx];
-  if(!u) return;
-  terapkanTxUnit(u, true);
-}
-function onKeydownTxUnitCari(e){
-  if(e.key==='ArrowDown'){ e.preventDefault(); _txUnitHiIdx=_geserHighlight(_txUnitHiIdx,1,_txUnitHasil); _renderTxUnitDropdownHtml(); _scrollTxOptIntoView('tx-unit-dropdown',_txUnitHiIdx); return; }
-  if(e.key==='ArrowUp'){ e.preventDefault(); _txUnitHiIdx=_geserHighlight(_txUnitHiIdx,-1,_txUnitHasil); _renderTxUnitDropdownHtml(); _scrollTxOptIntoView('tx-unit-dropdown',_txUnitHiIdx); return; }
-  if(e.key==='Enter' || e.key==='ArrowRight' || (e.key==='Tab' && !e.shiftKey)){
-    if(_txUnitHasil[_txUnitHiIdx]){ e.preventDefault(); pilihTxUnitDariHasil(_txUnitHiIdx); }
-    return;
-  }
-  if(e.key==='Escape'){ e.target.blur(); }
-}
-// ── Render dropdown POS (mengikuti Unit yang sedang aktif) — sama seperti
-// Unit: SELALU daftar penuh, murni panah, tidak ada filter ketikan. ──
-function renderTxPosDropdown(){
-  var dd = document.getElementById('tx-pos-dropdown');
-  _txPosHasil = _txPosDaftarUnit.slice();
-  var kodeSekarang = document.getElementById('tx-pos').value;
-  var idxSekarang = _txPosHasil.findIndex(function(p){ return p.kodePos===kodeSekarang; });
-  _txPosHiIdx = idxSekarang>-1 ? idxSekarang : (_txPosHasil.length?0:-1);
-  _renderTxPosDropdownHtml();
-  dd.classList.remove('d-none');
-  _scrollTxOptIntoView('tx-pos-dropdown', _txPosHiIdx);
-}
-function _renderTxPosDropdownHtml(){
-  var dd = document.getElementById('tx-pos-dropdown');
-  dd.innerHTML = _txPosHasil.length ? _txPosHasil.map(function(p,i){
-    return '<div class="tx-pos-opt'+(i===_txPosHiIdx?' tx-pos-opt-hi':'')+'" onmousedown="event.preventDefault();pilihTxPosDariHasil('+i+')" onmouseenter="_txPosHiIdx='+i+';_renderTxPosDropdownHtml();">'
-      + '<span class="tx-pos-nama">'+p.namaPos+'</span></div>';
-  }).join('') : '<div class="tx-pos-empty">Belum ada Pos untuk Unit ini</div>';
-}
-function sembunyikanTxPosDropdown(){
-  setTimeout(function(){ var dd=document.getElementById('tx-pos-dropdown'); if(dd) dd.classList.add('d-none'); }, 150);
-}
-function pilihTxPosDariHasil(idx){
-  var p = _txPosHasil[idx];
-  if(!p) return;
-  terapkanTxPos(p, true);
-}
-function onKeydownTxPosCari(e){
-  // Panah Atas/Bawah = geser opsi yang disorot; Tab / panah Kanan / Enter =
-  // pilih opsi yang sedang disorot itu & lanjut ke kotak Tanggal.
-  if(e.key==='ArrowDown'){ e.preventDefault(); _txPosHiIdx=_geserHighlight(_txPosHiIdx,1,_txPosHasil); _renderTxPosDropdownHtml(); _scrollTxOptIntoView('tx-pos-dropdown',_txPosHiIdx); return; }
-  if(e.key==='ArrowUp'){ e.preventDefault(); _txPosHiIdx=_geserHighlight(_txPosHiIdx,-1,_txPosHasil); _renderTxPosDropdownHtml(); _scrollTxOptIntoView('tx-pos-dropdown',_txPosHiIdx); return; }
-  if(e.key==='Enter' || e.key==='ArrowRight' || (e.key==='Tab' && !e.shiftKey)){
-    if(_txPosHasil[_txPosHiIdx]){ e.preventDefault(); pilihTxPosDariHasil(_txPosHiIdx); }
-    return;
-  }
-  if(e.key==='Escape'){ e.target.blur(); }
-}
 
 function _rekapCacheKey(){ return STATE.tahunAktif + '_' + document.getElementById('sel-bulan-input').value; }
 // Kolom colgroup tabel Daftar Transaksi — SATU definisi dipakai ulang di
@@ -1531,7 +1294,6 @@ function renderTransaksiTable(){
     document.getElementById('tbody-transaksi').innerHTML = rowsHtml;
     document.getElementById('tot-debet-pos').textContent = fmtRp(td);
     document.getElementById('tot-kredit-pos').textContent = fmtRp(tk);
-    renderPosChips();
   }
   updateJumlahTerpilih();
 }
@@ -1591,32 +1353,6 @@ function _susunUlangTransaksiPos(kodePos, draggedId, targetId, taruhSebelum){
 // langsung supaya jelas sedang input di Pos mana & cepat pindah tanpa
 // harus buka dropdown dulu. Muncul hanya kalau Unit ybs punya >1 Pos —
 // kalau cuma 1 Pos, dropdown saja sudah cukup jelas.
-function renderPosChips(){
-  var wrap = document.getElementById('pos-chip-wrap');
-  var cont = document.getElementById('pos-chip-row');
-  if(!wrap || !cont) return;
-  if(STATE.role==='ADMIN' || !STATE.myPos.length){ wrap.classList.add('d-none'); return; }
-  var kodeUnit = document.getElementById('tx-unit').value;
-  var posUnit = STATE.myPos.filter(function(p){ return p.kodeUnit===kodeUnit; });
-  if(posUnit.length < 2){ wrap.classList.add('d-none'); return; }
-  var key = _rekapCacheKey();
-  var all = CACHE.rekap[key] || [];
-  var totalByPos = {};
-  all.forEach(function(r){ var t=(totalByPos[r.kodePos]=totalByPos[r.kodePos]||{d:0,k:0}); t.d+=r.debet; t.k+=r.kredit; });
-  wrap.classList.remove('d-none');
-  cont.innerHTML = posUnit.map(function(p){
-    var t = totalByPos[p.kodePos] || {d:0,k:0};
-    var active = p.kodePos===STATE_posAktif;
-    return '<div class="pos-chip'+(active?' active':'')+'" onclick="pilihPosChip(\''+p.kodePos+'\')">'
-      +'<div class="pos-chip-nama">'+(active?'<i class="fas fa-check-circle me-1"></i>':'')+p.namaPos+'</div>'
-      +'<div class="pos-chip-total">Rp '+fmtRp(t.d+t.k)+' &middot; '+(all.filter(function(r){return r.kodePos===p.kodePos;}).length)+' transaksi</div>'
-      +'</div>';
-  }).join('');
-}
-function pilihPosChip(kodePos){
-  var p = _txPosDaftarUnit.filter(function(x){ return x.kodePos===kodePos; })[0];
-  if(p) terapkanTxPos(p, false);
-}
 // ── PILIH BANYAK / HAPUS TERPILIH (Daftar Transaksi & Daftar Item Non-Unit) ──
 function toggleSemuaCheckbox(master, selector){
   document.querySelectorAll(selector).forEach(function(el){ el.checked = master.checked; });
@@ -2464,68 +2200,6 @@ function revPilih(kp){
   renderTransaksiTable();
 }
 
-function submitTransaksi(e){
-  e.preventDefault();
-  if(!STATE_posAktif){ toast('error','Pilih Unit dan Pos terlebih dahulu'); return; }
-  var bulan = document.getElementById('sel-bulan-input').value;
-  var id = document.getElementById('tx-edit-id').value;
-  var isBelumJelas = STATE_posAktif === POS_BELUM_JELAS;
-  var posInfo = STATE.myPos.filter(function(p){return p.kodePos===STATE_posAktif;})[0];
-  var data = {
-    kodePos: STATE_posAktif,
-    tanggal: document.getElementById('tx-tanggal').value,
-    keterangan: document.getElementById('tx-keterangan').value,
-    debet: angkaKeAngka(document.getElementById('tx-debet').value),
-    kredit: angkaKeAngka(document.getElementById('tx-kredit').value)
-  };
-  var arr = _arrTransaksiAktif();
-
-  // Reset form segera supaya terasa instan (Unit & Pos TIDAK direset, tetap
-  // terisi pilihan sebelumnya — kalau baris berikutnya masih Unit/Pos yang
-  // sama, tinggal tekan Enter,Enter langsung lanjut; kalau beda, tinggal mulai
-  // ketik lagi menimpa teks lama, karena fokus balik ke kotak Unit & langsung
-  // ke-select semua. Cocok untuk data rekening koran yang Unit/Pos-nya
-  // gonta-ganti random tiap baris. Tanggal TIDAK direset seperti biasa.)
-  document.getElementById('tx-keterangan').value = '';
-  document.getElementById('tx-edit-id').value = '';
-  isiAngkaFormatted('tx-debet', 0); isiAngkaFormatted('tx-kredit', 0);
-  pulihkanFreezeTanggal(); // kalau lagi freeze, tanggal & status kunci dikembalikan ke default freeze setelah simpan/edit
-  var _fokusTx = document.getElementById('tx-unit-cari');
-  if(_fokusTx) setTimeout(function(){ _fokusTx.focus(); _fokusTx.select(); renderTxUnitDropdown(); }, 30);
-
-  if(id){
-    var idx = arr.findIndex(function(d){return d.id===id;});
-    var backup = idx>-1 ? Object.assign({}, arr[idx]) : null;
-    if(idx>-1) Object.assign(arr[idx], data);
-    renderTransaksiTable();
-    gasCall('updateTransaksi', STATE.tahunAktif, bulan, id, data, STATE.token).then(function(res){
-      if(!res.success){ if(backup) Object.assign(arr[idx], backup); renderTransaksiTable(); toast('error', res.message); return; }
-      toast('success','Tersimpan');
-    }).catch(function(){ if(backup) Object.assign(arr[idx], backup); renderTransaksiTable(); toast('error','Gagal menyimpan (dikembalikan)'); });
-  } else if(isBelumJelas){
-    var tempIdBV = 'tmp_' + Date.now();
-    var optimisticRowBV = Object.assign({ id:tempIdBV, namaPos:'', kodeUnit:'', inputOleh:STATE.nama, _optimistic:true }, data);
-    arr.push(optimisticRowBV);
-    renderTransaksiTable();
-    gasCall('tambahTransaksiBelumVerifikasi', STATE.tahunAktif, bulan, data, STATE.token, _idemKey('sw_bv_'+bulan+'_'+STATE.tahunAktif, data)).then(function(res){
-      if(!res.success){ var i2=arr.findIndex(function(d){return d.id===tempIdBV;}); if(i2>-1) arr.splice(i2,1); renderTransaksiTable(); toast('error', res.message); return; }
-      optimisticRowBV.id = res.id; delete optimisticRowBV._optimistic;
-      renderTransaksiTable();
-      toast('success','Tersimpan sebagai Belum Terverifikasi');
-    }).catch(function(){ var i2=arr.findIndex(function(d){return d.id===tempIdBV;}); if(i2>-1) arr.splice(i2,1); renderTransaksiTable(); toast('error','Gagal menyimpan (dibatalkan)'); });
-  } else {
-    var tempId = 'tmp_' + Date.now();
-    var optimisticRow = Object.assign({ id:tempId, namaPos:posInfo?posInfo.namaPos:'', kodeUnit:posInfo?posInfo.kodeUnit:'', inputOleh:STATE.nama, _optimistic:true }, data);
-    arr.push(optimisticRow);
-    renderTransaksiTable();
-    gasCall('saveTransaksi', STATE.tahunAktif, bulan, data, STATE.token, _idemKey('sw_tx_'+bulan+'_'+STATE.tahunAktif, data)).then(function(res){
-      if(!res.success){ var i2=arr.findIndex(function(d){return d.id===tempId;}); if(i2>-1) arr.splice(i2,1); renderTransaksiTable(); toast('error', res.message); return; }
-      optimisticRow.id = res.id; delete optimisticRow._optimistic;
-      renderTransaksiTable();
-      toast('success','Tersimpan');
-    }).catch(function(){ var i2=arr.findIndex(function(d){return d.id===tempId;}); if(i2>-1) arr.splice(i2,1); renderTransaksiTable(); toast('error','Gagal menyimpan (dibatalkan)'); });
-  }
-}
 
 // ── IMPORT MASSAL DARI EXCEL (paste) ──────────────────────────────
 // Solusi untuk data asli yang jumlahnya ratusan baris per pos: blok kolom
@@ -2553,12 +2227,6 @@ function loadPerluVerifikasi(){
 // Unit ke mode khusus itu dan fokus ke form — input satuan pakai FORM YANG
 // SAMA (Tambah Transaksi), input banyak sekaligus pakai tombol "Import dari
 // Excel" YANG SAMA juga (sudah dibuat sadar mode ini, lihat bukaImportExcel).
-function pilihModeBelumJelas(){
-  var uBJ = _txUnitDaftar.filter(function(x){ return x.kodeUnit===POS_BELUM_JELAS; })[0];
-  if(uBJ) terapkanTxUnit(uBJ, false);
-  document.getElementById('form-transaksi').scrollIntoView({behavior:'smooth', block:'center'});
-  toast('success','Mode "Belum Jelas Pos Mana" aktif — isi form di atas seperti biasa, atau pakai "Import dari Excel" untuk tempel banyak baris sekaligus.');
-}
 
 // ============================================================
 // VERIFIKASI TRANSAKSI (UNIT) — HALAMAN TERSENDIRI, kode & tampilannya
@@ -2772,23 +2440,32 @@ function parseAngkaFleksibel(s){
 }
 
 function _konsoKey(){ return STATE.tahunAktif + '_' + document.getElementById('sel-bulan-konsolidasi').value; }
+// Konsolidasi di-cache per tahun_bulan di memori -- kalau bulan yang sama
+// sudah pernah dimuat di sesi ini, tampil instan dari cache, lalu refresh diam-diam.
+var _konsolidasiRawCache = {};
 function loadKonsolidasi(){
   var bulan = document.getElementById('sel-bulan-konsolidasi').value;
   if(!bulan) return;
-  // Bagian bank-level (Rekonsiliasi Bank & REKAP PER POS/item non-unit) cuma
-  // relevan & bisa diisi oleh Admin; user unit cukup lihat rincian unitnya sendiri.
   document.querySelectorAll('#view-konsolidasi .konso-admin-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role!=='ADMIN'); });
   var namaBulanLabel = BULAN_NAMA[Number(bulan)-1] + ' ' + STATE.tahunAktif;
   document.getElementById('rp-bulan-label').textContent = namaBulanLabel;
   document.getElementById('rk-bulan-label').textContent = namaBulanLabel;
+  var key = STATE.tahunAktif + '_' + bulan;
+  var cached = _konsolidasiRawCache[key];
+  if(cached) _renderKonsolidasi(bulan, cached);
   gasCallBatch([
     { fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getRekonsiliasi', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getTambahanBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getKategoriTambahanList', args:[STATE.token] }
   ]).then(function(hasil){
+    if(!hasil[0].success){ if(!cached) toast('error', hasil[0].message); return; }
+    _konsolidasiRawCache[key] = hasil;
+    _renderKonsolidasi(bulan, hasil);
+  }).catch(function(){ if(!cached) toast('error','Gagal memuat konsolidasi'); });
+}
+function _renderKonsolidasi(bulan, hasil){
     var res = hasil[0], rek = hasil[1], tb = hasil[2], katRes = hasil[3];
-    if(!res.success){ toast('error', res.message); return; }
     var key = STATE.tahunAktif + '_' + bulan;
     var unitByKode = {}; (res.units && res.units.length ? res.units : STATE.myUnits||[]).forEach(function(u){ unitByKode[u.kodeUnit]=u.namaUnit; });
 
@@ -2839,7 +2516,6 @@ function loadKonsolidasi(){
     renderKategoriBagian(key); // isi kategoriAtas/Bawah, dropdown, grand total, & hitungRekonsiliasi
     hitungRekonsiliasi();
     rkBatalForm(); // pastikan tampil sebagai tampilan statis, form disembunyikan
-  }).catch(function(){ toast('error','Gagal memuat konsolidasi'); });
 }
 // ── KELOMPOK PEMASUKAN (POS) SAYA — self-service, semua role boleh pakai.
 // Untuk role UNIT dibatasi server-side (savePos) hanya untuk unit sendiri.
