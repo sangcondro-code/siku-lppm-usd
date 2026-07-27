@@ -44,6 +44,31 @@
   .tbl tbody tr:hover { background:#fafafa; }
   .tbl tfoot td { font-weight:700; background:#fff0f0; color:var(--maroon); }
   .tbl tr.row-optimistic { opacity:.55; }
+  /* Ringkasan Laporan Unit (Saldo Awal -> Pemasukan/Pengeluaran -> Saldo
+     Akhir) -- sengaja dibuat seperti "alur hitungan" berwarna, bukan tabel
+     polos, supaya (a) pemasukan vs pengeluaran gampang dibedakan sekilas
+     dari warnanya, dan (b) Saldo Akhir -- angka yang paling penting -- jadi
+     kotak besar tersendiri yang jelas terlihat, hijau kalau surplus, merah
+     kalau defisit, bukan cuma baris tabel biasa yang gampang lewat. */
+  .lu-ringkasan { border:1px solid #e5e7eb; border-radius:.6rem; overflow:hidden; }
+  .lu-r-row { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.7rem 1.1rem; border-bottom:1px solid #f3f4f6; }
+  .lu-r-label { color:#6b7280; font-size:.85rem; display:flex; align-items:center; gap:7px; }
+  .lu-r-val { font-variant-numeric:tabular-nums; font-weight:600; color:#374151; font-size:.92rem; }
+  .lu-r-masuk .lu-r-label, .lu-r-masuk .lu-r-val { color:#16a34a; }
+  .lu-r-masuk .lu-r-label i { color:#16a34a; }
+  .lu-r-keluar .lu-r-label, .lu-r-keluar .lu-r-val { color:#dc2626; }
+  .lu-r-keluar .lu-r-label i { color:#dc2626; }
+  .lu-r-sd { background:#fafafa; }
+  .lu-r-sd.positif .lu-r-label, .lu-r-sd.positif .lu-r-val { color:#16a34a; font-weight:700; }
+  .lu-r-sd.negatif .lu-r-label, .lu-r-sd.negatif .lu-r-val { color:#dc2626; font-weight:700; }
+  .lu-r-akhir { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1.1rem; border-bottom:none; }
+  .lu-r-akhir .lu-r-label { font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+  .lu-r-akhir .lu-r-val { font-size:1.4rem; font-weight:800; font-variant-numeric:tabular-nums; }
+  .lu-r-akhir.positif { background:#f0fdf4; }
+  .lu-r-akhir.positif .lu-r-label, .lu-r-akhir.positif .lu-r-val { color:#15803d; }
+  .lu-r-akhir.negatif { background:#fef2f2; }
+  .lu-r-akhir.negatif .lu-r-label, .lu-r-akhir.negatif .lu-r-val { color:#b91c1c; }
+  @media(max-width:768px){ .lu-r-val{font-size:.85rem;} .lu-r-akhir .lu-r-val{font-size:1.15rem;} }
   /* Tabel Daftar Transaksi: table-layout:fixed + lebar kolom tetap (didefinisikan
      lewat <colgroup> yang SAMA PERSIS di semua tempat tabel ini dirender — satu
      Pos, banyak Pos sekaligus (Admin), maupun mode Belum Terverifikasi) supaya
@@ -4480,24 +4505,21 @@ function _tabelLaporanUnitHtml(judul, rows){
 // (-) Pengeluaran, (=) Surplus/Defisit, Saldo Akhir -- baris terakhir tebal).
 function _ringkasanLaporanUnitHtml(saldoAwal, totalMasuk, totalKeluar, saldoAkhir){
   var surplusDefisit = totalMasuk - totalKeluar;
-  var labelSD = surplusDefisit >= 0 ? '(=) Surplus' : '(=) Defisit';
-  // PERBAIKAN TAMPILAN: sebelumnya dibatasi "max-width:420px" jadi kelihatan
-  // kecil/nyempil di pojok kiri kartu, beda gaya dari tabel-tabel lain di
-  // aplikasi ini. Sekarang dibuat selebar kartunya (class "table tbl" sama
-  // seperti tabel Pemasukan/Pengeluaran di atasnya & tabel ringkasan
-  // Rekonsiliasi), kolom label:nilai proporsional 60:40, dan baris "Saldo
-  // Akhir" disorot dengan warna maroon-muda -- gaya yang sama persis
-  // dipakai baris total (tfoot) di tabel lain, biar konsisten.
-  var baris = function(lbl, val, tebal){
-    return '<tr'+(tebal?' style="font-weight:700;background:#fff0f0;color:var(--maroon);"':'')+'><td style="width:60%;">'+lbl+'</td><td class="text-end">Rp '+fmtRp(val)+'</td></tr>';
-  };
-  return '<table class="table tbl mb-0">'
-    + baris('Saldo Awal', saldoAwal, false)
-    + baris('(+) Total Pemasukan', totalMasuk, false)
-    + baris('(-) Total Pengeluaran', totalKeluar, false)
-    + baris(labelSD, surplusDefisit, false)
-    + baris('Saldo Akhir', saldoAkhir, true)
-    + '</table>';
+  var sdPositif = surplusDefisit >= 0;
+  var labelSD = sdPositif ? '(=) Surplus' : '(=) Defisit';
+  var akhirPositif = saldoAkhir >= 0;
+  // Desain "alur hitungan" (bukan tabel polos): Saldo Awal (netral) -> (+)
+  // Pemasukan (hijau) -> (-) Pengeluaran (merah) -> (=) Surplus/Defisit
+  // (ikut warna hasilnya) -> Saldo Akhir sebagai kotak besar tersendiri di
+  // bawah, biar yang paling penting (hasil akhirnya) langsung kena mata,
+  // bukan cuma baris terakhir tabel yang gampang kelewat.
+  return '<div class="lu-ringkasan">'
+    + '<div class="lu-r-row"><span class="lu-r-label">Saldo Awal</span><span class="lu-r-val">Rp '+fmtRp(saldoAwal)+'</span></div>'
+    + '<div class="lu-r-row lu-r-masuk"><span class="lu-r-label"><i class="fas fa-circle-plus"></i>Total Pemasukan</span><span class="lu-r-val">Rp '+fmtRp(totalMasuk)+'</span></div>'
+    + '<div class="lu-r-row lu-r-keluar"><span class="lu-r-label"><i class="fas fa-circle-minus"></i>Total Pengeluaran</span><span class="lu-r-val">Rp '+fmtRp(totalKeluar)+'</span></div>'
+    + '<div class="lu-r-row lu-r-sd '+(sdPositif?'positif':'negatif')+'"><span class="lu-r-label">'+labelSD+'</span><span class="lu-r-val">Rp '+fmtRp(surplusDefisit)+'</span></div>'
+    + '<div class="lu-r-akhir '+(akhirPositif?'positif':'negatif')+'"><span class="lu-r-label">Saldo Akhir</span><span class="lu-r-val">Rp '+fmtRp(saldoAkhir)+'</span></div>'
+    + '</div>';
 }
 function _renderLaporanUnitHtml(d, periodeLabel){
   var lebihSatuAkun = d.akun.length > 1;
