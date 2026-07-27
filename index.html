@@ -103,6 +103,9 @@
   .conv-item { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #f3f4f6; cursor:pointer; }
   .conv-item:hover { background:#f8f9fa; }
   .conv-item-unread { font-weight:700; }
+  .chat-konteks { display:block; font-size:.68rem; opacity:.75; font-style:italic; margin-bottom:2px; }
+  .chat-hapus { cursor:pointer; opacity:.55; margin-left:6px; }
+  .chat-hapus:hover { opacity:1; color:#dc2626; }
   /* Saran Keterangan (Input Cepat) bisa jauh lebih panjang dari nama Pos --
      dibuat boleh turun baris (beda dari .tx-pos-nama yang sengaja nowrap
      karena nama Pos biasanya pendek), plus info "berapa kali dipakai". */
@@ -195,10 +198,11 @@
     <div class="nav-item active" data-view="dashboard" onclick="gotoView('dashboard')"><i class="fas fa-chart-pie"></i> Dashboard</div>
     <div class="nav-item admin-only" data-view="input" onclick="gotoView('input')"><i class="fas fa-edit"></i> <span id="nav-label-input">Input Rekap Bulanan</span></div>
     <div class="nav-item" data-view="verifikasi" onclick="gotoView('verifikasi')"><i class="fas fa-check-circle"></i> Verifikasi Transaksi</div>
-    <div class="nav-item" data-view="pesan" onclick="gotoView('pesan')"><i class="fas fa-comments"></i> <span id="nav-label-pesan">Pesan</span><span id="pesan-badge" class="badge-pesan d-none">0</span></div>
     <div class="nav-item admin-only" data-view="rekkoran" onclick="gotoView('rekkoran')"><i class="fas fa-list-ol"></i> Rekap Rekening Koran</div>
     <div class="nav-item" data-view="konsolidasi" onclick="gotoView('konsolidasi')"><i class="fas fa-layer-group"></i> Rekap Konsolidasi</div>
     <div class="nav-item admin-only" data-view="memorial" onclick="gotoView('memorial')"><i class="fas fa-file-invoice"></i> Jurnal Memorial</div>
+    <div class="nav-label">Kontak</div>
+    <div class="nav-item" data-view="pesan" onclick="gotoView('pesan')"><i class="fas fa-comments"></i> <span id="nav-label-pesan">Pesan</span><span id="pesan-badge" class="badge-pesan d-none">0</span></div>
     <div class="nav-label admin-only">Administrasi</div>
     <div class="nav-item admin-only" data-view="unit" onclick="gotoView('unit')"><i class="fas fa-sitemap"></i> Kelola Unit &amp; Pos</div>
     <div class="nav-item admin-only" data-view="user" onclick="gotoView('user')"><i class="fas fa-users"></i> Kelola User</div>
@@ -2365,12 +2369,16 @@ function bukaUbahPosVerifikasi(id, kodePosSaatIni){
   });
 }
 
+
 // ============================================================
 // HUBUNGI ADMIN (PESAN) — obrolan sederhana Unit<->Admin, disimpan di
-// LogAktivitas lewat server (tidak ada penyimpanan baru di sisi klien
-// selain _pesanAdminSedangDibuka, penanda obrolan mana yang lagi dibuka).
+// LogAktivitas lewat server. Di-cache di memori (sekali dimuat di sesi
+// ini, buka lagi langsung tampil instan), lalu tetap refresh diam-diam.
 // ============================================================
 var _pesanAdminSedangDibuka = null; // username Unit yang lagi dibuka Admin (null = lihat daftar obrolan)
+var _pesanCacheSaya = null; // cache thread milik Unit
+var _pesanCacheAdminList = null; // cache daftar obrolan Admin
+var _pesanCacheAdminThread = {}; // username -> data thread (Admin)
 
 function loadViewPesan(){
   document.getElementById('pesan-page-title').textContent = 'Pesan';
@@ -2391,21 +2399,44 @@ function _renderChatBubbles(elId, data, labelDiriSendiri){
   if(!data.length){ el.innerHTML = '<p class="text-muted small text-center mb-0">Belum ada pesan. Mulai obrolan di bawah.</p>'; return; }
   el.innerHTML = data.map(function(p){
     var mine = p.dari === labelDiriSendiri;
-    return '<div class="chat-bubble '+(mine?'chat-bubble-mine':'chat-bubble-other')+'">'+_gcEsc(p.isi)+'<span class="chat-bubble-time">'+p.waktu+'</span></div>';
+    var konteksHtml = p.konteks ? '<span class="chat-konteks">'+_gcEsc(p.konteks)+'</span>' : '';
+    var hapusHtml = (p.bolehHapus && p.waktuISO) ? ' <i class="fas fa-trash-alt chat-hapus" title="Hapus pesan ini" onclick="hapusPesanChat(\''+p.waktuISO+'\')"></i>' : '';
+    return '<div class="chat-bubble '+(mine?'chat-bubble-mine':'chat-bubble-other')+'">'+konteksHtml+_gcEsc(p.isi)+'<span class="chat-bubble-time">'+p.waktu+hapusHtml+'</span></div>';
   }).join('');
   el.scrollTop = el.scrollHeight;
+}
+// Hapus 1 pesan (cuma bisa punya sendiri, dicek juga di server). HANYA
+// menghapus baris itu -- tidak mempengaruhi pesan lain.
+function hapusPesanChat(waktuISO){
+  Swal.fire({ title:'Hapus pesan ini?', text:'Tidak bisa dikembalikan lagi.', icon:'warning', showCancelButton:true, confirmButtonColor:'#dc2626', confirmButtonText:'Hapus', cancelButtonText:'Batal' }).then(function(res){
+    if(!res.isConfirmed) return;
+    gasCall('hapusPesan', waktuISO, STATE.token).then(function(r){
+      if(!r.success){ toast('error', r.message); return; }
+      toast('success','Pesan dihapus');
+      if(STATE.role==='ADMIN'){
+        _pesanCacheAdminList = null;
+        if(_pesanAdminSedangDibuka){ delete _pesanCacheAdminThread[_pesanAdminSedangDibuka]; renderPesanAdminThread(_pesanAdminSedangDibuka); }
+      } else {
+        _pesanCacheSaya = null;
+        renderPesanUnit();
+      }
+    });
+  });
 }
 
 // ── Sisi UNIT: 1 obrolan saja, dengan "Admin" secara kolektif ──
 function renderPesanUnit(){
   var wrap = document.getElementById('pesan-container');
-  wrap.innerHTML = '<div class="chat-wrap" id="pesan-chat-wrap"><p class="text-muted small text-center mb-0">Memuat...</p></div>'
+  wrap.innerHTML = '<button class="btn btn-sm btn-outline-secondary mb-2" onclick="bukaPesanBaruUnit()"><i class="fas fa-plus me-1"></i>Pesan Baru</button>'
+    + '<div class="chat-wrap" id="pesan-chat-wrap">'+(_pesanCacheSaya ? '' : '<p class="text-muted small text-center mb-0">Memuat...</p>')+'</div>'
     + _chatInputHtml('Tulis pesan ke Admin...', 'pesanUnitKeydown', 'pesanUnitKirim');
+  if(_pesanCacheSaya) _renderChatBubbles('pesan-chat-wrap', _pesanCacheSaya, 'saya');
   gasCall('getPercakapanSaya', STATE.token).then(function(res){
-    if(!res.success){ toast('error', res.message); return; }
+    if(!res.success){ if(!_pesanCacheSaya) toast('error', res.message); return; }
+    _pesanCacheSaya = res.data;
     _renderChatBubbles('pesan-chat-wrap', res.data, 'saya');
     muatBadgePesan();
-  });
+  }).catch(function(){ if(!_pesanCacheSaya) toast('error','Gagal memuat pesan'); });
 }
 function pesanUnitKeydown(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); pesanUnitKirim(); } }
 function pesanUnitKirim(){
@@ -2416,6 +2447,7 @@ function pesanUnitKirim(){
   gasCall('kirimPesanKeAdmin', isi, '', STATE.token).then(function(res){
     inp.disabled = false;
     if(!res.success){ toast('error', res.message); inp.value = isi; return; }
+    _pesanCacheSaya = null;
     renderPesanUnit();
   }).catch(function(){ inp.disabled = false; toast('error','Gagal mengirim'); inp.value = isi; });
 }
@@ -2442,7 +2474,32 @@ function tanyaAdminTentangTransaksiVf(idx){
     gasCall('kirimPesanKeAdmin', res.value, konteks, STATE.token).then(function(r2){
       if(!r2.success){ toast('error', r2.message); return; }
       toast('success','Pesan terkirim ke Admin');
+      _pesanCacheSaya = null;
       muatBadgePesan();
+    });
+  });
+}
+// Sama seperti tombol "Pesan Baru" di sisi Admin -- Unit juga bisa mulai
+// topik baru kapan saja (bukan cuma balas di kotak bawah), dengan Topik
+// opsional supaya konteksnya jelas kalau nanti dilihat lagi.
+function bukaPesanBaruUnit(){
+  Swal.fire({
+    title:'Pesan Baru', html:
+      '<div class="sw-field" style="text-align:left;"><label>Topik (opsional)</label><input type="text" id="sw-topik" class="swal2-input" placeholder="mis. Transaksi bulan Juli" style="margin:4px 0 10px;"></div>'
+      + '<textarea id="sw-pesan" class="swal2-textarea" placeholder="Tulis pesan Anda..." style="margin-top:0;"></textarea>',
+    confirmButtonText:'Kirim', confirmButtonColor:'#800000', showCancelButton:true,
+    preConfirm: function(){
+      var v = document.getElementById('sw-pesan').value.trim();
+      if(!v){ Swal.showValidationMessage('Isi pesan dulu'); return false; }
+      return { topik: document.getElementById('sw-topik').value.trim(), isi:v };
+    }
+  }).then(function(res){
+    if(!res.isConfirmed) return;
+    gasCall('kirimPesanKeAdmin', res.value.isi, res.value.topik, STATE.token).then(function(r){
+      if(!r.success){ toast('error', r.message); return; }
+      toast('success','Pesan terkirim');
+      _pesanCacheSaya = null;
+      renderPesanUnit();
     });
   });
 }
@@ -2451,31 +2508,63 @@ function tanyaAdminTentangTransaksiVf(idx){
 function renderPesanAdminList(){
   _pesanAdminSedangDibuka = null;
   var wrap = document.getElementById('pesan-container');
-  wrap.innerHTML = '<div class="card"><div class="card-body p-0" id="pesan-admin-list"><p class="text-muted small text-center mb-0 p-3">Memuat...</p></div></div>';
+  wrap.innerHTML = '<button class="btn btn-sm mb-2" style="background:var(--maroon);color:white;" onclick="bukaPesanBaru()"><i class="fas fa-plus me-1"></i>Pesan Baru</button>'
+    + '<div class="card"><div class="card-body p-0" id="pesan-admin-list">'+(_pesanCacheAdminList ? _renderDaftarPercakapanHtml(_pesanCacheAdminList) : '<p class="text-muted small text-center mb-0 p-3">Memuat...</p>')+'</div></div>';
   gasCall('getDaftarPercakapanAdmin', STATE.token).then(function(res){
-    if(!res.success){ toast('error', res.message); return; }
+    if(!res.success){ if(!_pesanCacheAdminList) toast('error', res.message); return; }
+    _pesanCacheAdminList = res.data;
     var el = document.getElementById('pesan-admin-list');
     if(!el) return; // sempat pindah view sebelum respons datang
-    if(!res.data.length){ el.innerHTML = '<p class="text-muted small text-center mb-0 p-3">Belum ada pesan masuk.</p>'; return; }
-    el.innerHTML = res.data.map(function(c){
-      return '<div class="conv-item'+(c.belumDibaca>0?' conv-item-unread':'')+'" onclick="renderPesanAdminThread(\''+c.username+'\')">'
-        + '<div><div>'+_gcEsc(c.nama)+'</div><div class="text-muted small">'+_gcEsc((c.pesanTerakhir||'').slice(0,60))+'</div></div>'
-        + '<div class="text-end"><div class="text-muted" style="font-size:.7rem;">'+c.waktu+'</div>'
-        + (c.belumDibaca>0?'<span class="badge-pesan">'+c.belumDibaca+'</span>':'')+'</div></div>';
-    }).join('');
+    el.innerHTML = _renderDaftarPercakapanHtml(res.data);
+  }).catch(function(){ if(!_pesanCacheAdminList) toast('error','Gagal memuat daftar pesan'); });
+}
+function _renderDaftarPercakapanHtml(data){
+  if(!data.length) return '<p class="text-muted small text-center mb-0 p-3">Belum ada pesan masuk.</p>';
+  return data.map(function(c){
+    return '<div class="conv-item'+(c.belumDibaca>0?' conv-item-unread':'')+'" onclick="renderPesanAdminThread(\''+c.username+'\')">'
+      + '<div><div>'+_gcEsc(c.nama)+'</div><div class="text-muted small">'+_gcEsc((c.pesanTerakhir||'').slice(0,60))+'</div></div>'
+      + '<div class="text-end"><div class="text-muted" style="font-size:.7rem;">'+c.waktu+'</div>'
+      + (c.belumDibaca>0?'<span class="badge-pesan">'+c.belumDibaca+'</span>':'')+'</div></div>';
+  }).join('');
+}
+// Admin sebelumnya cuma bisa MEMBALAS Unit yang sudah lebih dulu kirim
+// pesan (daftar obrolan cuma muncul kalau sudah ada riwayatnya) -- tidak
+// ada cara memulai obrolan baru ke Unit yang belum pernah kirim apa-apa.
+// Tombol ini membuka daftar semua akun Unit aktif untuk dipilih, lalu buka
+// obrolan (kosong) dengan Unit itu -- backend (balasPesanKeUnit) memang
+// sudah tidak mensyaratkan riwayat sebelumnya, jadi cukup diarahkan ke
+// thread yang sama seperti biasa.
+function bukaPesanBaru(){
+  gasCall('getUserList', STATE.token).then(function(res){
+    if(!res.success){ toast('error', res.message); return; }
+    var unitAktif = res.data.filter(function(u){ return u.role==='UNIT' && u.aktif; });
+    if(!unitAktif.length){ toast('error','Belum ada akun Unit aktif.'); return; }
+    var opsi = unitAktif.map(function(u){ return '<option value="'+u.username+'">'+_gcEsc(u.nama)+' ('+u.username+')</option>'; }).join('');
+    Swal.fire({
+      title:'Pesan Baru', html:
+        '<div class="sw-field" style="text-align:left;"><label>Kirim ke Unit</label><select id="sw-unit-tujuan" class="swal2-select">'+opsi+'</select></div>',
+      confirmButtonText:'Buka Obrolan', confirmButtonColor:'#800000', showCancelButton:true,
+      preConfirm: function(){ return document.getElementById('sw-unit-tujuan').value; }
+    }).then(function(r){
+      if(!r.isConfirmed) return;
+      renderPesanAdminThread(r.value);
+    });
   });
 }
 function renderPesanAdminThread(username){
   _pesanAdminSedangDibuka = username;
   var wrap = document.getElementById('pesan-container');
+  var cached = _pesanCacheAdminThread[username];
   wrap.innerHTML = '<button class="btn btn-sm btn-link mb-2 ps-0" onclick="renderPesanAdminList()"><i class="fas fa-arrow-left me-1"></i>Kembali ke daftar</button>'
-    + '<div class="chat-wrap" id="pesan-chat-wrap"><p class="text-muted small text-center mb-0">Memuat...</p></div>'
+    + '<div class="chat-wrap" id="pesan-chat-wrap">'+(cached ? '' : '<p class="text-muted small text-center mb-0">Memuat...</p>')+'</div>'
     + _chatInputHtml('Balas...', 'pesanAdminKeydown', 'pesanAdminKirim');
+  if(cached) _renderChatBubbles('pesan-chat-wrap', cached, 'saya');
   gasCall('getPercakapanDenganUnit', username, STATE.token).then(function(res){
-    if(!res.success){ toast('error', res.message); return; }
-    _renderChatBubbles('pesan-chat-wrap', res.data, 'saya');
+    if(!res.success){ if(!cached) toast('error', res.message); return; }
+    _pesanCacheAdminThread[username] = res.data;
+    if(_pesanAdminSedangDibuka === username) _renderChatBubbles('pesan-chat-wrap', res.data, 'saya');
     muatBadgePesan();
-  });
+  }).catch(function(){ if(!cached) toast('error','Gagal memuat obrolan'); });
 }
 function pesanAdminKeydown(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); pesanAdminKirim(); } }
 function pesanAdminKirim(){
@@ -2487,6 +2576,8 @@ function pesanAdminKirim(){
   gasCall('balasPesanKeUnit', _pesanAdminSedangDibuka, isi, STATE.token).then(function(res){
     inp.disabled = false;
     if(!res.success){ toast('error', res.message); inp.value = isi; return; }
+    delete _pesanCacheAdminThread[_pesanAdminSedangDibuka];
+    _pesanCacheAdminList = null;
     renderPesanAdminThread(_pesanAdminSedangDibuka);
   }).catch(function(){ inp.disabled = false; toast('error','Gagal mengirim'); inp.value = isi; });
 }
@@ -2499,7 +2590,7 @@ function pesanTandaiSemuaDibaca(){
     if(!res.success){ toast('error', res.message); return; }
     toast('success','Semua pesan ditandai sudah dibaca');
     muatBadgePesan();
-    if(STATE.role==='ADMIN') renderPesanAdminList();
+    if(STATE.role==='ADMIN'){ _pesanCacheAdminList = null; renderPesanAdminList(); }
   });
 }
 function muatBadgePesan(){
