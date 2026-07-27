@@ -4414,6 +4414,16 @@ function loadLaporanUnit(){
   var selBulan = document.getElementById('lu-pilih-bulan');
   if(selBulan.options.length < 2){
     BULAN_NAMA.forEach(function(n,i){ selBulan.innerHTML += '<option value="'+(i+1)+'">'+n+'</option>'; });
+    // Default saat PERTAMA KALI menu ini dibuka: langsung tampilkan bulan
+    // BERJALAN (bukan "Semua Bulan (1 Tahun)") supaya yang muncul begitu
+    // dibuka relevan & lebih cepat dimuat dari SIMK (1 bulan jauh lebih
+    // ringan daripada tarik seluruh transaksi 1 tahun). Kalau tahun yang
+    // sedang aktif bukan tahun berjalan (mis. lihat laporan tahun lalu),
+    // tetap default ke "Semua Bulan" karena "bulan berjalan" tidak relevan.
+    // Sekali user ganti pilihan sendiri, pilihan itu diingat selama tab ini
+    // dibuka (fungsi ini cuma set default sekali, saat select masih kosong).
+    var skrg = new Date();
+    if(Number(STATE.tahunAktif) === skrg.getFullYear()) selBulan.value = String(skrg.getMonth()+1);
   }
   if(STATE.role==='ADMIN'){
     var sel = document.getElementById('lu-pilih-unit');
@@ -4471,10 +4481,17 @@ function _tabelLaporanUnitHtml(judul, rows){
 function _ringkasanLaporanUnitHtml(saldoAwal, totalMasuk, totalKeluar, saldoAkhir){
   var surplusDefisit = totalMasuk - totalKeluar;
   var labelSD = surplusDefisit >= 0 ? '(=) Surplus' : '(=) Defisit';
+  // PERBAIKAN TAMPILAN: sebelumnya dibatasi "max-width:420px" jadi kelihatan
+  // kecil/nyempil di pojok kiri kartu, beda gaya dari tabel-tabel lain di
+  // aplikasi ini. Sekarang dibuat selebar kartunya (class "table tbl" sama
+  // seperti tabel Pemasukan/Pengeluaran di atasnya & tabel ringkasan
+  // Rekonsiliasi), kolom label:nilai proporsional 60:40, dan baris "Saldo
+  // Akhir" disorot dengan warna maroon-muda -- gaya yang sama persis
+  // dipakai baris total (tfoot) di tabel lain, biar konsisten.
   var baris = function(lbl, val, tebal){
-    return '<tr'+(tebal?' style="font-weight:bold;border-top:1px solid #000;"':'')+'><td class="py-1">'+lbl+'</td><td class="py-1 text-end">Rp '+fmtRp(val)+'</td></tr>';
+    return '<tr'+(tebal?' style="font-weight:700;background:#fff0f0;color:var(--maroon);"':'')+'><td style="width:60%;">'+lbl+'</td><td class="text-end">Rp '+fmtRp(val)+'</td></tr>';
   };
-  return '<table class="table mb-0" style="max-width:420px;">'
+  return '<table class="table tbl mb-0">'
     + baris('Saldo Awal', saldoAwal, false)
     + baris('(+) Total Pemasukan', totalMasuk, false)
     + baris('(-) Total Pengeluaran', totalKeluar, false)
