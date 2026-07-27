@@ -94,6 +94,15 @@
   .tx-pos-unit { color:#9ca3af; font-size:.74rem; flex-shrink:0; }
   .tx-pos-nama { color:#111; font-weight:600; white-space:nowrap; }
   .tx-pos-empty { padding:10px; font-size:.8rem; color:#9ca3af; text-align:center; }
+  .chat-wrap { max-height:60vh; overflow-y:auto; padding:10px; background:#f8f9fa; border-radius:8px; margin-bottom:10px; }
+  .chat-bubble { max-width:75%; padding:8px 12px; border-radius:14px; margin-bottom:8px; font-size:.86rem; white-space:pre-wrap; word-break:break-word; }
+  .chat-bubble-mine { background:var(--maroon); color:#fff; margin-left:auto; border-bottom-right-radius:4px; }
+  .chat-bubble-other { background:#fff; border:1px solid #e5e7eb; margin-right:auto; border-bottom-left-radius:4px; }
+  .chat-bubble-time { font-size:.65rem; opacity:.65; margin-top:2px; display:block; }
+  .badge-pesan { background:#dc2626; color:#fff; border-radius:999px; font-size:.65rem; padding:1px 6px; margin-left:6px; vertical-align:middle; }
+  .conv-item { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #f3f4f6; cursor:pointer; }
+  .conv-item:hover { background:#f8f9fa; }
+  .conv-item-unread { font-weight:700; }
   /* Saran Keterangan (Input Cepat) bisa jauh lebih panjang dari nama Pos --
      dibuat boleh turun baris (beda dari .tx-pos-nama yang sengaja nowrap
      karena nama Pos biasanya pendek), plus info "berapa kali dipakai". */
@@ -186,6 +195,7 @@
     <div class="nav-item active" data-view="dashboard" onclick="gotoView('dashboard')"><i class="fas fa-chart-pie"></i> Dashboard</div>
     <div class="nav-item admin-only" data-view="input" onclick="gotoView('input')"><i class="fas fa-edit"></i> <span id="nav-label-input">Input Rekap Bulanan</span></div>
     <div class="nav-item" data-view="verifikasi" onclick="gotoView('verifikasi')"><i class="fas fa-check-circle"></i> Verifikasi Transaksi</div>
+    <div class="nav-item" data-view="pesan" onclick="gotoView('pesan')"><i class="fas fa-comments"></i> <span id="nav-label-pesan">Pesan</span><span id="pesan-badge" class="badge-pesan d-none">0</span></div>
     <div class="nav-item admin-only" data-view="rekkoran" onclick="gotoView('rekkoran')"><i class="fas fa-list-ol"></i> Rekap Rekening Koran</div>
     <div class="nav-item" data-view="konsolidasi" onclick="gotoView('konsolidasi')"><i class="fas fa-layer-group"></i> Rekap Konsolidasi</div>
     <div class="nav-item admin-only" data-view="memorial" onclick="gotoView('memorial')"><i class="fas fa-file-invoice"></i> Jurnal Memorial</div>
@@ -322,6 +332,17 @@
     </div>
 
     <!-- akhir VERIFIKASI TRANSAKSI -->
+
+    <!-- HUBUNGI ADMIN (PESAN) — obrolan sederhana Unit<->Admin. Disimpan di
+         LogAktivitas (server), tidak ada sheet baru. Untuk UNIT: 1 obrolan
+         dengan Admin. Untuk ADMIN: daftar obrolan per Unit. -->
+    <div id="view-pesan" class="view d-none">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="page-title" id="pesan-page-title">Pesan</h5>
+        <button class="btn btn-sm btn-outline-secondary" onclick="pesanTandaiSemuaDibaca()"><i class="fas fa-check-double me-1"></i>Tandai Semua Dibaca</button>
+      </div>
+      <div id="pesan-container"></div>
+    </div>
 
     <!-- REKAP REKENING KORAN — tabel GABUNGAN semua Unit/Pos, urut tanggal,
          khusus untuk disamakan urutannya PERSIS dengan rekening koran/
@@ -946,6 +967,9 @@ function afterLogin(){
   // Sekarang label langsung disesuaikan di sini, begitu role diketahui.
   var _navLabelInputAwal = document.getElementById('nav-label-input');
   if(_navLabelInputAwal) _navLabelInputAwal.textContent = (STATE.role==='ADMIN') ? 'Input Rekap Bulanan' : 'Daftar Transaksi Saya';
+  var _navLabelPesanAwal = document.getElementById('nav-label-pesan');
+  if(_navLabelPesanAwal) _navLabelPesanAwal.textContent = 'Pesan';
+  muatBadgePesan();
 
   // 1) Tampilkan dulu dari cache lokal kalau ada (instan, tanpa spinner)
   var cachedInit = lsGet('init_' + STATE.username);
@@ -984,6 +1008,7 @@ function afterLogin(){
   if (!window._srgAutoRefresh) {
     window._srgAutoRefresh = setInterval(function(){
       if(!STATE.token) return;
+      muatBadgePesan();
       var av = document.querySelector('.nav-item.active');
       if(!av) return;
       refreshViewSilently(av.dataset.view);
@@ -994,6 +1019,7 @@ function refreshViewSilently(name){
   if(name==='dashboard') loadDashboard();
   else if(name==='input'){ loadRekapBulan(); if(!document.getElementById('panel-input-nonunit').classList.contains('d-none')) loadTambahanForInput(); }
   else if(name==='verifikasi') loadViewVerifikasiData();
+  else if(name==='pesan') loadViewPesan();
   else if(name==='pos') renderPosUnitSayaForm();
   else if(name==='konsolidasi') loadKonsolidasi();
   else if(name==='unit') loadUnitPos();
@@ -1060,6 +1086,7 @@ function gotoView(name){
   if(name==='dashboard') loadDashboard();
   if(name==='input') initInputView();
   if(name==='verifikasi') loadViewVerifikasi();
+  if(name==='pesan') loadViewPesan();
   if(name==='rekkoran') initBulanSelect('sel-bulan-rekkoran', loadRekapRekeningKoran);
   if(name==='pos') renderPosUnitSayaForm();
   if(name==='konsolidasi') initBulanSelect('sel-bulan-konsolidasi', loadKonsolidasi);
@@ -2277,12 +2304,14 @@ function loadViewVerifikasiData(){
 function renderVfPerlu(){
   var wrap = document.getElementById('vf-daftar-perlu');
   if(!_vfPerlu.length){ wrap.innerHTML = '<p class="text-muted small mb-0">Tidak ada transaksi yang perlu diverifikasi bulan ini. 🎉</p>'; return; }
-  wrap.innerHTML = _vfPerlu.map(function(r){
+  wrap.innerHTML = _vfPerlu.map(function(r, i){
     return '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 py-2 border-bottom">'
       + '<div><b>'+_gcEsc(r.keterangan||'(tanpa keterangan)')+'</b> <span class="text-muted small">— '+r.tanggal+'</span><br>'
       + '<span class="small">'+(r.debet?('Debet Rp '+fmtRp(r.debet)):'')+(r.kredit?('Kredit Rp '+fmtRp(r.kredit)):'')+'</span></div>'
+      + '<div class="d-flex gap-1">'
+      + (STATE.role!=='ADMIN' ? '<button class="btn btn-sm btn-outline-secondary" title="Tanya Admin soal transaksi ini" onclick="tanyaAdminTentangTransaksiVf('+i+')"><i class="fas fa-comment-dots"></i></button>' : '')
       + '<button class="btn btn-sm" style="background:var(--maroon);color:white;" onclick="bukaVerifikasiTransaksi(\''+r.id+'\')"><i class="fas fa-hand-point-up me-1"></i>Ini Punya Saya</button>'
-      + '</div>';
+      + '</div></div>';
   }).join('');
 }
 function bukaVerifikasiTransaksi(id){
@@ -2335,6 +2364,154 @@ function bukaUbahPosVerifikasi(id, kodePosSaatIni){
     });
   });
 }
+
+// ============================================================
+// HUBUNGI ADMIN (PESAN) — obrolan sederhana Unit<->Admin, disimpan di
+// LogAktivitas lewat server (tidak ada penyimpanan baru di sisi klien
+// selain _pesanAdminSedangDibuka, penanda obrolan mana yang lagi dibuka).
+// ============================================================
+var _pesanAdminSedangDibuka = null; // username Unit yang lagi dibuka Admin (null = lihat daftar obrolan)
+
+function loadViewPesan(){
+  document.getElementById('pesan-page-title').textContent = 'Pesan';
+  if(STATE.role==='ADMIN'){
+    if(_pesanAdminSedangDibuka) renderPesanAdminThread(_pesanAdminSedangDibuka);
+    else renderPesanAdminList();
+  } else {
+    renderPesanUnit();
+  }
+}
+function _chatInputHtml(placeholder, onKeydownFn, onKirimFn){
+  return '<div class="d-flex gap-2"><textarea class="form-control form-control-sm" id="pesan-input" rows="2" placeholder="'+placeholder+'" onkeydown="'+onKeydownFn+'(event)"></textarea>'
+    + '<button class="btn btn-sm" style="background:var(--maroon);color:white;" onclick="'+onKirimFn+'()"><i class="fas fa-paper-plane"></i></button></div>';
+}
+function _renderChatBubbles(elId, data, labelDiriSendiri){
+  var el = document.getElementById(elId);
+  if(!el) return;
+  if(!data.length){ el.innerHTML = '<p class="text-muted small text-center mb-0">Belum ada pesan. Mulai obrolan di bawah.</p>'; return; }
+  el.innerHTML = data.map(function(p){
+    var mine = p.dari === labelDiriSendiri;
+    return '<div class="chat-bubble '+(mine?'chat-bubble-mine':'chat-bubble-other')+'">'+_gcEsc(p.isi)+'<span class="chat-bubble-time">'+p.waktu+'</span></div>';
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── Sisi UNIT: 1 obrolan saja, dengan "Admin" secara kolektif ──
+function renderPesanUnit(){
+  var wrap = document.getElementById('pesan-container');
+  wrap.innerHTML = '<div class="chat-wrap" id="pesan-chat-wrap"><p class="text-muted small text-center mb-0">Memuat...</p></div>'
+    + _chatInputHtml('Tulis pesan ke Admin...', 'pesanUnitKeydown', 'pesanUnitKirim');
+  gasCall('getPercakapanSaya', STATE.token).then(function(res){
+    if(!res.success){ toast('error', res.message); return; }
+    _renderChatBubbles('pesan-chat-wrap', res.data, 'saya');
+    muatBadgePesan();
+  });
+}
+function pesanUnitKeydown(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); pesanUnitKirim(); } }
+function pesanUnitKirim(){
+  var inp = document.getElementById('pesan-input');
+  var isi = inp.value.trim();
+  if(!isi) return;
+  inp.value=''; inp.disabled = true;
+  gasCall('kirimPesanKeAdmin', isi, '', STATE.token).then(function(res){
+    inp.disabled = false;
+    if(!res.success){ toast('error', res.message); inp.value = isi; return; }
+    renderPesanUnit();
+  }).catch(function(){ inp.disabled = false; toast('error','Gagal mengirim'); inp.value = isi; });
+}
+// Kirim pesan ke Admin dari konteks 1 transaksi tertentu (dipanggil dari
+// halaman Verifikasi Transaksi) -- pakai index array (bukan teks ditempel
+// langsung ke atribut HTML) supaya keterangan yang ada tanda kutip dsb
+// tidak berisiko merusak markup.
+function tanyaAdminTentangTransaksiVf(idx){
+  var r = _vfPerlu[idx]; if(!r) return;
+  var bulanNama = BULAN_NAMA[document.getElementById('sel-bulan-verifikasi').value - 1] || '';
+  Swal.fire({
+    title:'Kirim Pesan', html:
+      '<p class="text-muted small mb-2" style="text-align:left;">Soal transaksi: <b>'+_gcEsc(r.keterangan||'(tanpa keterangan)')+'</b> — '+bulanNama+', '+r.tanggal+'</p>'
+      + '<textarea id="sw-pesan" class="swal2-textarea" placeholder="Tulis pesan Anda..." style="margin-top:0;"></textarea>',
+    confirmButtonText:'Kirim', confirmButtonColor:'#800000', showCancelButton:true,
+    preConfirm: function(){
+      var v = document.getElementById('sw-pesan').value.trim();
+      if(!v){ Swal.showValidationMessage('Isi pesan dulu'); return false; }
+      return v;
+    }
+  }).then(function(res){
+    if(!res.isConfirmed) return;
+    var konteks = 'Verifikasi ' + bulanNama + ' ' + r.tanggal + ': ' + (r.keterangan || '-');
+    gasCall('kirimPesanKeAdmin', res.value, konteks, STATE.token).then(function(r2){
+      if(!r2.success){ toast('error', r2.message); return; }
+      toast('success','Pesan terkirim ke Admin');
+      muatBadgePesan();
+    });
+  });
+}
+
+// ── Sisi ADMIN: daftar obrolan per Unit, klik salah satu utk buka isinya ──
+function renderPesanAdminList(){
+  _pesanAdminSedangDibuka = null;
+  var wrap = document.getElementById('pesan-container');
+  wrap.innerHTML = '<div class="card"><div class="card-body p-0" id="pesan-admin-list"><p class="text-muted small text-center mb-0 p-3">Memuat...</p></div></div>';
+  gasCall('getDaftarPercakapanAdmin', STATE.token).then(function(res){
+    if(!res.success){ toast('error', res.message); return; }
+    var el = document.getElementById('pesan-admin-list');
+    if(!el) return; // sempat pindah view sebelum respons datang
+    if(!res.data.length){ el.innerHTML = '<p class="text-muted small text-center mb-0 p-3">Belum ada pesan masuk.</p>'; return; }
+    el.innerHTML = res.data.map(function(c){
+      return '<div class="conv-item'+(c.belumDibaca>0?' conv-item-unread':'')+'" onclick="renderPesanAdminThread(\''+c.username+'\')">'
+        + '<div><div>'+_gcEsc(c.nama)+'</div><div class="text-muted small">'+_gcEsc((c.pesanTerakhir||'').slice(0,60))+'</div></div>'
+        + '<div class="text-end"><div class="text-muted" style="font-size:.7rem;">'+c.waktu+'</div>'
+        + (c.belumDibaca>0?'<span class="badge-pesan">'+c.belumDibaca+'</span>':'')+'</div></div>';
+    }).join('');
+  });
+}
+function renderPesanAdminThread(username){
+  _pesanAdminSedangDibuka = username;
+  var wrap = document.getElementById('pesan-container');
+  wrap.innerHTML = '<button class="btn btn-sm btn-link mb-2 ps-0" onclick="renderPesanAdminList()"><i class="fas fa-arrow-left me-1"></i>Kembali ke daftar</button>'
+    + '<div class="chat-wrap" id="pesan-chat-wrap"><p class="text-muted small text-center mb-0">Memuat...</p></div>'
+    + _chatInputHtml('Balas...', 'pesanAdminKeydown', 'pesanAdminKirim');
+  gasCall('getPercakapanDenganUnit', username, STATE.token).then(function(res){
+    if(!res.success){ toast('error', res.message); return; }
+    _renderChatBubbles('pesan-chat-wrap', res.data, 'saya');
+    muatBadgePesan();
+  });
+}
+function pesanAdminKeydown(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); pesanAdminKirim(); } }
+function pesanAdminKirim(){
+  if(!_pesanAdminSedangDibuka) return;
+  var inp = document.getElementById('pesan-input');
+  var isi = inp.value.trim();
+  if(!isi) return;
+  inp.value=''; inp.disabled = true;
+  gasCall('balasPesanKeUnit', _pesanAdminSedangDibuka, isi, STATE.token).then(function(res){
+    inp.disabled = false;
+    if(!res.success){ toast('error', res.message); inp.value = isi; return; }
+    renderPesanAdminThread(_pesanAdminSedangDibuka);
+  }).catch(function(){ inp.disabled = false; toast('error','Gagal mengirim'); inp.value = isi; });
+}
+
+// "Tandai Semua Dibaca" -- HANYA mengubah status dibaca/belum, TIDAK
+// menghapus isi pesan apa pun (riwayatnya tetap utuh, ikut aturan hapus
+// otomatis 90 hari seperti log lainnya).
+function pesanTandaiSemuaDibaca(){
+  gasCall('tandaiSemuaPesanDibaca', STATE.token).then(function(res){
+    if(!res.success){ toast('error', res.message); return; }
+    toast('success','Semua pesan ditandai sudah dibaca');
+    muatBadgePesan();
+    if(STATE.role==='ADMIN') renderPesanAdminList();
+  });
+}
+function muatBadgePesan(){
+  gasCall('getJumlahPesanBelumDibaca', STATE.token).then(function(res){
+    if(!res.success) return;
+    var el = document.getElementById('pesan-badge');
+    if(!el) return;
+    if(res.jumlah > 0){ el.textContent = res.jumlah > 99 ? '99+' : res.jumlah; el.classList.remove('d-none'); }
+    else el.classList.add('d-none');
+  });
+}
+
 function bukaImportExcel(){
   if(!STATE_posAktif){ toast('error','Pilih Unit & Pos dahulu di form atas'); return; }
   var isBelumJelas = STATE_posAktif === POS_BELUM_JELAS;
