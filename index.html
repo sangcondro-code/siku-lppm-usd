@@ -1129,7 +1129,7 @@ function _renderDashboard(res){
     ]}, options:{ responsive:true, plugins:{legend:{position:'bottom'}} } });
 }
 function statCard(icon,color,label,val,onclick){
-  return '<div class="col-md-4'+(onclick?' col-lg-3':'')+'"><div class="stat-card"'+(onclick?' style="cursor:pointer;" onclick="'+onclick+'"':'')+'><div class="stat-icon" style="background:'+color+'22;color:'+color+';"><i class="fas '+icon+'"></i></div>'+
+  return '<div class="col-6 col-md-3"><div class="stat-card"'+(onclick?' style="cursor:pointer;" onclick="'+onclick+'"':'')+'><div class="stat-icon" style="background:'+color+'22;color:'+color+';"><i class="fas '+icon+'"></i></div>'+
     '<div><div class="text-muted small">'+label+'</div><div class="fw-bold" style="font-size:1.1rem;">'+val+'</div></div></div></div>';
 }
 
