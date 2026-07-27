@@ -51,24 +51,24 @@
      kotak besar tersendiri yang jelas terlihat, hijau kalau surplus, merah
      kalau defisit, bukan cuma baris tabel biasa yang gampang lewat. */
   .lu-ringkasan { border:1px solid #e5e7eb; border-radius:.6rem; overflow:hidden; }
-  .lu-r-row { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.7rem 1.1rem; border-bottom:1px solid #f3f4f6; }
-  .lu-r-label { color:#6b7280; font-size:.85rem; display:flex; align-items:center; gap:7px; }
-  .lu-r-val { font-variant-numeric:tabular-nums; font-weight:600; color:#374151; font-size:.92rem; }
+  .lu-r-row { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.65rem 1.1rem; border-bottom:1px solid #f3f4f6; }
+  .lu-r-label { color:#6b7280; font-size:.88rem; display:flex; align-items:center; gap:6px; }
+  .lu-r-val { font-variant-numeric:tabular-nums; font-weight:400; color:#374151; font-size:.88rem; }
   .lu-r-masuk .lu-r-label, .lu-r-masuk .lu-r-val { color:#16a34a; }
-  .lu-r-masuk .lu-r-label i { color:#16a34a; }
+  .lu-r-masuk .lu-r-label i { color:#16a34a; font-size:.88rem; }
   .lu-r-keluar .lu-r-label, .lu-r-keluar .lu-r-val { color:#dc2626; }
-  .lu-r-keluar .lu-r-label i { color:#dc2626; }
+  .lu-r-keluar .lu-r-label i { color:#dc2626; font-size:.88rem; }
   .lu-r-sd { background:#fafafa; }
+  .lu-r-sd .lu-r-label, .lu-r-sd .lu-r-val { font-size:.88rem; }
   .lu-r-sd.positif .lu-r-label, .lu-r-sd.positif .lu-r-val { color:#16a34a; font-weight:700; }
   .lu-r-sd.negatif .lu-r-label, .lu-r-sd.negatif .lu-r-val { color:#dc2626; font-weight:700; }
-  .lu-r-akhir { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:1.1rem; border-bottom:none; }
-  .lu-r-akhir .lu-r-label { font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
-  .lu-r-akhir .lu-r-val { font-size:1.4rem; font-weight:800; font-variant-numeric:tabular-nums; }
+  .lu-r-akhir { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.65rem 1.1rem; border-bottom:none; }
+  .lu-r-akhir .lu-r-label { font-size:.88rem; font-weight:700; }
+  .lu-r-akhir .lu-r-val { font-size:.88rem; font-weight:700; font-variant-numeric:tabular-nums; }
   .lu-r-akhir.positif { background:#f0fdf4; }
   .lu-r-akhir.positif .lu-r-label, .lu-r-akhir.positif .lu-r-val { color:#15803d; }
   .lu-r-akhir.negatif { background:#fef2f2; }
   .lu-r-akhir.negatif .lu-r-label, .lu-r-akhir.negatif .lu-r-val { color:#b91c1c; }
-  @media(max-width:768px){ .lu-r-val{font-size:.85rem;} .lu-r-akhir .lu-r-val{font-size:1.15rem;} }
   /* Tabel Daftar Transaksi: table-layout:fixed + lebar kolom tetap (didefinisikan
      lewat <colgroup> yang SAMA PERSIS di semua tempat tabel ini dirender — satu
      Pos, banyak Pos sekaligus (Admin), maupun mode Belum Terverifikasi) supaya
