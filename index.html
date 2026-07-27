@@ -578,6 +578,13 @@
       </div></div>
 
       <div class="card mb-3"><div class="card-body">
+        <div class="section-title mb-2"><i class="fas fa-plug"></i>Koneksi ke SIMK (Laporan Unit)</div>
+        <p class="text-muted small mb-2">Cek apakah Sirekap Giro berhasil login & mengambil data dari SIMK (dipakai menu "Laporan Unit"). Kalau gagal, hasil tesnya akan menunjukkan persis di langkah mana masalahnya.</p>
+        <button class="btn btn-sm btn-outline-secondary" id="btn-tes-simk" onclick="tesKoneksiSimk()"><i class="fas fa-vial me-1"></i>Tes Koneksi SIMK</button>
+        <p id="hasil-tes-simk" class="small mt-2 mb-0"></p>
+      </div></div>
+
+      <div class="card mb-3"><div class="card-body">
         <div class="section-title mb-2"><i class="fas fa-eye-slash"></i>Kategori Dikecualikan dari Jurnal Memorial</div>
         <p class="text-muted small mb-2">Kategori yang DICENTANG di bawah TIDAK akan pernah muncul di Jurnal Memorial (mis. Penarikan Cek — sudah tercatat di transaksi kas, jadi tidak perlu dobel).</p>
         <div id="daftar-kecualikan-memorial"></div>
@@ -3771,6 +3778,17 @@ function toggleStPengingat(chk){
     label.textContent = chk.checked ? 'Aktif — email dikirim tiap Senin pagi kalau ada yang menumpuk' : 'Nonaktif';
     toast('success', chk.checked ? 'Pengingat mingguan diaktifkan' : 'Pengingat mingguan dinonaktifkan');
   }).catch(function(){ chk.disabled = false; chk.checked = !chk.checked; toast('error','Gagal mengubah pengaturan'); });
+}
+function tesKoneksiSimk(){
+  var btn = document.getElementById('btn-tes-simk');
+  var hasil = document.getElementById('hasil-tes-simk');
+  btnBusy(btn, true);
+  hasil.textContent = ''; hasil.className = 'small mt-2 mb-0';
+  gasCall('getStatusSimk', STATE.token).then(function(res){
+    btnBusy(btn, false);
+    hasil.textContent = res.message;
+    hasil.className = 'small mt-2 mb-0 ' + (res.success ? 'text-success' : 'text-danger');
+  }).catch(function(){ btnBusy(btn, false); hasil.textContent = 'Gagal memanggil tes (coba lagi).'; hasil.className = 'small mt-2 mb-0 text-danger'; });
 }
 function renderDaftarKecualikanMemorial(){
   var el = document.getElementById('daftar-kecualikan-memorial');
