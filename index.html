@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SIREKAP GIRO</title>
+<title>SIKU LPPM USD</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
@@ -28,7 +28,7 @@
   .main { margin-left:var(--sidebar); padding:calc(var(--navbar) + 1.5rem) 1.5rem 2rem; min-height:100vh; }
   @media(max-width:768px){ .sidebar{transform:translateX(-100%);box-shadow:4px 0 10px rgba(0,0,0,.1);} .sidebar.open{transform:none;} .main{margin-left:0;padding:calc(var(--navbar) + .75rem) .75rem 2rem;} }
   .nav-label { font-size:.68rem; text-transform:uppercase; letter-spacing:1px; color:#9ca3af; font-weight:700; padding:1rem 1.2rem .3rem; }
-  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 1.2rem; color:#4b5563; cursor:pointer; border-left:3px solid transparent; transition:.15s; font-weight:500; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 1.2rem; color:#4b5563; cursor:pointer; border-left:3px solid transparent; transition:.15s; font-weight:500; user-select:none; -webkit-user-select:none; }
   .nav-item i { width:18px; text-align:center; }
   .nav-item:hover { background:var(--maroon-light); color:var(--maroon); }
   .nav-item.active { background:var(--maroon-light); color:var(--maroon); border-left-color:var(--maroon); font-weight:700; }
@@ -148,6 +148,62 @@
   .sw-field .swal2-input, .sw-field .swal2-select, .sw-field .swal2-textarea{ width:100% !important; margin:0 !important; }
   .sw-hint{ width:88%; margin:0 auto 12px; text-align:left; font-size:.78rem; color:#6b7280; }
   .sw-checkline{ width:88%; margin:0 auto 4px; text-align:left; font-size:.85rem; }
+
+/* ============================================================
+   MODUL PENGAJUAN DANA & LPJ -- kelas baru, prefiks "pd-"/"pt-" supaya
+   tidak bentrok dengan kelas yang sudah ada. Mengikuti idiom warna/ukuran
+   yang sama dengan badge-pendapatan/pengeluaran & stat-card yang sudah ada.
+   ============================================================ */
+.badge-pd{ font-size:.66rem; padding:2px 7px; border-radius:4px; font-weight:700; }
+.badge-pd-diajukan{ background:#fef3c7; color:#92400e; }
+.badge-pd-disetujui{ background:#dcfce7; color:#166534; }
+.badge-pd-ditolak{ background:#fee2e2; color:#991b1b; }
+.badge-pd-dicairkan{ background:#dbeafe; color:#1d4ed8; }
+.badge-pd-menunggu-verifikasi{ background:#ede9fe; color:#5b21b6; }
+.badge-pd-perlu-revisi{ background:#fed7aa; color:#9a3412; }
+.badge-pd-selesai{ background:#dcfce7; color:#166534; }
+
+.pd-back{ color:#6b7280; font-size:.82rem; font-weight:600; cursor:pointer; }
+.pd-back:hover{ color:var(--maroon); }
+.pd-drop{ border:2px dashed #d1d5db; border-radius:.75rem; padding:1.5rem; text-align:center; color:#9ca3af; cursor:pointer; transition:.15s; }
+.pd-drop:hover{ border-color:var(--maroon); background:var(--maroon-light); color:var(--maroon); }
+.pd-drop.pd-drop-ok{ border-color:#16a34a; background:#f0fdf4; color:#166534; }
+.pd-drop i{ font-size:1.5rem; display:block; margin-bottom:6px; }
+.pd-file-chip{ display:inline-flex; align-items:center; gap:10px; background:var(--maroon-light); border:1px solid #ffd6d6; border-radius:.6rem; padding:8px 12px; font-size:.82rem; }
+
+.pd-ministep{ display:flex; align-items:flex-start; margin-bottom:1.5rem; overflow-x:auto; padding-bottom:2px; }
+.pd-ms-item{ display:flex; flex-direction:column; align-items:center; flex:1; min-width:84px; }
+.pd-ms-row{ display:flex; align-items:center; width:100%; }
+.pd-ms-line{ flex:1; height:2px; background:#e5e7eb; }
+.pd-ms-item.done .pd-ms-line{ background:var(--maroon); }
+.pd-ms-item.revisi .pd-ms-line{ background:#f97316; }
+.pd-ms-item:first-child .pd-ms-row .pd-ms-line:first-child{ visibility:hidden; }
+.pd-ms-dot{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.72rem; flex-shrink:0; background:#f3f4f6; color:#9ca3af; border:2px solid #e5e7eb; }
+.pd-ms-item.done .pd-ms-dot{ background:var(--maroon); color:#fff; border-color:var(--maroon); }
+.pd-ms-item.active .pd-ms-dot{ background:#fef3c7; color:#92400e; border-color:#fbbf24; }
+.pd-ms-item.revisi .pd-ms-dot{ background:#fed7aa; color:#9a3412; border-color:#f97316; }
+.pd-ms-label{ font-size:.66rem; text-align:center; margin-top:6px; color:#9ca3af; font-weight:600; line-height:1.2; }
+.pd-ms-item.done .pd-ms-label, .pd-ms-item.active .pd-ms-label, .pd-ms-item.revisi .pd-ms-label{ color:#374151; }
+
+.pd-block{ margin-bottom:1rem; }
+.pd-block.locked .card{ background:#fafafa; }
+.pd-block.revisi .card{ border-color:#fdba74; background:#fffbeb; }
+.pd-block-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:.9rem; flex-wrap:wrap; gap:6px; }
+.pd-block-head .section-title{ margin-bottom:0; }
+.pd-block.locked .section-title{ color:#9ca3af; }
+.pd-locked-note{ color:#9ca3af; font-size:.82rem; display:flex; align-items:flex-start; gap:8px; padding:.6rem .8rem; border:1px solid transparent; border-radius:.5rem; }
+.pd-locked-note i{ margin-top:3px; }
+.pd-total-box{ background:var(--maroon-light); border:1px solid #ffd6d6; border-radius:.6rem; padding:.7rem 1rem; }
+.pd-total-box.ok{ background:#f0fdf4; border-color:#bbf7d0; }
+.pd-total-box.warn{ background:#fff7ed; border-color:#fdba74; }
+
+.pd-cmt{ display:flex; gap:10px; padding:8px 0; border-top:1px solid #f3f4f6; }
+.pd-cmt:first-child{ border-top:none; }
+.pd-cmt-av{ width:26px; height:26px; border-radius:50%; background:var(--maroon-light); color:var(--maroon); display:flex; align-items:center; justify-content:center; font-size:.68rem; font-weight:700; flex-shrink:0; }
+.pd-cmt-who{ font-weight:700; font-size:.78rem; }
+.pd-cmt-txt{ font-size:.82rem; color:#374151; }
+.pd-cmt-time{ font-size:.68rem; color:#9ca3af; }
+
 </style>
 </head>
 <body>
@@ -160,7 +216,7 @@
     <div class="text-center mb-4">
       <img src="https://www.usd.ac.id/assets/img/USD500.png" alt="Logo" style="height:72px;" class="mb-3">
       <h5 class="fw-bold mb-0" style="color:var(--maroon);">LEMBAGA PENELITIAN DAN PENGABDIAN KEPADA MASYARAKAT</h5>
-      <small class="text-muted">Sistem Rekap &amp; Rekonsiliasi Rekening Giro Bank</small>
+      <small class="text-muted">Sistem Informasi Keuangan</small>
     </div>
     <div id="login-error" style="display:none;background:#fee2e2;border:1px solid #fca5a5;border-radius:.5rem;padding:.65rem 1rem;margin-bottom:.75rem;color:#991b1b;font-size:.85rem;font-weight:600;">
       <i class="fas fa-exclamation-circle me-2"></i><span id="login-error-msg"></span>
@@ -208,7 +264,7 @@
     <div class="d-flex align-items-center gap-2">
       <i class="fas fa-bars d-md-none" style="cursor:pointer;" onclick="document.getElementById('sidebar').classList.toggle('open')"></i>
       <img src="https://www.usd.ac.id/assets/img/USD500.png" alt="" style="height:36px;">
-      <b style="color:var(--maroon);">SIREKAP GIRO</b>
+      <b style="color:var(--maroon);">SIKU LPPM USD</b>
     </div>
     <div class="d-flex align-items-center gap-3">
       <select id="sel-tahun-global" class="form-select form-select-sm" style="width:auto;" onchange="onGantiTahunGlobal()"></select>
@@ -219,17 +275,20 @@
   </div>
 
   <div class="sidebar" id="sidebar">
-    <div class="nav-label">Menu</div>
+    <div class="nav-label">Dashboard</div>
     <div class="nav-item active" data-view="dashboard" onclick="gotoView('dashboard')"><i class="fas fa-chart-pie"></i> Dashboard</div>
+    <div class="nav-label">Pengajuan Dana</div>
+    <div class="nav-item" data-view="pengajuan" onclick="gotoView('pengajuan')"><i class="fas fa-hand-holding-dollar"></i> Daftar Pengajuan<span id="pengajuan-badge" class="badge-pesan d-none">0</span></div>
+    <div class="nav-label">Rekap Giro Bank</div>
     <div class="nav-item admin-only" data-view="input" onclick="gotoView('input')"><i class="fas fa-edit"></i> <span id="nav-label-input">Input Rekap Bulanan</span></div>
     <div class="nav-item" data-view="verifikasi" onclick="gotoView('verifikasi')"><i class="fas fa-check-circle"></i> Verifikasi Transaksi</div>
     <div class="nav-item admin-only" data-view="rekkoran" onclick="gotoView('rekkoran')"><i class="fas fa-list-ol"></i> Rekap Rekening Koran</div>
     <div class="nav-item" data-view="konsolidasi" onclick="gotoView('konsolidasi')"><i class="fas fa-layer-group"></i> Rekap Konsolidasi</div>
     <div class="nav-item admin-only" data-view="memorial" onclick="gotoView('memorial')"><i class="fas fa-file-invoice"></i> Jurnal Memorial</div>
-    <div class="nav-label">Kontak</div>
-    <div class="nav-item" data-view="pesan" onclick="gotoView('pesan')"><i class="fas fa-comments"></i> <span id="nav-label-pesan">Pesan</span><span id="pesan-badge" class="badge-pesan d-none">0</span></div>
     <div class="nav-label">Laporan</div>
     <div class="nav-item" data-view="laporanunit" onclick="gotoView('laporanunit')"><i class="fas fa-file-invoice-dollar"></i> Laporan Unit</div>
+    <div class="nav-label">Kontak</div>
+    <div class="nav-item" data-view="pesan" onclick="gotoView('pesan')"><i class="fas fa-comments"></i> <span id="nav-label-pesan">Pesan</span><span id="pesan-badge" class="badge-pesan d-none">0</span></div>
     <div class="nav-label admin-only">Administrasi</div>
     <div class="nav-item admin-only" data-view="unit" onclick="gotoView('unit')"><i class="fas fa-sitemap"></i> Kelola Unit &amp; Pos</div>
     <div class="nav-item admin-only" data-view="user" onclick="gotoView('user')"><i class="fas fa-users"></i> Kelola User</div>
@@ -245,6 +304,7 @@
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h5 class="page-title">Dashboard Ringkasan Tahun <span id="db-tahun-label"></span></h5>
       </div>
+      <div id="db-pengajuan-banner"></div>
       <div class="row g-3 mb-3" id="db-stat-cards"></div>
       <div class="card"><div class="card-body">
         <div class="section-title"><i class="fas fa-chart-bar"></i>Debet &amp; Kredit per Bulan</div>
@@ -376,7 +436,7 @@
     </div>
 
     <!-- LAPORAN UNIT — datanya ditarik dari sistem SIMK (lewat API doPost
-         milik SIMK, jembatan akun VIEWER), BUKAN dari data Sirekap Giro
+         milik SIMK, jembatan akun VIEWER), BUKAN dari data SIKU LPPM USD
          sendiri. Unit lihat laporannya sendiri otomatis; Admin bisa pilih
          Unit mana saja yang sudah dipetakan ke kode akun SIMK. -->
     <div id="view-laporanunit" class="view d-none">
@@ -607,9 +667,19 @@
 
       <div class="card mb-3"><div class="card-body">
         <div class="section-title mb-2"><i class="fas fa-plug"></i>Koneksi ke SIMK (Laporan Unit)</div>
-        <p class="text-muted small mb-2">Cek apakah Sirekap Giro berhasil login & mengambil data dari SIMK (dipakai menu "Laporan Unit"). Kalau gagal, hasil tesnya akan menunjukkan persis di langkah mana masalahnya.</p>
+        <p class="text-muted small mb-2">Cek apakah SIKU LPPM USD berhasil login & mengambil data dari SIMK (dipakai menu "Laporan Unit"). Kalau gagal, hasil tesnya akan menunjukkan persis di langkah mana masalahnya.</p>
         <button class="btn btn-sm btn-outline-secondary" id="btn-tes-simk" onclick="tesKoneksiSimk()"><i class="fas fa-vial me-1"></i>Tes Koneksi SIMK</button>
         <p id="hasil-tes-simk" class="small mt-2 mb-0"></p>
+      </div></div>
+
+      <div class="card mb-3"><div class="card-body">
+        <div class="section-title mb-2"><i class="fas fa-tags"></i>Komponen Anggaran (Pengajuan Dana)</div>
+        <p class="text-muted small mb-2">Daftar pilihan "Nama Komponen" pada RAB & Realisasi di modul Pengajuan Dana. Tambah/ubah/hapus di sini akan otomatis muncul di dropdown-nya.</p>
+        <form class="row g-2 mb-3" onsubmit="submitKomponenAnggaranBaru(event)">
+          <div class="col-9 col-md-10"><input class="form-control form-control-sm" id="ka-nama" placeholder="Nama komponen baru (mis. Transportasi)"></div>
+          <div class="col-3 col-md-2"><button class="btn btn-sm w-100" style="background:var(--maroon);color:white;">+ Tambah</button></div>
+        </form>
+        <table class="table tbl mb-0"><thead><tr><th>Nama Komponen</th><th style="width:110px;"></th></tr></thead><tbody id="tbody-komponen-anggaran"></tbody></table>
       </div></div>
 
       <div class="card mb-3"><div class="card-body">
@@ -677,6 +747,217 @@
       <div class="card"><div class="card-body">
         <table class="table tbl mb-0"><thead><tr><th>Waktu</th><th>Username</th><th>Aksi</th><th>Detail</th></tr></thead><tbody id="tbody-log"></tbody></table>
       </div></div>
+    </div>
+
+
+    <!-- ============ PENGAJUAN DANA & LPJ ============ -->
+    <div id="view-pengajuan" class="view d-none">
+
+      <!-- SUB: DAFTAR -->
+      <div id="pd-sub-daftar">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h5 class="page-title">Pengajuan Dana</h5>
+          <button class="btn btn-sm" style="background:var(--maroon);color:#fff;" onclick="pdBukaFormBaru()"><i class="fas fa-plus me-1"></i>Ajukan Baru</button>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-md-3"><div class="stat-card" style="cursor:pointer;" onclick="pdBukaKategori('BARU')"><div class="stat-icon" style="background:#d9770622;color:#d97706;"><i class="fas fa-hourglass-half"></i></div><div><div class="text-muted small">Pengajuan Baru</div><div class="fw-bold" style="font-size:1.1rem;" id="pd-r-baru">0</div></div></div></div>
+          <div class="col-6 col-md-3"><div class="stat-card" style="cursor:pointer;" onclick="pdBukaKategori('PROSES')"><div class="stat-icon" style="background:#5b21b622;color:#5b21b6;"><i class="fas fa-arrows-rotate"></i></div><div><div class="text-muted small">Proses</div><div class="fw-bold" style="font-size:1.1rem;" id="pd-r-proses">0</div></div></div></div>
+          <div class="col-6 col-md-3"><div class="stat-card" style="cursor:pointer;" onclick="pdBukaKategori('SELESAI')"><div class="stat-icon" style="background:#16653422;color:#166534;"><i class="fas fa-circle-check"></i></div><div><div class="text-muted small">Selesai</div><div class="fw-bold" style="font-size:1.1rem;" id="pd-r-selesai">0</div></div></div></div>
+          <div class="col-6 col-md-3"><div class="stat-card"><div class="stat-icon" style="background:#80000022;color:#800000;"><i class="fas fa-coins"></i></div><div><div class="text-muted small">Total Diajukan Th. Ini</div><div class="fw-bold" style="font-size:1.1rem;" id="pd-r-total">Rp 0</div></div></div></div>
+        </div>
+
+        <div class="card"><div class="card-body">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div class="section-title mb-0"><i class="fas fa-list"></i>Daftar Pengajuan</div>
+            <div class="d-flex gap-2 flex-wrap">
+              <select id="pd-filter-status" class="form-select form-select-sm" style="width:170px;" onchange="pdFilterUbah()">
+                <option value="SEMUA">Semua Status</option>
+                <option value="DIAJUKAN">Menunggu ACC</option>
+                <option value="DISETUJUI">Disetujui</option>
+                <option value="DICAIRKAN">Dicairkan</option>
+                <option value="MENUNGGU_VERIFIKASI">Menunggu Verifikasi</option>
+                <option value="PERLU_REVISI">Perlu Revisi</option>
+                <option value="SELESAI">Selesai</option>
+                <option value="DITOLAK">Ditolak</option>
+              </select>
+              <select id="pd-filter-unit" class="form-select form-select-sm admin-only" style="width:170px;" onchange="pdFilterUbah()">
+                <option value="SEMUA">Semua Unit</option>
+              </select>
+            </div>
+          </div>
+          <div class="d-flex gap-2 mb-3 flex-wrap" id="pd-kategori-tabs">
+            <div class="pos-tab active" data-kat="SEMUA" onclick="pdSetKategori('SEMUA')">Semua</div>
+            <div class="pos-tab" data-kat="BARU" onclick="pdSetKategori('BARU')"><i class="fas fa-hourglass-half"></i>Pengajuan Baru</div>
+            <div class="pos-tab" data-kat="PROSES" onclick="pdSetKategori('PROSES')"><i class="fas fa-arrows-rotate"></i>Proses</div>
+            <div class="pos-tab" data-kat="SELESAI" onclick="pdSetKategori('SELESAI')"><i class="fas fa-circle-check"></i>Selesai</div>
+          </div>
+          <div class="table-responsive"><table class="table tbl mb-0">
+            <thead><tr><th>No. Pengajuan / Jenis</th><th>Kegiatan</th><th>Diajukan Oleh</th><th>Tanggal</th><th class="text-end">Nominal</th><th>Status</th><th></th></tr></thead>
+            <tbody id="pd-tbody"><tr><td colspan="7" class="text-center text-muted py-4">Memuat...</td></tr></tbody>
+          </table></div>
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
+            <div class="d-flex align-items-center gap-2">
+              <span class="small text-muted">Baris per halaman:</span>
+              <select class="form-select form-select-sm" style="width:auto;" onchange="pdGantiUkuranHalaman(this)">
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="small text-muted" id="pd-halaman-info"></span>
+              <button class="btn btn-sm btn-outline-secondary" id="pd-btn-prev" onclick="pdGantiHalaman(-1)"><i class="fas fa-chevron-left"></i></button>
+              <button class="btn btn-sm btn-outline-secondary" id="pd-btn-next" onclick="pdGantiHalaman(1)"><i class="fas fa-chevron-right"></i></button>
+            </div>
+          </div>
+        </div></div>
+      </div>
+
+      <!-- SUB: FORM AJUKAN BARU -->
+      <div id="pd-sub-form" class="d-none">
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <h5 class="page-title mb-0">Ajukan Dana Baru</h5>
+          <button class="btn btn-sm btn-outline-secondary" onclick="pdSub('daftar')"><i class="fas fa-arrow-left me-1"></i>Kembali</button>
+        </div>
+
+        <div class="card mb-3"><div class="card-body">
+          <label class="form-label small mb-2">Jenis Pengajuan</label>
+          <div class="d-flex gap-2 mb-3 flex-wrap" id="pd-jenis-toggle">
+            <div class="pos-tab active" data-jenis="muka" onclick="pdJenisPengajuan('muka')"><i class="fas fa-hand-holding-dollar"></i>Permohonan Dana Kegiatan</div>
+            <div class="pos-tab" data-jenis="sekaligus" onclick="pdJenisPengajuan('sekaligus')"><i class="fas fa-receipt"></i>Penggantian Biaya (Reimbursement)</div>
+            <div class="pos-tab" data-jenis="tagihan" onclick="pdJenisPengajuan('tagihan')"><i class="fas fa-file-invoice-dollar"></i>Permintaan Pembayaran Tagihan</div>
+          </div>
+        </div></div>
+
+        <!-- PANEL: PERMOHONAN DANA KEGIATAN -->
+        <div id="pd-panel-jenis-muka">
+          <div class="card mb-3"><div class="card-body">
+            <div class="section-title"><i class="fas fa-file-lines"></i>Informasi Kegiatan</div>
+            <div class="row g-2">
+              <div class="col-md-8"><label class="form-label small mb-1">Nama Kegiatan / Keperluan</label>
+                <input class="form-control form-control-sm" id="pd-judul-muka" placeholder="mis. Pelatihan Penguji TOEFL ITP"></div>
+              <div class="col-md-4"><label class="form-label small mb-1">Tanggal Pengajuan</label>
+                <input type="date" class="form-control form-control-sm" id="pd-tgl-muka"></div>
+            </div>
+          </div></div>
+
+          <div class="card mb-3"><div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="section-title mb-0"><i class="fas fa-table"></i>Rencana Anggaran Biaya (RAB)</div>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="pdTambahBarisRab()"><i class="fas fa-plus me-1"></i>Baris</button>
+            </div>
+            <div class="table-responsive"><table class="table tbl mb-0">
+              <thead><tr><th style="width:32%">Nama Komponen</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead>
+              <tbody id="pd-tbody-rab"></tbody>
+            </table></div>
+            <div class="text-end mt-2"><b>Total: </b><span id="pd-total-rab">Rp 0</span></div>
+          </div></div>
+
+          <div class="card mb-3"><div class="card-body">
+            <div class="section-title"><i class="fas fa-paperclip"></i>Surat Pengajuan</div>
+            <p class="text-muted small mb-2">1 file PDF saja (sudah digabung semua lampiran pendukung, kalau ada). Maks 10MB.</p>
+            <div class="pd-drop" id="pd-drop-surat" style="max-width:420px;" onclick="document.getElementById('pd-file-surat').click()">
+              <i class="fas fa-file-pdf"></i><div class="pd-drop-text">Klik atau seret file PDF ke sini</div>
+              <input type="file" id="pd-file-surat" accept="application/pdf" class="d-none" data-drop-id="pd-drop-surat" onchange="pdPilihFile(this,'suratFile')">
+            </div>
+          </div></div>
+
+          <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitPermohonanDana(this)"><i class="fas fa-paper-plane me-1"></i>Ajukan Sekarang</button>
+          <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
+        </div>
+
+        <!-- PANEL: PENGGANTIAN BIAYA (REIMBURSEMENT) -->
+        <div id="pd-panel-jenis-sekaligus" class="d-none">
+          <div class="card mb-3"><div class="card-body">
+            <div class="section-title"><i class="fas fa-file-lines"></i>Informasi Kegiatan</div>
+            <div class="row g-2">
+              <div class="col-md-8"><label class="form-label small mb-1">Nama Kegiatan / Keperluan</label>
+                <input class="form-control form-control-sm" id="pd-judul-sekaligus" placeholder="mis. Fotokopi &amp; ATK Rapat Prodi"></div>
+              <div class="col-md-4"><label class="form-label small mb-1">Tanggal Pengeluaran</label>
+                <input type="date" class="form-control form-control-sm" id="pd-tgl-sekaligus"></div>
+            </div>
+          </div></div>
+
+          <div class="card mb-3"><div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="section-title mb-0"><i class="fas fa-table"></i>Rincian Biaya yang Sudah Dikeluarkan</div>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="pdTambahBarisRealisasi('realisasiSekaligus')"><i class="fas fa-plus me-1"></i>Baris</button>
+            </div>
+            <p class="text-muted small mb-2">Karena biaya SUDAH dikeluarkan lebih dulu, kolom di sini sekaligus jadi realisasi &mdash; tidak ada RAB terpisah.</p>
+            <div class="table-responsive"><table class="table tbl mb-0">
+              <thead><tr><th style="width:18%">Komponen</th><th style="width:26%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:12%">No. Bukti</th><th style="width:6%"></th></tr></thead>
+              <tbody id="pd-tbody-realisasi-sekaligus"></tbody>
+            </table></div>
+            <div class="text-end mt-2"><b>Total: </b><span id="pd-total-realisasiSekaligus">Rp 0</span></div>
+          </div></div>
+
+          <div class="card mb-3"><div class="card-body">
+            <div class="section-title"><i class="fas fa-paperclip"></i>Bukti LPJ (Kwitansi/Nota, 1 PDF gabungan)</div>
+            <p class="text-muted small mb-2">Gabungkan surat pengantar &amp; semua bukti (kwitansi, nota) jadi 1 file PDF. Maks 10MB.</p>
+            <div class="pd-drop" id="pd-drop-lpj-sekaligus" style="max-width:420px;" onclick="document.getElementById('pd-file-lpj-sekaligus').click()">
+              <i class="fas fa-file-pdf"></i><div class="pd-drop-text">Klik atau seret file PDF ke sini</div>
+              <input type="file" id="pd-file-lpj-sekaligus" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-sekaligus" onchange="pdPilihFile(this,'lpjFileSekaligus')">
+            </div>
+          </div></div>
+
+          <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitPenggantianBiaya(this)"><i class="fas fa-paper-plane me-1"></i>Ajukan Penggantian Biaya</button>
+          <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
+        </div>
+
+        <!-- PANEL: PERMINTAAN PEMBAYARAN TAGIHAN -->
+        <div id="pd-panel-jenis-tagihan" class="d-none">
+          <div class="card mb-3"><div class="card-body">
+            <div class="section-title"><i class="fas fa-file-lines"></i>Informasi Tagihan</div>
+            <div class="row g-2">
+              <div class="col-md-6"><label class="form-label small mb-1">Nama Tagihan / Keperluan</label>
+                <input class="form-control form-control-sm" id="pd-judul-tagihan" placeholder="mis. Tagihan Katering Wisuda Prodi"></div>
+              <div class="col-md-3"><label class="form-label small mb-1">Dibayarkan Kepada</label>
+                <input class="form-control form-control-sm" id="pd-kepada-tagihan" placeholder="mis. CV Catering Berkah"></div>
+              <div class="col-md-3"><label class="form-label small mb-1">Nominal Tagihan</label>
+                <input class="form-control form-control-sm text-end" id="pd-nominal-tagihan" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)"></div>
+            </div>
+          </div></div>
+
+          <div class="card mb-3"><div class="card-body">
+            <div class="section-title"><i class="fas fa-paperclip"></i>Memo &amp; Tagihan/Invoice (1 PDF gabungan)</div>
+            <p class="text-muted small mb-2">Gabungkan memo permintaan bayar dari Unit + invoice/tagihan asli dari pihak ketiga jadi 1 file PDF. Maks 10MB.</p>
+            <div class="pd-drop" id="pd-drop-memo-tagihan" style="max-width:420px;" onclick="document.getElementById('pd-file-memo-tagihan').click()">
+              <i class="fas fa-file-pdf"></i><div class="pd-drop-text">Klik atau seret file PDF ke sini</div>
+              <input type="file" id="pd-file-memo-tagihan" accept="application/pdf" class="d-none" data-drop-id="pd-drop-memo-tagihan" onchange="pdPilihFile(this,'memoFileTagihan')">
+            </div>
+          </div></div>
+
+          <div class="alert alert-info small">
+            <i class="fas fa-circle-info me-1"></i>Setelah disetujui, <b>Admin</b> yang akan melakukan pembayaran ke pihak ketiga dan mengunggah <b>bukti bayarnya</b> (bukan Unit) &mdash; bukti bayar itu sekaligus menjadi LPJ untuk tagihan ini.
+          </div>
+
+          <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitTagihan(this)"><i class="fas fa-paper-plane me-1"></i>Ajukan Tagihan</button>
+          <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
+        </div>
+      </div>
+
+      <!-- SUB: DETAIL -->
+      <div id="pd-sub-detail" class="d-none">
+        <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+          <div>
+            <h5 class="page-title" id="pd-d-judul">&nbsp;</h5>
+            <div class="text-muted small" id="pd-d-sub">&nbsp;</div>
+            <span class="badge-pd d-inline-block mt-1" id="pd-d-status-badge">&nbsp;</span>
+          </div>
+          <div class="d-flex gap-2 flex-wrap justify-content-end align-items-center">
+            <div class="d-flex gap-2 flex-wrap" id="pd-d-cetak-tombol"></div>
+            <button class="btn btn-sm btn-outline-secondary" onclick="pdSub('daftar')"><i class="fas fa-arrow-left me-1"></i>Kembali</button>
+          </div>
+        </div>
+
+        <div class="card mb-3"><div class="card-body">
+          <div class="pd-ministep" id="pd-ministep"></div>
+        </div></div>
+
+        <div id="pd-blocks"></div>
+      </div>
+
     </div>
 
   </div>
@@ -831,12 +1112,16 @@ function gasCallBatch(calls){
   if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.indexOf('TEMPEL_URL_WEB_APP') !== -1) {
     return Promise.reject(new Error('GAS_WEB_APP_URL belum diisi.'));
   }
+  var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timeoutId = controller ? setTimeout(function(){ controller.abort(); }, 45000) : null;
   return fetch(GAS_WEB_APP_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ calls: calls })
+    body: JSON.stringify({ calls: calls }),
+    signal: controller ? controller.signal : undefined
   })
   .then(function(resp){
+    if (timeoutId) clearTimeout(timeoutId);
     if (!resp.ok) throw new Error('Server merespons HTTP ' + resp.status + '.');
     return resp.text();
   })
@@ -847,7 +1132,11 @@ function gasCallBatch(calls){
     if (!data || !data.success || !Array.isArray(data.results)) throw new Error((data && data.message) || 'Gagal memproses batch.');
     return data.results;
   })
-  .catch(function(err){ throw (err instanceof Error) ? err : new Error(String(err)); });
+  .catch(function(err){
+    if (timeoutId) clearTimeout(timeoutId);
+    if (err && err.name === 'AbortError') throw new Error('Waktu tunggu habis (45 detik) -- server tidak merespons. Coba lagi, atau periksa koneksi internet Anda.');
+    throw (err instanceof Error) ? err : new Error(String(err));
+  });
 }
 
 function _gasCallFetch(fnName){
@@ -855,6 +1144,14 @@ function _gasCallFetch(fnName){
   if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.indexOf('TEMPEL_URL_WEB_APP') !== -1) {
     return Promise.reject(new Error('GAS_WEB_APP_URL belum diisi. Deploy Code.gs sebagai Web App (Anyone), lalu tempel URL-nya di bagian atas index.html.'));
   }
+  // BATAS WAKTU eksplisit (45 detik) -- fetch() bawaan browser TIDAK punya
+  // timeout sama sekali; kalau server macet/lambat (mis. LockService lama
+  // menunggu giliran, atau koneksi terputus di tengah), permintaan bisa
+  // menggantung TANPA BATAS dan user cuma lihat spinner selamanya tanpa
+  // pesan apa pun. AbortController di sini memastikan selalu ada kepastian
+  // (berhasil, gagal jelas, ATAU "waktu tunggu habis" -- tidak pernah diam).
+  var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timeoutId = controller ? setTimeout(function(){ controller.abort(); }, 45000) : null;
   // Content-Type SENGAJA 'text/plain;charset=utf-8' (bukan application/json)
   // supaya browser mengirim permintaan ini sebagai "simple request" dan
   // TIDAK melakukan preflight OPTIONS lebih dulu — Apps Script Web App
@@ -864,9 +1161,11 @@ function _gasCallFetch(fnName){
   return fetch(GAS_WEB_APP_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ fn: fnName, args: args })
+    body: JSON.stringify({ fn: fnName, args: args }),
+    signal: controller ? controller.signal : undefined
   })
   .then(function(resp){
+    if (timeoutId) clearTimeout(timeoutId);
     if (!resp.ok) throw new Error('Server merespons HTTP ' + resp.status + '.');
     return resp.text();
   })
@@ -875,6 +1174,8 @@ function _gasCallFetch(fnName){
     catch (eParse) { throw new Error('Respons server tidak valid (bukan JSON) — pastikan GAS_WEB_APP_URL benar & deployment "Anyone".'); }
   })
   .catch(function(err){
+    if (timeoutId) clearTimeout(timeoutId);
+    if (err && err.name === 'AbortError') throw new Error('Waktu tunggu habis (45 detik) -- server tidak merespons. Coba lagi, atau periksa koneksi internet Anda.');
     throw (err instanceof Error) ? err : new Error(String(err));
   });
 }
@@ -895,6 +1196,9 @@ function gasCall(fnName){
 }
 function _gasCallDenganRetry(fnName, args, percobaan){
   return _gasCallFetch.apply(null, [fnName].concat(args)).then(function(res){
+    if(res === null || res === undefined){
+      return { success:false, message:'Server tidak mengembalikan respons ("'+fnName+'"). Coba muat ulang halaman -- kalau masih terjadi, kemungkinan ada perubahan kode yang belum ter-deploy ulang.' };
+    }
     if(res && res.success === false && res.message === LOCK_BUSY_MSG && percobaan < 3){
       return new Promise(function(r){ setTimeout(r, 700 * (percobaan + 1)); })
         .then(function(){ return _gasCallDenganRetry(fnName, args, percobaan + 1); });
@@ -1026,6 +1330,7 @@ function afterLogin(){
   var _navLabelPesanAwal = document.getElementById('nav-label-pesan');
   if(_navLabelPesanAwal) _navLabelPesanAwal.textContent = 'Pesan';
   muatBadgePesan();
+  muatBadgePengajuan();
 
   // 1) Tampilkan dulu dari cache lokal kalau ada (instan, tanpa spinner)
   var cachedInit = lsGet('init_' + STATE.username);
@@ -1065,6 +1370,7 @@ function afterLogin(){
     window._srgAutoRefresh = setInterval(function(){
       if(!STATE.token) return;
       muatBadgePesan();
+      muatBadgePengajuan();
       var av = document.querySelector('.nav-item.active');
       if(!av) return;
       refreshViewSilently(av.dataset.view);
@@ -1081,6 +1387,10 @@ function refreshViewSilently(name){
   else if(name==='unit') loadUnitPos();
   else if(name==='user') loadUserView();
   else if(name==='log') loadLogView();
+  else if(name==='pengajuan'){
+    var subDaftar = document.getElementById('pd-sub-daftar');
+    if(subDaftar && !subDaftar.classList.contains('d-none')){ pdMuatRingkasan(); pdMuatDaftar(); }
+  }
 }
 
 // ============================================================
@@ -1135,24 +1445,34 @@ function onGantiTahunGlobal(){
 // NAVIGASI VIEW
 // ============================================================
 function gotoView(name){
+  // "pengajuanform" itu highlight KHUSUS utk tombol "Ajukan Pencairan Dana"
+  // (biar sidebar-nya menyorot tombol yg BENAR-BENAR diklik, bukan ikut ke
+  // "Daftar Pengajuan") -- tapi keduanya sama-sama menampilkan div yang SAMA.
+  var namaKonten = (name === 'pengajuanform') ? 'pengajuan' : name;
   document.querySelectorAll('.view').forEach(function(v){ v.classList.add('d-none'); });
-  document.getElementById('view-' + name).classList.remove('d-none');
+  document.getElementById('view-' + namaKonten).classList.remove('d-none');
   document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.toggle('active', n.dataset.view===name); });
   document.getElementById('sidebar').classList.remove('open');
-  if(name==='dashboard') loadDashboard();
-  if(name==='input') initInputView();
-  if(name==='verifikasi') loadViewVerifikasi();
-  if(name==='pesan') loadViewPesan();
-  if(name==='laporanunit') loadLaporanUnit();
-  if(name==='rekkoran') initBulanSelect('sel-bulan-rekkoran', loadRekapRekeningKoran);
-  if(name==='pos') renderPosUnitSayaForm();
-  if(name==='konsolidasi') initBulanSelect('sel-bulan-konsolidasi', loadKonsolidasi);
-  if(name==='unit') loadUnitPos();
-  if(name==='memorial') initMemorialView();
-  if(name==='user') loadUserView();
-  if(name==='tahun') loadTahunView();
-  if(name==='setup') loadSetupView();
-  if(name==='log') loadLogView();
+  if(namaKonten==='dashboard') loadDashboard();
+  if(namaKonten==='input') initInputView();
+  if(namaKonten==='verifikasi') loadViewVerifikasi();
+  if(namaKonten==='pesan') loadViewPesan();
+  if(namaKonten==='laporanunit') loadLaporanUnit();
+  if(namaKonten==='rekkoran') initBulanSelect('sel-bulan-rekkoran', loadRekapRekeningKoran);
+  if(namaKonten==='pos') renderPosUnitSayaForm();
+  if(namaKonten==='konsolidasi') initBulanSelect('sel-bulan-konsolidasi', loadKonsolidasi);
+  if(namaKonten==='unit') loadUnitPos();
+  if(namaKonten==='memorial') initMemorialView();
+  if(namaKonten==='user') loadUserView();
+  if(namaKonten==='tahun') loadTahunView();
+  if(namaKonten==='setup') loadSetupView();
+  if(namaKonten==='log') loadLogView();
+  if(namaKonten==='pengajuan'){
+    PD.kategori = 'SEMUA';
+    PD.halaman = 1;
+    loadPengajuanDana();
+    if(name==='pengajuanform') pdSub('form');
+  }
 }
 var BULAN_NAMA = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 function initBulanSelect(id, onChangeFn){
@@ -1171,19 +1491,58 @@ var chartTahun = null;
 // Dashboard di-cache per tahun di memori -- kalau tahun yang sama sudah
 // pernah dimuat di sesi ini, tampil instan dari cache, lalu refresh diam-diam.
 var _dashboardCache = {}; // tahun -> res mentah dari getRingkasanTahun
+var _dashboardDataTahun = null;
+var _dashboardDataPengajuan = null;
 function loadDashboard(){
   document.getElementById('db-tahun-label').textContent = STATE.tahunAktif || '-';
   var cached = _dashboardCache[STATE.tahunAktif];
-  if(cached){ _renderDashboard(cached); } else { showBar(); }
+  if(cached){ _dashboardDataTahun = cached; _renderKartuDashboard(); _renderGrafikDashboard(cached); } else { showBar(); }
   gasCall('getRingkasanTahun', STATE.tahunAktif, STATE.token).then(function(res){
     if(!cached) hideBar();
     if(!res.success){ if(!cached) toast('error', res.message); return; }
     _dashboardCache[STATE.tahunAktif] = res;
-    _renderDashboard(res);
+    _dashboardDataTahun = res;
+    _renderKartuDashboard();
+    _renderGrafikDashboard(res);
   }).catch(function(){ if(!cached){ hideBar(); toast('error','Gagal memuat dashboard'); } });
+  // Data Pengajuan Dana dimuat TERPISAH & PARALEL (tidak saling menunggu
+  // dgn data transaksi) -- _renderKartuDashboard() dipanggil ulang di
+  // KEDUA jalur (data transaksi & data pengajuan), selalu MEMBANGUN ULANG
+  // daftar kartu LENGKAP dari kedua sumber (bukan menambah/menimpa
+  // sebagian) -- jadi urutan mana yang selesai duluan tidak masalah, tidak
+  // ada kartu yang hilang tertimpa gara-gara race condition.
+  gasCall('getRingkasanPengajuan', STATE.token).then(function(res){
+    if(res && res.success) _dashboardDataPengajuan = res;
+    _renderKartuDashboard();
+  }).catch(function(){});
+  _muatBannerPengajuanDashboard();
 }
-function _renderDashboard(res){
-  var data = res.data;
+// Highlight modul Pengajuan Dana di Dashboard utama -- CUMA muncul kalau
+// ada sesuatu yg perlu perhatian (perlu revisi / menunggu diproses), biar
+// tidak jadi banner kosong yang tidak penting kalau memang tidak ada apa-apa.
+function _muatBannerPengajuanDashboard(){
+  gasCall('getRingkasanPengajuan', STATE.token).then(function(res){
+    var el = document.getElementById('db-pengajuan-banner');
+    if(!el) return;
+    if(!res || !res.success){ el.innerHTML = ''; return; }
+    var bagian = [];
+    if(res.jumlahPerluRevisi > 0) bagian.push('<div class="d-flex align-items-center gap-2"><i class="fas fa-rotate-left" style="color:#d97706;"></i><b>'+res.jumlahPerluRevisi+'</b>&nbsp;perlu direvisi</div>');
+    if(res.jumlahBaru > 0) bagian.push('<div class="d-flex align-items-center gap-2"><i class="fas fa-hourglass-half" style="color:#800000;"></i><b>'+res.jumlahBaru+'</b>&nbsp;menunggu diproses</div>');
+    if(!bagian.length){ el.innerHTML = ''; return; }
+    el.innerHTML = '<div class="card mb-3" style="border-left:4px solid #800000;cursor:pointer;" onclick="gotoView(\'pengajuan\')">'
+      + '<div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">'
+      + '<div><div class="fw-bold mb-1"><i class="fas fa-hand-holding-dollar me-2" style="color:#800000;"></i>Pengajuan Dana</div>'
+      + '<div class="d-flex gap-4 flex-wrap small">'+bagian.join('')+'</div></div>'
+      + '<span class="btn btn-sm" style="background:var(--maroon);color:#fff;">Lihat Selengkapnya <i class="fas fa-arrow-right ms-1"></i></span>'
+      + '</div></div>';
+  }).catch(function(){ var el = document.getElementById('db-pengajuan-banner'); if(el) el.innerHTML = ''; });
+}
+// Membangun ULANG daftar kartu LENGKAP dari data yang SUDAH ADA saat ini
+// (transaksi + pengajuan, kalau sudah tiba masing2) -- dipanggil dari 2
+// jalur fetch yang berjalan paralel, aman dipanggil berkali-kali.
+function _renderKartuDashboard(){
+  if(!_dashboardDataTahun) return; // data transaksi (utama) belum ada -- tunggu, kartu pengajuan sendirian tidak cukup utk render awal
+  var data = _dashboardDataTahun.data;
   var totDebet=0, totKredit=0, totTrx=0;
   data.forEach(function(b){ totDebet+=b.debet; totKredit+=b.kredit; totTrx+=b.jumlahTransaksi; });
   var akhiran = STATE.role==='ADMIN' ? '' : ' — Pos Anda';
@@ -1192,10 +1551,23 @@ function _renderDashboard(res){
     statCard('fa-arrow-down','#dc2626', 'Total Debet (uang keluar)'+akhiran, 'Rp '+fmtRp(totDebet)),
     statCard('fa-list','#800000', 'Jumlah Transaksi'+akhiran, totTrx)
   ];
-  if(res.jumlahBelumVerifikasi > 0){
-    cards.push(statCard('fa-question-circle','#d97706', 'Belum Diverifikasi (semua unit)', res.jumlahBelumVerifikasi, "gotoView('verifikasi')"));
+  if(_dashboardDataTahun.jumlahBelumVerifikasi > 0){
+    cards.push(statCard('fa-question-circle','#d97706', 'Belum Diverifikasi (semua unit)', _dashboardDataTahun.jumlahBelumVerifikasi, "gotoView('verifikasi')"));
+  }
+  // Kartu Pengajuan Dana -- PERSIS SAMA dengan 4 kartu ringkasan yang ada
+  // di dalam halaman Pengajuan Dana sendiri (Baru/Proses/Selesai/Total),
+  // termasuk ikon & warnanya, supaya konsisten & langsung bisa diklik dari
+  // Dashboard utama tanpa perlu masuk dulu ke menunya.
+  if(_dashboardDataPengajuan){
+    cards.push(statCard('fa-hourglass-half','#d97706', 'Pengajuan Baru', _dashboardDataPengajuan.jumlahBaru, "pdBukaKategori('BARU')"));
+    cards.push(statCard('fa-arrows-rotate','#5b21b6', 'Pengajuan Proses', _dashboardDataPengajuan.jumlahProses, "pdBukaKategori('PROSES')"));
+    cards.push(statCard('fa-circle-check','#166534', 'Pengajuan Selesai', _dashboardDataPengajuan.jumlahSelesai, "pdBukaKategori('SELESAI')"));
+    cards.push(statCard('fa-coins','#800000', 'Total Pengajuan Th. Ini', 'Rp '+fmtRp(_dashboardDataPengajuan.totalTahunIni), "gotoView('pengajuan')"));
   }
   document.getElementById('db-stat-cards').innerHTML = cards.join('');
+}
+function _renderGrafikDashboard(res){
+  var data = res.data;
   var ctx = document.getElementById('chart-tahun').getContext('2d');
   if(chartTahun) chartTahun.destroy();
   // PERBAIKAN KONSISTENSI FONT: seluruh UI aplikasi pakai 'Segoe UI', tapi
@@ -2655,6 +3027,15 @@ function muatBadgePesan(){
     else el.classList.add('d-none');
   });
 }
+function muatBadgePengajuan(){
+  gasCall('getJumlahPengajuanPerluPerhatian', STATE.token).then(function(res){
+    if(!res.success) return;
+    var el = document.getElementById('pengajuan-badge');
+    if(!el) return;
+    if(res.jumlah > 0){ el.textContent = res.jumlah > 99 ? '99+' : res.jumlah; el.classList.remove('d-none'); }
+    else el.classList.add('d-none');
+  }).catch(function(){});
+}
 
 function bukaImportExcel(){
   if(!STATE_posAktif){ toast('error','Pilih Unit & Pos dahulu di form atas'); return; }
@@ -3667,6 +4048,67 @@ function hapusKategoriTambahan(kode){
   });
 }
 
+// ── KOMPONEN ANGGARAN (Pengajuan Dana) -- dikelola di Pengaturan, dipakai
+// sbg dropdown "Nama Komponen" di RAB & Realisasi modul Pengajuan Dana ──
+var _komponenAnggaranData = [];
+function loadKomponenAnggaranSetup(){
+  var tbody = document.getElementById('tbody-komponen-anggaran');
+  if(!tbody) return;
+  gasCall('getKomponenAnggaranList', STATE.token).then(function(res){
+    if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat Komponen Anggaran'); return; }
+    _komponenAnggaranData = res.data;
+    PD.komponenList = res.data;
+    renderKomponenAnggaranTable();
+  }).catch(function(err){ toast('error', (err && err.message) || 'Gagal memuat Komponen Anggaran'); });
+}
+function renderKomponenAnggaranTable(){
+  document.getElementById('tbody-komponen-anggaran').innerHTML = _komponenAnggaranData.map(function(k){
+    return '<tr><td>'+esc(k.namaKomponen)+'</td>'
+      + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick=\'bukaEditKomponenAnggaran("'+k.kodeKomponen+'")\'><i class="fas fa-edit"></i></button>'
+      + '<button class="btn btn-sm btn-outline-danger" onclick="hapusKomponenAnggaranSetup(\''+k.kodeKomponen+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+  }).join('') || '<tr><td colspan="2" class="text-center text-muted">Belum ada komponen</td></tr>';
+}
+function submitKomponenAnggaranBaru(e){
+  e.preventDefault();
+  var nama = document.getElementById('ka-nama').value.trim();
+  if(!nama){ toast('error','Nama komponen wajib diisi'); return; }
+  var btn = e.target.querySelector('button');
+  btnBusy(btn, true);
+  gasCall('saveKomponenAnggaran', {namaKomponen:nama}, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Komponen "'+nama+'" ditambahkan'); document.getElementById('ka-nama').value=''; loadKomponenAnggaranSetup();
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal menyimpan'); });
+}
+function bukaEditKomponenAnggaran(kode){
+  var k = _komponenAnggaranData.filter(function(x){ return x.kodeKomponen===kode; })[0];
+  if(!k) return;
+  Swal.fire({
+    title:'Edit Komponen', html:'<input id="sw-nama-komponen" class="swal2-input" value="'+esc(k.namaKomponen)+'">',
+    confirmButtonText:'Simpan', confirmButtonColor:'#800000', showCancelButton:true,
+    preConfirm:function(){
+      var nama = document.getElementById('sw-nama-komponen').value.trim();
+      if(!nama){ Swal.showValidationMessage('Nama komponen wajib diisi'); return false; }
+      return nama;
+    }
+  }).then(function(res){
+    if(!res.isConfirmed) return;
+    gasCall('saveKomponenAnggaran', {kodeKomponen:kode, namaKomponen:res.value}, STATE.token).then(function(r){
+      if(!r || !r.success){ toast('error', r.message); return; }
+      toast('success','Komponen diperbarui'); loadKomponenAnggaranSetup();
+    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menyimpan'); });
+  });
+}
+function hapusKomponenAnggaranSetup(kode){
+  Swal.fire({ title:'Hapus komponen ini?', text:'Komponen yang sudah pernah dipakai di pengajuan lama tetap tersimpan di riwayat, cuma tidak muncul lagi di pilihan baru.', icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Hapus', confirmButtonColor:'#dc2626' }).then(function(r){
+    if(!r.isConfirmed) return;
+    gasCall('hapusKomponenAnggaran', kode, STATE.token).then(function(res){
+      if(!res || !res.success){ toast('error', res.message); return; }
+      toast('success','Komponen dihapus'); loadKomponenAnggaranSetup();
+    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menghapus'); });
+  });
+}
+
 // ============================================================
 // KELOLA USER (ADMIN)
 // ============================================================
@@ -3795,6 +4237,7 @@ function loadSetupView(){
   });
   renderDaftarKecualikanMemorial();
   renderDaftarSelaluPisahMemorial();
+  loadKomponenAnggaranSetup();
 }
 function toggleStPengingat(chk){
   var label = document.getElementById('st-pengingat-label');
@@ -4277,7 +4720,7 @@ function bukaFormMemorialTambahan(id){
     gasCall('saveMemorialTambahan', STATE.tahunAktif, res.value, STATE.token).then(function(r){
       if(!r.success){ toast('error', r.message); return; }
       toast('success','Memorial Tambahan/Koreksi tersimpan'); loadJurnalMemorial();
-    }).catch(function(){ toast('error','Gagal menyimpan'); });
+    }).catch(function(err){ toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
   });
 }
 function hapusMemorialTambahanUI(id){
@@ -4287,7 +4730,7 @@ function hapusMemorialTambahanUI(id){
     gasCall('hapusMemorialTambahan', STATE.tahunAktif, bulan, id, STATE.token).then(function(res){
       if(!res.success){ toast('error', res.message); return; }
       toast('success','Dihapus'); loadJurnalMemorial();
-    }).catch(function(){ toast('error','Gagal menghapus'); });
+    }).catch(function(err){ toast('error', (err && err.message) ? err.message : 'Gagal menghapus'); });
   });
 }
 
@@ -4426,7 +4869,7 @@ function cetakJurnalMemorial(){
 }
 
 // ============================================================
-// LAPORAN UNIT — datanya dari SIMK (lewat backend Sirekap Giro yang jadi
+// LAPORAN UNIT — datanya dari SIMK (lewat backend SIKU LPPM USD yang jadi
 // jembatan, lihat getLaporanUnitSimk di Code.gs). Tampilan & format cetak
 // SENGAJA dibuat SEPERSIS MUNGKIN dengan aslinya di SIMK (2 kolom Pemasukan
 // | Pengeluaran, ringkasan Saldo Awal/(+)Pemasukan/(-)Pengeluaran/
@@ -4476,19 +4919,7 @@ function _luPeriode(){
   return { dari:ym, sampai:ym, label:BULAN_NAMA[bulan-1] + ' ' + STATE.tahunAktif };
 }
 function loadLaporanUnitIsi(kodeUnitUnit){
-  // PERBAIKAN: sebelumnya fallback-nya selalu baca .value dari dropdown
-  // "#lu-pilih-unit" -- tapi dropdown itu HANYA diisi <option> kalau role
-  // ADMIN (lihat loadLaporanUnit di atas). Untuk role non-admin (Unit),
-  // dropdown itu selalu kosong -> .value selalu '' -> setiap kali Unit user
-  // ganti pilihan bulan (onchange cuma panggil loadLaporanUnitIsi() tanpa
-  // argumen), fungsi ini langsung berhenti diam-diam ("if(!kodeUnit)
-  // return;") tanpa data apa pun tampil -- makanya kelihatan kayak "tidak
-  // bisa lihat bulan lain". Sekarang fallback-nya sama seperti yang sudah
-  // dipakai di fungsi cetak (lihat cetakLaporanUnit): ADMIN baca dropdown,
-  // non-admin ambil dari STATE.myUnits (Unit yang jadi miliknya).
-  var kodeUnit = kodeUnitUnit || (STATE.role==='ADMIN'
-    ? (document.getElementById('lu-pilih-unit') ? document.getElementById('lu-pilih-unit').value : '')
-    : ((STATE.myUnits||[])[0]||{}).kodeUnit);
+  var kodeUnit = kodeUnitUnit || (document.getElementById('lu-pilih-unit') ? document.getElementById('lu-pilih-unit').value : '');
   if(!kodeUnit) return;
   var bulan = document.getElementById('lu-pilih-bulan').value;
   var periode = _luPeriode();
@@ -4687,6 +5118,999 @@ function loadLogView(){
     afterLogin();
   }).catch(function(){ hideLoading(); ssRemove('token'); });
 })();
+
+// ============================================================
+// MODUL: PENGAJUAN DANA & LPJ
+// 3 jenis: MUKA (Permohonan Dana Kegiatan, 5 tahap), SEKALIGUS (Penggantian
+// Biaya/Reimbursement, 3 tahap), TAGIHAN (Permintaan Pembayaran Tagihan, 3
+// tahap, bukti bayar diunggah ADMIN bukan Unit). Lihat komentar di Code.gs
+// bagian "MODUL: PENGAJUAN DANA & LPJ" untuk penjelasan skema & status.
+// ============================================================
+var PD = {
+  daftar:[], ringkasan:null, filterStatus:'SEMUA', filterUnit:'SEMUA',
+  kategori:'SEMUA', halaman:1, ukuranHalaman:25,
+  jenisForm:'MUKA',
+  rab:[{namaKomponen:'',keterangan:'',nominal:0}],
+  suratFile:null,
+  realisasiSekaligus:[{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}],
+  lpjFileSekaligus:null,
+  tagihanJudul:'', tagihanKepada:'', tagihanNominal:0, memoFileTagihan:null,
+  detail:null,
+  realisasiEdit:[], lpjFileEdit:null, buktiBayarFile:null,
+  komponenList:[], // master data "Nama Komponen" (dropdown RAB & Realisasi), dimuat sekali per sesi
+  komponenTerbatasRealisasi:null // kalau diisi (array nama), dropdown Realisasi HANYA boleh pilih dari sini (akuntabel thd RAB) -- null = tidak dibatasi
+};
+var PD_TAHAP_LABEL_MUKA = ['Pengajuan','Persetujuan','Pencairan','Realisasi & LPJ','Verifikasi'];
+var PD_TAHAP_LABEL_SEKALIGUS = ['Pengajuan & LPJ','Verifikasi Admin','Selesai'];
+var PD_TAHAP_LABEL_TAGIHAN = ['Pengajuan Tagihan','Verifikasi & Pembayaran','Selesai'];
+
+// Pemuat terpusat utk daftar Komponen Anggaran -- dipakai di SEMUA titik yang
+// menampilkan dropdown "Nama Komponen" (form Ajukan Baru, & saat tahap
+// revisi dibuka lagi di halaman Detail), supaya tidak ada lagi celah waktu
+// yang bikin dropdown-nya kosong (sebelumnya cuma dimuat 1x di loadPengajuanDana
+// dan render tabel yang lebih dulu jalan tidak pernah digambar ulang).
+function pdPastikanKomponenList(callback){
+  if(PD.komponenList.length){ callback(); return; }
+  gasCall('getKomponenAnggaranList', STATE.token).then(function(res){
+    if(res && res.success) PD.komponenList = res.data;
+    else toast('error', (res && res.message) || 'Gagal memuat daftar Komponen Anggaran');
+    callback();
+  }).catch(function(err){ toast('error', (err && err.message) || 'Gagal memuat daftar Komponen Anggaran'); callback(); });
+}
+function loadPengajuanDana(){
+  pdMuatRingkasan();
+  pdMuatDaftar();
+  pdSub('daftar');
+  pdPastikanKomponenList(function(){ pdRenderTabelRab(); pdRenderTabelRealisasiForm(); });
+  if(STATE.role==='ADMIN'){
+    var sel = document.getElementById('pd-filter-unit');
+    if(sel && sel.options.length<=1){
+      gasCall('getUnitPosList', STATE.token).then(function(res){
+        if(res.success) sel.innerHTML = '<option value="SEMUA">Semua Unit</option>' + res.units.map(function(u){ return '<option value="'+u.kodeUnit+'">'+esc(u.namaUnit)+'</option>'; }).join('');
+      }).catch(function(){});
+    }
+  }
+}
+// Kategori sekarang dipilih lewat tab DI DALAM halaman Daftar Pengajuan
+// (bukan dropdown sidebar lagi) -- lebih sederhana, tidak perlu navigasi
+// terpisah utk lihat "Proses"/"Selesai".
+// Dipakai kartu ringkasan (klik "Pengajuan Baru"/dst) -- pindah ke menu
+// Daftar Pengajuan lalu langsung aktifkan tab kategorinya.
+function pdBukaKategori(kat){
+  gotoView('pengajuan');
+  pdSetKategori(kat);
+}
+function pdSetKategori(kat){
+  PD.kategori = kat;
+  PD.halaman = 1;
+  document.querySelectorAll('#pd-kategori-tabs .pos-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.kat===kat); });
+  pdRenderDaftarTable();
+}
+var PD_KATEGORI_LABEL = { BARU:'Pengajuan Baru', PROSES:'Proses', SELESAI:'Selesai', SEMUA:'Semua' };
+var PD_KATEGORI_STATUS = {
+  BARU:['DIAJUKAN','MENUNGGU_VERIFIKASI'],
+  PROSES:['DISETUJUI','DICAIRKAN','PERLU_REVISI'],
+  SELESAI:['SELESAI','DITOLAK']
+};
+function pdDaftarTersaring(){
+  if(PD.kategori==='SEMUA') return PD.daftar;
+  var daftarStatus = PD_KATEGORI_STATUS[PD.kategori] || [];
+  return PD.daftar.filter(function(p){ return daftarStatus.indexOf(p.status)!==-1; });
+}
+function pdGantiHalaman(delta){
+  PD.halaman += delta;
+  pdRenderDaftarTable();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function pdGantiUkuranHalaman(sel){
+  PD.ukuranHalaman = Number(sel.value);
+  PD.halaman = 1;
+  pdRenderDaftarTable();
+}
+function pdMuatRingkasan(){
+  gasCall('getRingkasanPengajuan', STATE.token).then(function(res){
+    if(!res || !res.success) return;
+    PD.ringkasan = res;
+    document.getElementById('pd-r-baru').textContent = res.jumlahBaru;
+    document.getElementById('pd-r-proses').textContent = res.jumlahProses;
+    document.getElementById('pd-r-selesai').textContent = res.jumlahSelesai;
+    document.getElementById('pd-r-total').textContent = 'Rp ' + fmtRp(res.totalTahunIni);
+  }).catch(function(){});
+  muatBadgePengajuan(); // ikut disegarkan tiap kali ringkasan dimuat -- mencakup SEMUA titik aksi (setuju/tolak/revisi/verifikasi/dst) tanpa perlu ditambah satu-satu
+}
+function pdMuatDaftar(){
+  gasCall('getDaftarPengajuan', PD.filterStatus, PD.filterUnit, 'SEMUA', STATE.token).then(function(res){
+    if(!res || !res.success){ toast('error', res.message); return; }
+    PD.daftar = res.data;
+    pdRenderDaftarTable();
+  }).catch(function(err){ toast('error', (err && err.message) ? err.message : 'Gagal memuat daftar pengajuan'); });
+}
+function pdFilterUbah(){
+  PD.filterStatus = document.getElementById('pd-filter-status').value;
+  PD.filterUnit = document.getElementById('pd-filter-unit').value;
+  PD.halaman = 1;
+  pdMuatDaftar();
+}
+var PD_BADGE_STATUS = {
+  DIAJUKAN:['badge-pd-diajukan','Menunggu ACC'], DISETUJUI:['badge-pd-disetujui','Disetujui'],
+  DICAIRKAN:['badge-pd-dicairkan','Dicairkan'], MENUNGGU_VERIFIKASI:['badge-pd-menunggu-verifikasi','Menunggu Verifikasi'],
+  PERLU_REVISI:['badge-pd-perlu-revisi','Perlu Revisi'], SELESAI:['badge-pd-selesai','Selesai'], DITOLAK:['badge-pd-ditolak','Ditolak']
+};
+var PD_BADGE_JENIS = { MUKA:['#dbeafe','#1d4ed8','Dana Kegiatan'], SEKALIGUS:['#e0e7ff','#3730a3','Penggantian Biaya'], TAGIHAN:['#fef9c3','#854d0e','Tagihan'] };
+function pdRenderDaftarTable(){
+  try {
+    var tersaring = pdDaftarTersaring();
+    var totalBaris = tersaring.length;
+    var totalHalaman = Math.max(1, Math.ceil(totalBaris / PD.ukuranHalaman));
+    if(PD.halaman > totalHalaman) PD.halaman = totalHalaman;
+    if(PD.halaman < 1) PD.halaman = 1;
+    var mulai = (PD.halaman - 1) * PD.ukuranHalaman;
+    var potongan = tersaring.slice(mulai, mulai + PD.ukuranHalaman);
+
+    document.getElementById('pd-halaman-info').textContent = totalBaris
+      ? ('Baris ' + (mulai+1) + '\u2013' + Math.min(mulai+PD.ukuranHalaman, totalBaris) + ' dari ' + totalBaris)
+      : 'Tidak ada baris';
+    document.getElementById('pd-btn-prev').disabled = PD.halaman<=1;
+    document.getElementById('pd-btn-next').disabled = PD.halaman>=totalHalaman;
+
+    var tbody = document.getElementById('pd-tbody');
+    if(!potongan.length){ tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">'+(PD.kategori==='SEMUA'?'Belum ada pengajuan.':'Tidak ada pengajuan pada kategori "'+PD_KATEGORI_LABEL[PD.kategori]+'".')+'</td></tr>'; return; }
+    tbody.innerHTML = potongan.map(function(p){
+    var bj = PD_BADGE_JENIS[p.jenis] || ['#eee','#333',p.jenis];
+    var bs = PD_BADGE_STATUS[p.status] || ['badge-pd', p.status];
+    var tgl = p.tglPengajuan ? new Date(p.tglPengajuan).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-';
+    return '<tr>'
+      + '<td class="text-nowrap"><b>'+p.idPengajuan+'</b><br><span class="badge-pd" style="background:'+bj[0]+';color:'+bj[1]+';">'+bj[2]+'</span></td>'
+      + '<td>'+esc(p.judul)+(p.jumlahKomentar>0 ? ' <span class="text-muted small" title="Ada '+p.jumlahKomentar+' komentar"><i class="fas fa-comment-dots"></i> '+p.jumlahKomentar+'</span>' : '')+'</td><td>'+esc(p.diajukanOlehNama || p.diajukanOleh || p.kodeUnit)+'</td><td>'+tgl+'</td>'
+      + '<td class="text-end">Rp '+fmtRp(p.totalDiajukan)+'</td>'
+      + '<td><span class="badge-pd '+bs[0]+'">'+bs[1]+'</span></td>'
+      + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick="pdBukaDetail(\''+p.idPengajuan+'\', this)" title="Lihat Detail"><i class="fas fa-list"></i></button>'
+      + '<button class="btn btn-sm btn-outline-danger admin-only'+(STATE.role==='ADMIN'?'':' d-none')+'" onclick="pdAksiHapus(\''+p.idPengajuan+'\',\''+esc(p.judul)+'\', this)" title="Hapus Pengajuan"><i class="fas fa-trash"></i></button></td>'
+      + '</tr>';
+    }).join('');
+  } catch (eRender) {
+    toast('error', 'Gagal menampilkan daftar: ' + (eRender && eRender.message ? eRender.message : String(eRender)));
+  }
+}
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ============================================================
+// SUB-PANEL (daftar / form / detail) di dalam 1 view yang sama
+// ============================================================
+function pdSub(nama){
+  ['daftar','form','detail'].forEach(function(s){ document.getElementById('pd-sub-'+s).classList.toggle('d-none', s!==nama); });
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function pdBukaFormBaru(){ pdResetForm(); gotoView('pengajuanform'); }
+function pdResetForm(){
+  PD.jenisForm = 'MUKA';
+  PD.rab = [{namaKomponen:'',keterangan:'',nominal:0}]; PD.suratFile = null;
+  PD.realisasiSekaligus = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.lpjFileSekaligus = null;
+  PD.tagihanJudul=''; PD.tagihanKepada=''; PD.tagihanNominal=0; PD.memoFileTagihan = null;
+  document.querySelectorAll('#pd-jenis-toggle .pos-tab').forEach(function(el){ el.classList.toggle('active', el.dataset.jenis==='muka'); });
+  document.getElementById('pd-panel-jenis-muka').classList.remove('d-none');
+  document.getElementById('pd-panel-jenis-sekaligus').classList.add('d-none');
+  document.getElementById('pd-panel-jenis-tagihan').classList.add('d-none');
+  document.getElementById('pd-judul-muka').value = '';
+  document.getElementById('pd-tgl-muka').value = new Date().toISOString().slice(0,10);
+  document.getElementById('pd-judul-sekaligus').value = '';
+  document.getElementById('pd-tgl-sekaligus').value = new Date().toISOString().slice(0,10);
+  document.getElementById('pd-judul-tagihan').value = '';
+  document.getElementById('pd-kepada-tagihan').value = '';
+  document.getElementById('pd-nominal-tagihan').value = '';
+  pdRenderTabelRab(); pdRenderTabelRealisasiForm();
+  pdRenderDropzone('pd-drop-surat', null); pdRenderDropzone('pd-drop-lpj-sekaligus', null); pdRenderDropzone('pd-drop-memo-tagihan', null);
+}
+function pdJenisPengajuan(v){
+  PD.jenisForm = v;
+  document.querySelectorAll('#pd-jenis-toggle .pos-tab').forEach(function(el){ el.classList.toggle('active', el.dataset.jenis===v); });
+  document.getElementById('pd-panel-jenis-muka').classList.toggle('d-none', v!=='muka');
+  document.getElementById('pd-panel-jenis-sekaligus').classList.toggle('d-none', v!=='sekaligus');
+  document.getElementById('pd-panel-jenis-tagihan').classList.toggle('d-none', v!=='tagihan');
+}
+
+// ============================================================
+// FORM: baris RAB (jenis MUKA) & Realisasi (jenis SEKALIGUS / revisi LPJ)
+// -- pola generik: array of object di PD, di-render ulang setiap ada
+// perubahan (tambah/hapus/edit baris), konsisten dgn gaya sistem ini.
+// ============================================================
+// Opsi <option> utk dropdown "Nama Komponen" -- kalau nilai yang sedang
+// tersimpan TIDAK ada di master list (mis. data lama sebelum fitur ini
+// ada), tetap disisipkan di paling atas supaya tidak hilang/kosong.
+function pdOpsiKomponen(namaTerpilih, daftarNamaTerbatas){
+  // Kalau daftarNamaTerbatas diisi (array nama komponen dari RAB), dropdown
+  // HANYA menampilkan nama-nama itu -- supaya Realisasi tidak bisa memilih
+  // komponen yang tidak pernah dianggarkan (akuntabel). Diambil LANGSUNG
+  // dari nama di RAB (bukan hasil filter master list) supaya tetap benar
+  // walau master Komponen Anggaran belakangan diedit/dihapus.
+  var namaOpsi = daftarNamaTerbatas
+    ? daftarNamaTerbatas.filter(function(n,i){ return n && daftarNamaTerbatas.indexOf(n)===i; })
+    : PD.komponenList.map(function(k){ return k.namaKomponen; });
+  var ada = namaOpsi.indexOf(namaTerpilih) !== -1;
+  var html = '<option value="">-- pilih komponen --</option>';
+  if(namaTerpilih && !ada) html += '<option value="'+esc(namaTerpilih)+'" selected>'+esc(namaTerpilih)+' (lama)</option>';
+  html += namaOpsi.map(function(n){ return '<option value="'+esc(n)+'"'+(n===namaTerpilih?' selected':'')+'>'+esc(n)+'</option>'; }).join('');
+  return html;
+}
+// Catatan: pengelolaan Komponen Anggaran (tambah/edit/hapus) sekarang ada di
+// menu Pengaturan (lihat loadKomponenAnggaranSetup dkk), BUKAN di sini lagi.
+function pdTambahBarisRab(){ PD.rab.push({namaKomponen:'',keterangan:'',nominal:0}); pdRenderTabelRab(); }
+function pdHapusBarisRab(i){ PD.rab.splice(i,1); if(!PD.rab.length) PD.rab.push({namaKomponen:'',keterangan:'',nominal:0}); pdRenderTabelRab(); }
+function pdUbahRab(i, field, val){ PD.rab[i][field] = (field==='nominal') ? angkaKeAngka(val) : val; pdRenderTotalRab(); }
+function pdRenderTotalRab(){
+  var total = PD.rab.reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
+  var diDetail = !document.getElementById('pd-sub-detail').classList.contains('d-none');
+  var el = document.getElementById(diDetail ? 'pd-total-rab-revisi' : 'pd-total-rab');
+  if(el) el.textContent = 'Rp ' + fmtRp(total);
+}
+function pdRenderTabelRab(){
+  // ID tbody-nya BEDA tergantung konteks: form "Ajukan Baru" (pd-tbody-rab)
+  // vs blok "1. Pengajuan Dana" yang dibuka lagi di halaman Detail saat
+  // revisi (pd-tbody-rab-revisi) -- keduanya BISA sama-sama ada di DOM
+  // (yang satu disembunyikan lewat d-none, bukan dihapus), jadi harus
+  // ditentukan lewat sub-panel mana yang BENAR-BENAR sedang terlihat,
+  // bukan asal getElementById (dulu ini bug: selalu kena elemen form
+  // Ajukan Baru yang tersembunyi, blok revisi keliatan kosong).
+  var diDetail = !document.getElementById('pd-sub-detail').classList.contains('d-none');
+  var body = document.getElementById(diDetail ? 'pd-tbody-rab-revisi' : 'pd-tbody-rab');
+  if(!body) return;
+  body.innerHTML = PD.rab.map(function(r,i){
+    return '<tr><td><select class="form-select form-select-sm" onchange="pdUbahRab('+i+',\'namaKomponen\',this.value)">'+pdOpsiKomponen(r.namaKomponen)+'</select></td>'
+      + '<td><input class="form-control form-control-sm" value="'+esc(r.keterangan)+'" placeholder="mis. 2 orang x Rp 1.500.000" oninput="pdUbahRab('+i+',\'keterangan\',this.value)"></td>'
+      + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRab('+i+',\'nominal\',this.value)"></td>'
+      + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisRab('+i+')"><i class="fas fa-trash"></i></button></td></tr>';
+  }).join('');
+  pdRenderTotalRab();
+}
+
+function pdTambahBarisRealisasi(target){
+  PD[target].push({namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''});
+  pdRenderTabelRealisasi(target);
+}
+function pdHapusBarisRealisasi(target, i){
+  PD[target].splice(i,1);
+  if(!PD[target].length) PD[target].push({namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''});
+  pdRenderTabelRealisasi(target);
+}
+function pdUbahRealisasi(target, i, field, val){
+  PD[target][i][field] = (['nominal','pph21','pph23'].indexOf(field)!==-1) ? angkaKeAngka(val) : val;
+  pdRenderTotalRealisasi(target);
+}
+function pdRenderTotalRealisasi(target){
+  var el = document.getElementById('pd-total-'+target);
+  if(!el) return;
+  var rows = PD[target];
+  var total = rows.reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
+  el.textContent = 'Rp ' + fmtRp(total);
+}
+function pdBarisRealisasiHtml(target, r, i, prefix){
+  var daftarTerbatas = (target==='realisasiEdit') ? PD.komponenTerbatasRealisasi : null;
+  return '<tr><td><select class="form-select form-select-sm" onchange="pdUbahRealisasi(\''+target+'\','+i+',\'namaKomponen\',this.value)">'+pdOpsiKomponen(r.namaKomponen, daftarTerbatas)+'</select></td>'
+    + '<td><input class="form-control form-control-sm" value="'+esc(r.keterangan)+'" placeholder="Keterangan" oninput="pdUbahRealisasi(\''+target+'\','+i+',\'keterangan\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasi(\''+target+'\','+i+',\'nominal\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm text-end" value="'+(r.pph21?fmtRp(r.pph21):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasi(\''+target+'\','+i+',\'pph21\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm text-end" value="'+(r.pph23?fmtRp(r.pph23):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasi(\''+target+'\','+i+',\'pph23\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm" value="'+esc(r.noBukti)+'" placeholder="mis. BKM-001" oninput="pdUbahRealisasi(\''+target+'\','+i+',\'noBukti\',this.value)"></td>'
+    + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisRealisasi(\''+target+'\','+i+')"><i class="fas fa-trash"></i></button></td></tr>';
+}
+function pdRenderTabelRealisasiForm(){
+  var body = document.getElementById('pd-tbody-realisasi-sekaligus');
+  if(body){ body.innerHTML = PD.realisasiSekaligus.map(function(r,i){ return pdBarisRealisasiHtml('realisasiSekaligus', r, i); }).join(''); pdRenderTotalRealisasi('realisasiSekaligus'); }
+}
+function pdRenderTabelRealisasi(target){
+  var idMap = { realisasiSekaligus:'pd-tbody-realisasi-sekaligus', realisasiEdit:'pd-tbody-realisasi-edit' };
+  var body = document.getElementById(idMap[target]);
+  if(!body) return;
+  body.innerHTML = PD[target].map(function(r,i){ return pdBarisRealisasiHtml(target, r, i); }).join('');
+  pdRenderTotalRealisasi(target);
+}
+function pdTabelRealisasiReadonly(rows){
+  var totalNominal=0, totalPph21=0, totalPph23=0;
+  rows.forEach(function(r){ totalNominal+=Number(r.nominal)||0; totalPph21+=Number(r.pph21)||0; totalPph23+=Number(r.pph23)||0; });
+  return '<div class="table-responsive mb-2"><table class="table tbl mb-0">'
+    + '<thead><tr><th>Komponen</th><th>Keterangan</th><th class="text-end">Nominal</th><th class="text-end">PPh 21</th><th class="text-end">PPh 23</th><th>No. Bukti</th></tr></thead><tbody>'
+    + rows.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td class="text-muted">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td><td class="text-end">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="text-end">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td class="text-muted">'+esc(r.noBukti)+'</td></tr>'; }).join('')
+    + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(totalNominal)+'</td><td class="text-end">Rp '+fmtRp(totalPph21)+'</td><td class="text-end">Rp '+fmtRp(totalPph23)+'</td><td></td></tr></tfoot>'
+    + '</table></div>';
+}
+function pdTabelRabReadonly(rows){
+  var total = rows.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
+  return '<div class="table-responsive"><table class="table tbl mb-0">'
+    + '<thead><tr><th>Komponen Anggaran</th><th>Keterangan</th><th class="text-end">Nominal</th></tr></thead><tbody>'
+    + rows.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td class="text-muted">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td></tr>'; }).join('')
+    + '</tbody><tfoot><tr><td colspan="2" class="text-end">Total Diajukan</td><td class="text-end">Rp '+fmtRp(total)+'</td></tr></tfoot></table></div>';
+}
+
+// ============================================================
+// UPLOAD FILE (PDF, base64, maks 10MB) -- validasi client-side dulu supaya
+// gagalnya cepat kelihatan, backend TETAP validasi ulang (jangan percaya
+// client sepenuhnya).
+// ============================================================
+var PD_FILE_MAKS = 10*1024*1024;
+function pdPilihFile(inputEl, targetKey){
+  var file = inputEl.files && inputEl.files[0];
+  if(!file) return;
+  if(!/\.pdf$/i.test(file.name)){ toast('error','File harus berformat PDF'); inputEl.value=''; return; }
+  if(file.size > PD_FILE_MAKS){ toast('error','Ukuran file maksimal 10MB'); inputEl.value=''; return; }
+  pdRenderDropzoneMemproses(inputEl.dataset.dropId); // tampilkan status "sedang diproses" SEGERA, sebelum file selesai dibaca
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var base64 = e.target.result.split(',')[1];
+    PD[targetKey] = { namaFile:file.name, base64:base64 };
+    pdRenderDropzone(inputEl.dataset.dropId, file.name);
+  };
+  reader.onerror = function(){
+    toast('error','Gagal membaca file, coba unggah ulang.');
+    pdRenderDropzone(inputEl.dataset.dropId, null);
+  };
+  reader.readAsDataURL(file);
+}
+function pdRenderDropzoneMemproses(dropId){
+  var el = document.getElementById(dropId);
+  if(!el) return;
+  el.classList.remove('pd-drop-ok');
+  el.querySelector('.pd-drop-text').innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Memproses file...';
+}
+function pdRenderDropzone(dropId, namaFile){
+  var el = document.getElementById(dropId);
+  if(!el) return;
+  if(namaFile){
+    el.classList.add('pd-drop-ok');
+    el.querySelector('.pd-drop-text').innerHTML = '<i class="fas fa-circle-check me-1"></i>'+esc(namaFile);
+  } else {
+    el.classList.remove('pd-drop-ok');
+    el.querySelector('.pd-drop-text').innerHTML = 'Klik atau seret file PDF ke sini';
+  }
+}
+
+// ============================================================
+// SUBMIT 3 JENIS
+// ============================================================
+function pdSubmitPermohonanDana(btn){
+  var judul = document.getElementById('pd-judul-muka').value.trim();
+  var tgl = document.getElementById('pd-tgl-muka').value;
+  var rab = PD.rab.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
+  if(!judul){ toast('error','Nama kegiatan wajib diisi'); return; }
+  if(!rab.length){ toast('error','RAB minimal 1 komponen dengan nominal > 0'); return; }
+  if(!PD.suratFile){ toast('error','Surat pengajuan (PDF) wajib diunggah'); return; }
+  btnBusy(btn, true);
+  var idKey = _idemKey('ajukan_muka', {judul:judul,tgl:tgl,rab:rab});
+  gasCall('ajukanPermohonanDanaKegiatan', {judul:judul, tglPengajuan:tgl, rab:rab, suratFile:PD.suratFile}, STATE.token, idKey).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
+    pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
+  }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
+}
+function pdSubmitPenggantianBiaya(btn){
+  var judul = document.getElementById('pd-judul-sekaligus').value.trim();
+  var tgl = document.getElementById('pd-tgl-sekaligus').value;
+  var realisasi = PD.realisasiSekaligus.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
+  if(!judul){ toast('error','Nama kegiatan/keperluan wajib diisi'); return; }
+  if(!realisasi.length){ toast('error','Rincian biaya minimal 1 komponen dengan nominal > 0'); return; }
+  if(!PD.lpjFileSekaligus){ toast('error','Bukti LPJ (PDF) wajib diunggah'); return; }
+  btnBusy(btn, true);
+  var idKey = _idemKey('ajukan_sekaligus', {judul:judul,tgl:tgl,realisasi:realisasi});
+  gasCall('ajukanPenggantianBiaya', {judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus}, STATE.token, idKey).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
+    pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
+  }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
+}
+function pdSubmitTagihan(btn){
+  var judul = document.getElementById('pd-judul-tagihan').value.trim();
+  var kepada = document.getElementById('pd-kepada-tagihan').value.trim();
+  var nominal = angkaKeAngka(document.getElementById('pd-nominal-tagihan').value);
+  if(!judul){ toast('error','Nama tagihan wajib diisi'); return; }
+  if(!kepada){ toast('error','Dibayarkan kepada wajib diisi'); return; }
+  if(!nominal){ toast('error','Nominal tagihan wajib diisi'); return; }
+  if(!PD.memoFileTagihan){ toast('error','Memo & invoice (PDF) wajib diunggah'); return; }
+  btnBusy(btn, true);
+  var idKey = _idemKey('ajukan_tagihan', {judul:judul,kepada:kepada,nominal:nominal});
+  gasCall('ajukanTagihan', {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan}, STATE.token, idKey).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Tagihan '+res.idPengajuan+' berhasil diajukan');
+    pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
+  }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengajukan tagihan'); });
+}
+
+// ============================================================
+// DETAIL -- mini-stepper (indikator posisi, mendatar, di paling atas) +
+// blok kartu (konten sebenarnya, disusun ke bawah sesuai urutan tahap).
+// Peran (Admin/Unit) diambil dari STATE.role SUNGGUHAN (bukan saklar
+// manual) -- backend tetap validasi ulang semua hak akses, ini cuma UI.
+// ============================================================
+function pdBukaDetail(idPengajuan, btn){
+  btnBusy(btn, true);
+  gasCall('getDetailPengajuan', idPengajuan, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    PD.detail = res;
+    pdRenderDetail(res);
+    pdSub('detail');
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal memuat detail pengajuan'); });
+}
+function pdRenderMinistep(labels, t, revisiTahap, ditolakTahap){
+  var total = labels.length;
+  var html = '';
+  for(var i=1;i<=total;i++){
+    var cls;
+    if(ditolakTahap){ cls = (i < ditolakTahap) ? 'done' : (i===ditolakTahap ? 'done' : ''); }
+    else if(revisiTahap && i===revisiTahap){ cls = 'revisi'; }
+    else { cls = i<t ? 'done' : (i===t ? 'active' : ''); }
+    html += '<div class="pd-ms-item '+cls+'">'
+      + '<div class="pd-ms-row"><div class="pd-ms-line"></div><div class="pd-ms-dot">'+(cls==='done'?'<i class="fas fa-check"></i>':(cls==='revisi'?'<i class="fas fa-rotate-left"></i>':i))+'</div><div class="pd-ms-line"></div></div>'
+      + '<div class="pd-ms-label">'+labels[i-1]+(revisiTahap&&i===revisiTahap?' (Revisi)':'')+(ditolakTahap&&i===ditolakTahap?' (Ditolak)':'')+'</div></div>';
+  }
+  return html;
+}
+function pdBlock(icon, judul, state, badgeHtml, bodyHtml){
+  return '<div class="pd-block '+state+'"><div class="card"><div class="card-body">'
+    + '<div class="pd-block-head"><div class="section-title"><i class="fas '+icon+'"></i>'+judul+'</div>'+(badgeHtml||'')+'</div>'
+    + bodyHtml + '</div></div></div>';
+}
+function pdLockedBody(teks){ return '<div class="pd-locked-note"><i class="fas fa-lock"></i>'+teks+'</div>'; }
+function pdCatatanTunggu(teks){ return '<div class="pd-locked-note" style="background:#f8fafc;border:1px solid #cbd5e1;"><i class="fas fa-hourglass-half"></i>'+teks+'</div>'; }
+function pdKomentarThreadHtml(idPengajuan, komentar){
+  var list = komentar.map(function(k){
+    var inisial = (k.namaUser||k.username||'?').trim().split(/\s+/).map(function(w){return w[0];}).join('').substring(0,2).toUpperCase();
+    var waktu = k.waktu ? new Date(k.waktu).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+    return '<div class="pd-cmt"><div class="pd-cmt-av">'+esc(inisial)+'</div><div><div class="pd-cmt-who">'+esc(k.namaUser||k.username)+' <span class="pd-cmt-time">'+waktu+'</span></div><div class="pd-cmt-txt">'+esc(k.teks)+'</div></div></div>';
+  }).join('');
+  return '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">DISKUSI / KOMENTAR</div>'+(list||'<div class="text-muted small">Belum ada komentar.</div>')
+    + '<div class="input-group input-group-sm mt-2"><input class="form-control" id="pd-cmt-input" placeholder="Tulis komentar...">'
+    + '<button class="btn btn-outline-secondary" onclick="pdKirimKomentar(\''+idPengajuan+'\', this)"><i class="fas fa-paper-plane"></i></button></div></div>';
+}
+function pdKirimKomentar(idPengajuan, btn){
+  var input = document.getElementById('pd-cmt-input');
+  var teks = input.value.trim();
+  if(!teks) return;
+  btnBusy(btn, true);
+  gasCall('tambahKomentarPengajuan', idPengajuan, teks, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    pdBukaDetail(idPengajuan);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim komentar'); });
+}
+function pdFileChip(f){
+  if(!f) return '';
+  return '<div class="pd-file-chip"><i class="fas fa-file-pdf" style="color:#c0392b;"></i>'+esc(f.namaFile)+' <a href="https://drive.google.com/file/d/'+f.fileId+'/view" target="_blank" class="ms-2">Lihat</a></div>';
+}
+function pdFileVersiTerakhir(fileArr, tipe){
+  var punya = fileArr.filter(function(f){ return f.tipe===tipe; });
+  if(!punya.length) return null;
+  var maxV = Math.max.apply(null, punya.map(function(f){ return f.versiKe; }));
+  return punya.filter(function(f){ return f.versiKe===maxV; })[0];
+}
+
+function pdRenderDetail(res){
+  var h = res.header;
+  document.getElementById('pd-d-judul').textContent = h.idPengajuan + ' \u00b7 ' + h.judul;
+  document.getElementById('pd-d-sub').textContent = 'Diajukan oleh ' + (h.diajukanOlehNama || h.diajukanOleh) + ' \u00b7 ' + (h.tglPengajuan ? new Date(h.tglPengajuan).toLocaleDateString('id-ID') : '-');
+  var bs = PD_BADGE_STATUS[h.status] || ['badge-pd', h.status];
+  var badge = document.getElementById('pd-d-status-badge');
+  badge.className = 'badge-pd d-inline-block mt-1 ' + bs[0]; badge.textContent = bs[1];
+
+  if(h.jenis === 'MUKA') pdRenderDetailMuka(res);
+  else pdRenderDetailSingkat(res); // SEKALIGUS & TAGIHAN sama-sama 3 tahap
+}
+
+// -- JENIS MUKA (5 tahap) --------------------------------------------------
+function pdRenderDetailMuka(res){
+  var h = res.header;
+  var isAdmin = STATE.role==='ADMIN';
+  var mapDasar = { DIAJUKAN:{t:2}, DISETUJUI:{t:3}, DICAIRKAN:{t:4}, MENUNGGU_VERIFIKASI:{t:5}, SELESAI:{t:6}, DITOLAK:{ditolak: h.tglDicairkan?5:2} };
+  // PERLU_REVISI dipakai bersama utk 2 titik yang beda: kalau BELUM dicairkan
+  // = revisi tahap 1 (Pengajuan Dana, Admin belum ACC); kalau SUDAH dicairkan
+  // = revisi tahap 4 (Realisasi & LPJ). Dibedakan dari ada/tidaknya tglDicairkan.
+  var map = (h.status==='PERLU_REVISI')
+    ? (h.tglDicairkan ? {t:4, revisi:4} : {t:1, revisi:1})
+    : (mapDasar[h.status] || {t:1});
+  document.getElementById('pd-ministep').innerHTML = pdRenderMinistep(PD_TAHAP_LABEL_MUKA, map.t||1, map.revisi, map.ditolak);
+  var st = function(tahap){ if(map.ditolak) return tahap<map.ditolak?'done':(tahap===map.ditolak?'ditolak':'locked'); return tahap<map.t?'done':(tahap===map.t?'active':'locked'); };
+  var suratFile = pdFileVersiTerakhir(res.file,'SURAT');
+  var lpjFile = pdFileVersiTerakhir(res.file,'LPJ');
+  var catatanRevisiTerakhir = res.komentar.length ? res.komentar[res.komentar.length-1] : null;
+  var html = '';
+
+  // Tahap 1 -- Pengajuan Dana. Kalau status PERLU_REVISI & BELUM dicairkan,
+  // blok ini DIBUKA LAGI (bukan blok baru) supaya Unit bisa perbaiki &
+  // kirim ulang -- data lama akan DITIMPA (bukan disimpan sbg versi lain).
+  if(h.status==='PERLU_REVISI' && !h.tglDicairkan){
+    PD.rab = res.detail.length ? res.detail.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal}; }) : [{namaKomponen:'',keterangan:'',nominal:0}];
+    PD.suratFile = null;
+    html += pdBlock('fa-file-lines','1. Pengajuan Dana','revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
+      (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
+      + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit memperbaiki & mengirim ulang.')
+        : ('<p class="text-muted small mb-2">Perbaiki RAB &amp; surat, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:32%">Nama Komponen</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-rab-revisi"></tbody></table></div>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRab()"><i class="fas fa-plus me-1"></i>Baris</button>'
+          + '<div class="text-end mb-3"><b>Total: </b><span id="pd-total-rab-revisi">Rp 0</span></div>'
+          + '<div class="small fw-bold mb-1 text-muted">SURAT PENGAJUAN</div>'
+          + (suratFile ? ('<div class="mb-2">'+pdFileChip(suratFile)+'<div class="small text-muted mt-1">Surat di atas ini yang tersimpan sekarang -- unggah baru di bawah HANYA kalau mau diganti.</div></div>') : '')
+          + '<div class="pd-drop mb-2" id="pd-drop-surat-revisi" style="max-width:420px;" onclick="document.getElementById(\'pd-file-surat-revisi\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret surat '+(suratFile?'pengganti':'baru')+' (PDF) ke sini</div><input type="file" id="pd-file-surat-revisi" accept="application/pdf" class="d-none" data-drop-id="pd-drop-surat-revisi" onchange="pdPilihFile(this,\'suratFile\')"></div>'
+          + '<button class="btn btn-sm" id="btn-kirim-ulang-'+h.idPengajuan+'" onclick="pdAksiKirimUlang(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-paper-plane me-1"></i>Kirim Ulang</button>')));
+    setTimeout(function(){ pdPastikanKomponenList(pdRenderTabelRab); }, 0);
+  } else {
+    html += pdBlock('fa-file-lines','1. Pengajuan Dana','done','', pdTabelRabReadonly(res.detail)
+      + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">SURAT PENGAJUAN</div>'+pdFileChip(suratFile)+'</div>'
+      + pdKomentarThreadHtml(h.idPengajuan, res.komentar));
+  }
+
+  // Tahap 2 -- Persetujuan: sesuai -> Setujui; tidak sesuai -> Revisi (buka
+  // lagi tahap 1) ATAU Tolak (alur berhenti, tetap seperti sebelumnya).
+  if(map.ditolak===2){
+    html += pdBlock('fa-gavel','2. Persetujuan Admin','done','<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
+      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
+    document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
+  }
+  if(h.status==='PERLU_REVISI' && !h.tglDicairkan){
+    html += pdBlock('fa-gavel','2. Persetujuan Admin','locked','', pdLockedBody('Menunggu Unit mengirim ulang pengajuan.'));
+  } else if(st(2)==='active'){
+    html += pdBlock('fa-gavel','2. Persetujuan Admin','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'<span class="badge-pd badge-pd-diajukan">Menunggu Keputusan</span>',
+      isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-setuju-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau Revisi/Tolak)"></textarea>'
+        + '<button class="btn btn-sm" id="btn-setujui-'+h.idPengajuan+'" onclick="pdAksiSetujui(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
+        + '<button class="btn btn-sm btn-outline-warning" id="btn-revisi-'+h.idPengajuan+'" onclick="pdAksiRevisi(\''+h.idPengajuan+'\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
+        + '<button class="btn btn-sm btn-outline-danger" id="btn-tolak-'+h.idPengajuan+'" onclick="pdAksiTolak(\''+h.idPengajuan+'\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
+        : pdCatatanTunggu('Menunggu keputusan Admin Pusat.'));
+  } else if(st(2)==='done'){
+    html += pdBlock('fa-gavel','2. Persetujuan Admin','done','<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
+      '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>');
+  } else {
+    html += pdBlock('fa-gavel','2. Persetujuan Admin','locked','', pdLockedBody('Menunggu tahap Pengajuan selesai diproses.'));
+  }
+
+  // Tahap 3 -- Pencairan
+  if(st(3)==='active'){
+    html += pdBlock('fa-sack-dollar','3. Pencairan Dana','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+      isAdmin ? ('<div class="row g-2 align-items-end"><div class="col-auto"><label class="form-label small mb-1">Tanggal Dicairkan</label><input type="date" class="form-control form-control-sm" id="pd-tgl-cair-'+h.idPengajuan+'" value="'+new Date().toISOString().slice(0,10)+'"></div>'
+        + '<div class="col-auto"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-cair-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="width:160px;"></div>'
+        + '<div class="col-auto"><button class="btn btn-sm" id="btn-cairkan-'+h.idPengajuan+'" onclick="pdAksiCairkan(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-sack-dollar me-1"></i>Tandai Sudah Dicairkan</button></div></div>')
+        : pdCatatanTunggu('Sudah disetujui, menunggu Admin mencairkan dana.'));
+  } else if(st(3)==='done'){
+    html += pdBlock('fa-sack-dollar','3. Pencairan Dana','done','<span class="badge-pd badge-pd-dicairkan">Dicairkan</span>',
+      '<div class="fw-bold small" style="color:#1d4ed8;">Dicairkan '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' \u00b7 Rp '+fmtRp(h.totalDiajukan)+'</div>'
+      + (h.noBuktiKasKeluar ? '<div class="small text-muted mt-1">No. Bukti Kas Keluar: <b>'+esc(h.noBuktiKasKeluar)+'</b></div>' : ''));
+  } else {
+    html += pdBlock('fa-sack-dollar','3. Pencairan Dana','locked','', pdLockedBody('Menunggu persetujuan Admin.'));
+  }
+
+  // Tahap 4 -- Realisasi & LPJ. Kalau PERLU_REVISI & SUDAH dicairkan = blok
+  // ini yang dibuka lagi (data lama DITIMPA begitu Unit kirim ulang).
+  if(h.status==='PERLU_REVISI' && h.tglDicairkan){
+    PD.realisasiEdit = res.realisasi.length ? res.realisasi.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
+    PD.lpjFileEdit = null;
+    PD.komponenTerbatasRealisasi = res.detail.map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
+    html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
+      (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
+      + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
+        : ('<p class="text-muted small mb-2">Perbaiki realisasi &amp; bukti LPJ, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:22%">Komponen</th><th style="width:28%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>'
+          + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
+          + '<div class="small fw-bold mb-1 text-muted">UNGGAH ULANG BUKTI LPJ</div>'
+          + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ revisi (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
+          + '<button class="btn btn-sm" id="btn-kirim-lpj-'+h.idPengajuan+'" onclick="pdAksiKirimLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang LPJ</button>')));
+    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); }); }, 0);
+  } else if(st(4)==='active'){
+    PD.realisasiEdit = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
+    PD.lpjFileEdit = null;
+    PD.komponenTerbatasRealisasi = res.detail.map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
+    html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','active', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
+      isAdmin ? pdCatatanTunggu('Dana sudah dicairkan. Menunggu Unit mengisi realisasi & mengunggah LPJ.')
+        : ('<p class="text-muted small mb-2">Pilihan komponen dibatasi hanya yang sudah dianggarkan di RAB (akuntabel) -- isi keterangan &amp; nominal sesuai bukti riil di lapangan.</p>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:22%">Komponen</th><th style="width:28%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>'
+          + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
+          + '<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI LPJ (1 PDF gabungan)</div>'
+          + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
+          + '<button class="btn btn-sm" id="btn-kirim-lpj-'+h.idPengajuan+'" onclick="pdAksiKirimLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim LPJ</button>'));
+    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); }); }, 0);
+  } else if(st(4)==='done'){
+    var totalP21_ = res.realisasi.reduce(function(s,r){return s+(Number(r.pph21)||0);},0);
+    var totalP23_ = res.realisasi.reduce(function(s,r){return s+(Number(r.pph23)||0);},0);
+    var netRealisasi_ = h.totalRealisasi - totalP21_ - totalP23_;
+    var selisih = h.totalDiajukan - netRealisasi_; // net setelah PPh -- SAMA dgn perhitungan di cetak & backend
+    html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','done','', pdTabelRealisasiReadonly(res.realisasi)
+      + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
+      + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi (bersih)</div><div class="fw-bold">Rp '+fmtRp(netRealisasi_)+'</div></div></div>'
+      + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisih===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisih))+(selisih>0?' (dikembalikan)':(selisih<0?' (kurang)':' (sesuai)'))+'</div></div></div></div>'
+      + '<div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(lpjFile)
+      + (h.noBuktiKasMasuk ? '<div class="small text-muted mt-2">No. Bukti Kas Masuk (surplus dikembalikan): <b>'+esc(h.noBuktiKasMasuk)+'</b></div>' : '')
+      + (h.noBuktiKasKeluarTambahan ? '<div class="small text-muted mt-2">No. Bukti Kas Keluar (kekurangan dibayar): <b>'+esc(h.noBuktiKasKeluarTambahan)+'</b></div>' : ''));
+  } else {
+    html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','locked','', pdLockedBody('Menunggu dana dicairkan.'));
+  }
+
+  // Tahap 5 -- Verifikasi. Input No. Bukti Kas Masuk/Keluar mengikuti tanda
+  // selisih (net setelah PPh) -- surplus=Kas Masuk, defisit=Kas Keluar,
+  // pas=tidak perlu bukti sama sekali (tidak ada pergerakan kas).
+  if(st(5)==='active'){
+    var totalP21b = res.realisasi.reduce(function(s,r){return s+(Number(r.pph21)||0);},0);
+    var totalP23b = res.realisasi.reduce(function(s,r){return s+(Number(r.pph23)||0);},0);
+    var netRealisasiB = h.totalRealisasi - totalP21b - totalP23b;
+    var selisihB = h.totalDiajukan - netRealisasiB;
+    var inputBuktiHtml = selisihB > 0
+      ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk <span class="text-muted">(ada surplus Rp '+fmtRp(selisihB)+' dikembalikan ke kas)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-verif-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>')
+      : (selisihB < 0
+        ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar <span class="text-muted">(dana kurang Rp '+fmtRp(Math.abs(selisihB))+', perlu dibayar tambahan)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-verif-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>')
+        : '');
+    html += pdBlock('fa-flag-checkered','5. Verifikasi LPJ oleh Admin','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+      isAdmin ? ('<p class="small text-muted mb-2">Periksa realisasi & bukti LPJ di atas, lalu putuskan.</p>'
+        + inputBuktiHtml
+        + '<textarea class="form-control form-control-sm mb-2" id="pd-catatan-verif-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi)"></textarea>'
+        + '<button class="btn btn-sm" id="btn-verif-selesai-'+h.idPengajuan+'" onclick="pdAksiVerifikasiLpj(\''+h.idPengajuan+'\',\'SELESAI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Setujui & Selesaikan</button> '
+        + '<button class="btn btn-sm btn-outline-danger" id="btn-verif-revisi-'+h.idPengajuan+'" onclick="pdAksiVerifikasiLpj(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button>')
+        : pdCatatanTunggu('LPJ sudah dikirim, menunggu diverifikasi Admin Pusat.'));
+  } else if(st(5)==='done'){
+    html += pdBlock('fa-flag-checkered','5. Verifikasi LPJ oleh Admin','done','<span class="badge-pd badge-pd-selesai">Selesai</span>',
+      '<div class="fw-bold small" style="color:#166534;">LPJ diverifikasi & selesai.</div>');
+  } else {
+    html += pdBlock('fa-flag-checkered','5. Verifikasi LPJ oleh Admin','locked','', pdLockedBody('Menunggu LPJ diunggah.'));
+  }
+
+  document.getElementById('pd-blocks').innerHTML = html;
+  pdRenderTombolCetak(h, h.status==='SELESAI');
+}
+
+// -- JENIS SEKALIGUS & TAGIHAN (3 tahap, mirip strukturnya) ----------------
+function pdRenderDetailSingkat(res){
+  var h = res.header; var isAdmin = STATE.role==='ADMIN';
+  var labels = h.jenis==='TAGIHAN' ? PD_TAHAP_LABEL_TAGIHAN : PD_TAHAP_LABEL_SEKALIGUS;
+  var map = { MENUNGGU_VERIFIKASI:{t:2}, PERLU_REVISI:{t:1, revisi:2}, SELESAI:{t:4}, DITOLAK:{ditolak:2} }[h.status] || {t:1};
+  document.getElementById('pd-ministep').innerHTML = pdRenderMinistep(labels, map.t||1, map.revisi, map.ditolak);
+  var st = function(tahap){ if(map.ditolak) return tahap<map.ditolak?'done':(tahap===map.ditolak?'ditolak':'locked'); return tahap<map.t?'done':(tahap===map.t?'active':'locked'); };
+
+  var judul1 = h.jenis==='TAGIHAN' ? '1. Pengajuan Tagihan' : '1. Pengajuan Penggantian Biaya';
+  var judul2 = h.jenis==='TAGIHAN' ? '2. Verifikasi & Pembayaran' : '2. Verifikasi Admin';
+  var judul3 = h.jenis==='TAGIHAN' ? '3. Selesai — Sudah Dibayar' : '3. Selesai';
+  var fileUtama = pdFileVersiTerakhir(res.file, h.jenis==='TAGIHAN' ? 'MEMO' : 'LPJ');
+  var html = '';
+
+  // Tahap 1
+  if(h.status==='PERLU_REVISI'){
+    var catatanRevisi = res.komentar.length ? res.komentar[res.komentar.length-1] : null;
+    PD.realisasiEdit = res.realisasi.length ? res.realisasi.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
+    PD.lpjFileEdit = null;
+    PD.komponenTerbatasRealisasi = null; // Penggantian Biaya tidak punya RAB -- tetap pakai daftar komponen lengkap
+    html += pdBlock('fa-receipt', judul1, 'revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
+      (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
+      + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
+        : ('<p class="text-muted small mb-2">Perbaiki rincian, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:22%">Komponen</th><th style="width:28%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>'
+          + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
+          + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ revisi (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
+          + '<button class="btn btn-sm" id="btn-kirim-revisi-'+h.idPengajuan+'" onclick="pdAksiKirimRevisiSekaligus(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang</button>')));
+    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); }); }, 0);
+  } else {
+    var bodyTahap1;
+    if(h.jenis==='TAGIHAN'){
+      bodyTahap1 = '<table class="table tbl mb-0"><tbody><tr><td class="text-muted" style="width:180px;">Dibayarkan Kepada</td><td>'+esc(h.dibayarkanKepada)+'</td></tr><tr><td class="text-muted">Nominal Tagihan</td><td class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</td></tr></tbody></table>'
+        + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">MEMO & INVOICE</div>'+pdFileChip(fileUtama)+'</div>' + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
+    } else {
+      bodyTahap1 = pdTabelRealisasiReadonly(res.realisasi) + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(fileUtama)+'</div>' + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
+    }
+    html += pdBlock(h.jenis==='TAGIHAN'?'fa-file-invoice-dollar':'fa-receipt', judul1, 'done', '', bodyTahap1);
+  }
+
+  // Tahap 2
+  if(map.ditolak===2){
+    html += pdBlock('fa-gavel', judul2, 'done', '<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
+      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
+    document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
+  }
+  if(st(2)==='active'){
+    if(h.jenis==='TAGIHAN'){
+      html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+        isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-tagihan-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Tolak)"></textarea>'
+          + '<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI BAYAR (oleh Admin)</div>'
+          + '<div class="pd-drop mb-2" id="pd-drop-bukti-bayar" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-bayar\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret bukti transfer (PDF) ke sini</div><input type="file" id="pd-file-bukti-bayar" accept="application/pdf" class="d-none" data-drop-id="pd-drop-bukti-bayar" onchange="pdPilihFile(this,\'buktiBayarFile\')"></div>'
+          + '<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>'
+          + '<button class="btn btn-sm" id="btn-tagihan-selesai-'+h.idPengajuan+'" onclick="pdAksiVerifikasiTagihan(\''+h.idPengajuan+'\',\'SELESAI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Setujui & Tandai Sudah Dibayar</button> '
+          + '<button class="btn btn-sm btn-outline-danger" id="btn-tagihan-tolak-'+h.idPengajuan+'" onclick="pdAksiVerifikasiTagihan(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
+          : pdCatatanTunggu('Menunggu Admin memverifikasi & membayar. Bukti bayar akan diunggah oleh Admin.'));
+    } else {
+      html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+        isAdmin ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>'
+          + '<textarea class="form-control form-control-sm mb-2" id="pd-catatan-verif-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi/Tolak)"></textarea>'
+          + '<button class="btn btn-sm" id="btn-sk-selesai-'+h.idPengajuan+'" onclick="pdAksiVerifikasiSekaligus(\''+h.idPengajuan+'\',\'SELESAI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Setujui & Ganti Dana</button> '
+          + '<button class="btn btn-sm btn-outline-danger" id="btn-sk-revisi-'+h.idPengajuan+'" onclick="pdAksiVerifikasiSekaligus(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
+          + '<button class="btn btn-sm btn-outline-secondary" id="btn-sk-tolak-'+h.idPengajuan+'" onclick="pdAksiVerifikasiSekaligus(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
+          : pdCatatanTunggu('Menunggu diverifikasi Admin Pusat.'));
+    }
+  } else if(st(2)==='done'){
+    html += pdBlock('fa-gavel', judul2, 'done', h.jenis==='TAGIHAN'?'<span class="badge-pd badge-pd-selesai">Disetujui & Dibayar</span>':'<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
+      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+'</div>');
+  } else {
+    html += pdBlock('fa-gavel', judul2, 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
+  }
+
+  // Tahap 3
+  if(st(3)==='done'){
+    if(h.jenis==='TAGIHAN'){
+      var buktiBayar = pdFileVersiTerakhir(res.file,'BUKTI_BAYAR');
+      html += pdBlock('fa-flag-checkered', judul3, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
+        '<div class="fw-bold small mb-2" style="color:#166534;">Dibayar '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' \u00b7 Rp '+fmtRp(h.totalRealisasi)+'</div>'
+        + '<div class="small fw-bold mb-1 text-muted">BUKTI BAYAR (diunggah Admin)</div>'+pdFileChip(buktiBayar)
+        + (h.noBuktiKasKeluar ? '<div class="small text-muted mt-2">No. Bukti Kas Keluar: <b>'+esc(h.noBuktiKasKeluar)+'</b></div>' : ''));
+    } else {
+      var selisih2 = h.totalDiajukan - h.totalRealisasi;
+      html += pdBlock('fa-flag-checkered', judul3, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
+        '<div class="row g-2 mb-2"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
+        + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih2===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold">Rp '+fmtRp(Math.abs(selisih2))+'</div></div></div></div>'
+        + (h.noBuktiKasKeluar ? '<div class="small text-muted mt-1">No. Bukti Kas Keluar: <b>'+esc(h.noBuktiKasKeluar)+'</b></div>' : ''));
+    }
+  } else {
+    html += pdBlock('fa-flag-checkered', judul3, 'locked', '', pdLockedBody('Menunggu tahap Verifikasi selesai.'));
+  }
+
+  document.getElementById('pd-blocks').innerHTML = html;
+  pdRenderTombolCetak(h, h.status==='SELESAI');
+}
+
+// ============================================================
+// AKSI (semua panggil backend asli, refresh detail sesudahnya)
+// ============================================================
+function pdAksiSetujui(id, btn){
+  var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
+  btnBusy(btn, true);
+  gasCall('setujuiPermohonanDana', id, catatan, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Pengajuan disetujui'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+}
+// Admin minta REVISI di tahap Persetujuan awal -- tahap 1 (Pengajuan) akan
+// terbuka lagi utk Unit perbaiki & kirim ulang (menimpa, bukan menyimpan versi).
+function pdAksiRevisi(id, btn){
+  var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
+  if(!catatan){ toast('error','Isi dulu catatan alasan revisi di kotak di atas'); return; }
+  btnBusy(btn, true);
+  gasCall('revisiPengajuan', id, catatan, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Pengajuan dikembalikan untuk direvisi'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+}
+function pdAksiTolak(id, btn){
+  var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
+  if(!catatan){ toast('error','Isi dulu catatan alasan penolakan di kotak di atas'); return; }
+  btnBusy(btn, true);
+  gasCall('tolakPermohonanDana', id, catatan, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Pengajuan ditolak'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+}
+// Unit kirim ULANG pengajuan (RAB + surat) sesudah diminta revisi di tahap
+// Persetujuan awal -- MENIMPA data lama, bukan menyimpan sbg versi baru.
+function pdAksiKirimUlang(id, btn){
+  var rab = PD.rab.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
+  if(!rab.length){ toast('error','RAB minimal 1 komponen dengan nominal > 0'); return; }
+  btnBusy(btn, true);
+  gasCall('kirimUlangPengajuan', id, {rab:rab, suratFile:PD.suratFile}, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Pengajuan dikirim ulang'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim ulang'); });
+}
+// Hapus pengajuan (khusus Admin) -- WAJIB konfirmasi dulu karena ireversibel
+// (data di sheet aktif dihapus permanen; file yg sudah terunggah ke Drive
+// TIDAK ikut terhapus, cuma catatannya di sistem yang hilang).
+function pdAksiHapus(id, judul, btn){
+  Swal.fire({
+    title:'Hapus pengajuan ini?',
+    html:'<b>'+id+'</b> &mdash; '+esc(judul)+'<br><span class="text-muted small">Tindakan ini tidak bisa dibatalkan. Data pengajuan akan dihapus permanen dari sistem (file yang sudah terlanjur diunggah ke Drive tidak ikut terhapus).</span>',
+    icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Hapus', confirmButtonColor:'#dc2626', cancelButtonText:'Batal'
+  }).then(function(r){
+    if(!r.isConfirmed) return;
+    btnBusy(btn, true);
+    gasCall('hapusPengajuan', id, STATE.token).then(function(res){
+      btnBusy(btn, false);
+      if(!res || !res.success){ toast('error', res.message); return; }
+      toast('success','Pengajuan dihapus'); pdMuatRingkasan(); pdMuatDaftar();
+    }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menghapus'); });
+  });
+}
+function pdAksiCairkan(id, btn){
+  var tgl = (document.getElementById('pd-tgl-cair-'+id)||{}).value || new Date().toISOString().slice(0,10);
+  var noBukti = (document.getElementById('pd-bukti-cair-'+id)||{}).value || '';
+  if(!noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
+  btnBusy(btn, true);
+  gasCall('cairkanDana', id, tgl, noBukti, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Dana ditandai sudah dicairkan'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+}
+function pdAksiKirimLpj(id, btn){
+  var realisasi = PD.realisasiEdit.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
+  if(!realisasi.length){ toast('error','Realisasi minimal 1 komponen dengan nominal > 0'); return; }
+  if(!PD.lpjFileEdit){ toast('error','Bukti LPJ (PDF) wajib diunggah'); return; }
+  btnBusy(btn, true);
+  gasCall('kirimLpjPengajuan', id, realisasi, PD.lpjFileEdit, '', STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','LPJ terkirim'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim LPJ'); });
+}
+function pdAksiVerifikasiLpj(id, keputusan, btn){
+  var catatan = (document.getElementById('pd-catatan-verif-'+id)||{}).value || '';
+  if(keputusan==='PERLU_REVISI' && !catatan){ toast('error','Catatan wajib diisi kalau meminta revisi'); return; }
+  var noBukti = (document.getElementById('pd-bukti-verif-'+id)||{}).value || '';
+  if(keputusan==='SELESAI' && document.getElementById('pd-bukti-verif-'+id) && !noBukti){ toast('error','No. Bukti Kas wajib diisi'); return; }
+  btnBusy(btn, true);
+  gasCall('verifikasiLpjPengajuan', id, keputusan, catatan, noBukti, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Verifikasi tersimpan'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+}
+function pdAksiKirimRevisiSekaligus(id, btn){
+  var realisasi = PD.realisasiEdit.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
+  if(!realisasi.length){ toast('error','Rincian minimal 1 komponen dengan nominal > 0'); return; }
+  if(!PD.lpjFileEdit){ toast('error','Bukti (PDF) wajib diunggah'); return; }
+  btnBusy(btn, true);
+  gasCall('kirimPenggantianBiayaRevisi', id, realisasi, PD.lpjFileEdit, '', STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Terkirim ulang'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim'); });
+}
+function pdAksiVerifikasiSekaligus(id, keputusan, btn){
+  var catatan = (document.getElementById('pd-catatan-verif-'+id)||{}).value || '';
+  if(keputusan!=='SELESAI' && !catatan){ toast('error','Catatan wajib diisi'); return; }
+  var noBukti = (document.getElementById('pd-bukti-kas-'+id)||{}).value || '';
+  if(keputusan==='SELESAI' && !noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
+  btnBusy(btn, true);
+  gasCall('verifikasiPenggantianBiaya', id, keputusan, catatan, noBukti, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Verifikasi tersimpan'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+}
+function pdAksiVerifikasiTagihan(id, keputusan, btn){
+  var catatan = (document.getElementById('pd-catatan-tagihan-'+id)||{}).value || '';
+  if(keputusan==='SELESAI' && !PD.buktiBayarFile){ toast('error','Bukti bayar (PDF) wajib diunggah'); return; }
+  var noBukti = (document.getElementById('pd-bukti-kas-'+id)||{}).value || '';
+  if(keputusan==='SELESAI' && !noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
+  if(keputusan==='DITOLAK' && !catatan){ toast('error','Catatan alasan penolakan wajib diisi'); return; }
+  btnBusy(btn, true);
+  gasCall('verifikasiTagihan', id, keputusan, catatan, PD.buktiBayarFile, noBukti, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Tersimpan'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+}
+
+// ============================================================
+// CETAK -- mengikuti pola iframe tersembunyi yang SUDAH ADA di sistem ini
+// (lihat cetakJurnalMemorial/cetakLaporanUnit): bangun HTML lengkap +
+// @page sendiri, tulis ke iframe tersembunyi, print(), lalu bersihkan.
+// ============================================================
+function _pdCetak(fullHtml){
+  var frame = document.createElement('iframe');
+  frame.style.position='fixed'; frame.style.right='0'; frame.style.bottom='0'; frame.style.width='0'; frame.style.height='0'; frame.style.border='none';
+  document.body.appendChild(frame);
+  var doc = frame.contentDocument || frame.contentWindow.document;
+  doc.open(); doc.write(fullHtml); doc.close();
+  setTimeout(function(){ frame.contentWindow.focus(); frame.contentWindow.print(); setTimeout(function(){ document.body.removeChild(frame); }, 1000); }, 300);
+}
+function pdRenderTombolCetak(h, tampilkanLampiran){
+  var el = document.getElementById('pd-d-cetak-tombol');
+  var html = '';
+  if(tampilkanLampiran) html += '<button class="btn btn-sm btn-outline-secondary" onclick="cetakLampiranLpj()"><i class="fas fa-print me-1"></i>Cetak Lampiran LPJ</button>';
+  if(tampilkanLampiran && STATE.role==='ADMIN' && h.jenis!=='TAGIHAN') html += '<button class="btn btn-sm btn-outline-secondary" onclick="cetakTandaTerimaLpj()"><i class="fas fa-print me-1"></i>Cetak Tanda Terima</button>';
+  el.innerHTML = html;
+}
+function pdKopHtml(){
+  // SAMA PERSIS dengan KOP yang sudah dipakai di Rekap Konsolidasi/Rekap
+  // Rekening Koran (lihat cetakKonsolidasi) -- logo + teks HITAM semua,
+  // garis bawah hitam solid, BUKAN warna sendiri (sebelumnya sempat pakai
+  // warna maroon, tidak konsisten dengan cetakan lain di sistem ini).
+  return '<div style="display:flex;align-items:flex-start;gap:10px;border-bottom:1.5px solid #000;padding-bottom:8px;margin-bottom:10px;">'
+    + '<img src="'+LOGO_USD_B64+'" style="height:52px;flex-shrink:0;margin-top:2px;">'
+    + '<div style="line-height:1.35;flex:1;">'
+    + '<div style="font-weight:bold;font-size:9.5pt;">LEMBAGA PENELITIAN</div>'
+    + '<div style="font-weight:bold;font-size:9.5pt;">DAN PENGABDIAN KEPADA MASYARAKAT</div>'
+    + '<div style="font-weight:bold;font-size:10.5pt;">UNIVERSITAS SANATA DHARMA</div>'
+    + '<div style="font-size:8.5pt;">Mrican Tromol Pos 29, Yogyakarta</div>'
+    + '</div>'
+    + '<div style="text-align:right;font-size:8pt;">Tahun: <b>'+STATE.tahunAktif+'</b></div>'
+    + '</div>';
+}
+function cetakLampiranLpj(){
+  var res = PD.detail; if(!res){ toast('error','Detail belum dimuat'); return; }
+  var h = res.header;
+  var namaPengaju = h.diajukanOlehNama || h.diajukanOleh || h.kodeUnit;
+  var css = '*{box-sizing:border-box;color:#000 !important;} @page{size:A4 portrait;margin:14mm 12mm 16mm;} body{font-family:Arial,sans-serif;font-size:9.5pt;padding:0;} '
+    + '.pt-title{text-align:center;font-weight:700;text-decoration:underline;margin:14px 0;font-size:11pt;letter-spacing:.4px;} '
+    + '.pt-info{width:100%;font-size:9.5pt;margin-bottom:14px;} .pt-info td{padding:2px 0;vertical-align:top;} .pt-info td:first-child{width:150px;} '
+    + '.pt-sec{font-weight:700;font-size:9.5pt;margin:16px 0 6px;border-bottom:1px solid #000;padding-bottom:3px;} '
+    + 'table.pt-tbl{width:100%;border-collapse:collapse;font-size:9pt;} .pt-tbl th,.pt-tbl td{border:1px solid #000;padding:5px 8px;} .pt-tbl th{background:#f2f2f2;text-align:left;} .r{text-align:right;} '
+    + '.pt-summary{width:60%;margin-left:auto;margin-top:8px;font-size:9.5pt;} .pt-summary td{padding:3px 6px;} .pt-summary tr.total td{font-weight:700;border-top:2px solid #000;} '
+    + '.pt-ttd{display:flex;justify-content:space-between;margin-top:50px;font-size:9.5pt;text-align:center;} .pt-ttd .kol{width:44%;} .pt-ttd .garis{margin-top:60px;border-top:1px solid #000;padding-top:4px;}';
+  var body = pdKopHtml();
+
+  if(h.jenis==='TAGIHAN'){
+    // Tagihan TIDAK punya RAB/Realisasi (Admin langsung bayar ke pihak
+    // ketiga sesuai memo) -- jadi formatnya beda, BUKAN dipaksa masuk pola
+    // surplus/defisit yang tidak relevan (itu bug yg dilaporkan: tagihan yg
+    // sudah lunas dibayar malah tercetak seolah ada sisa "dikembalikan ke
+    // Kas", padahal memang sudah pas dibayar sesuai nominal tagihan).
+    var buktiBayar = pdFileVersiTerakhir(res.file,'BUKTI_BAYAR');
+    body += '<div class="pt-title">BUKTI PEMBAYARAN TAGIHAN</div>'
+      + '<table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr>'
+      + '<tr><td>Nama Tagihan</td><td>: '+esc(h.judul)+'</td></tr>'
+      + '<tr><td>Dibayarkan Kepada</td><td>: '+esc(h.dibayarkanKepada)+'</td></tr>'
+      + '<tr><td>Tanggal Dibayar</td><td>: '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+'</td></tr></table>'
+      + '<div class="pt-sec">Ringkasan</div>'
+      + '<table class="pt-summary"><tr><td>Nominal Tagihan</td><td class="r">Rp '+fmtRp(h.totalDiajukan)+'</td></tr>'
+      + '<tr class="total"><td>Status</td><td class="r">LUNAS DIBAYAR</td></tr></table>'
+      + (h.noBuktiKasKeluar ? ('<div style="margin-top:6px;font-size:9pt;">No. Bukti Kas Keluar: <b>'+esc(h.noBuktiKasKeluar)+'</b></div>') : '')
+      + (buktiBayar ? ('<div style="margin-top:4px;font-size:9pt;">Bukti bayar terlampir: '+esc(buktiBayar.namaFile)+'</div>') : '')
+      + '<div class="pt-ttd"><div class="kol">Diajukan oleh,<br>'+esc(namaPengaju)+'<div class="garis">( ......................................... )</div></div>'
+      + '<div class="kol">Dibayar oleh,<br>Bagian Keuangan<div class="garis">( ......................................... )</div></div></div>';
+    _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Bukti Pembayaran '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+    return;
+  }
+
+  var realisasi = res.realisasi.filter(function(r){ return r.versiKe===h.versiKe; });
+  var totalRealisasi = realisasi.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
+  var totalPph21 = realisasi.reduce(function(s,r){ return s+(Number(r.pph21)||0); }, 0);
+  var totalPph23 = realisasi.reduce(function(s,r){ return s+(Number(r.pph23)||0); }, 0);
+  var netRealisasi = totalRealisasi - totalPph21 - totalPph23;
+  var selisih = h.totalDiajukan - netRealisasi;
+
+  body += '<div class="pt-title">LAMPIRAN LAPORAN PERTANGGUNGJAWABAN (LPJ)</div>'
+    + '<table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr><tr><td>Unit</td><td>: '+esc(h.kodeUnit)+'</td></tr>'
+    + '<tr><td>Nama Kegiatan</td><td>: '+esc(h.judul)+'</td></tr>'
+    + (h.tglDicairkan ? ('<tr><td>Tanggal Dicairkan</td><td>: '+new Date(h.tglDicairkan).toLocaleDateString('id-ID')+'</td></tr>') : '')
+    + '</table>';
+  if(res.detail && res.detail.length){
+    body += '<div class="pt-sec">A. Rencana Anggaran Biaya (RAB)</div>'
+      + '<table class="pt-tbl"><thead><tr><th>Komponen Anggaran</th><th>Keterangan</th><th class="r">Nominal</th></tr></thead><tbody>'
+      + res.detail.map(function(d){ return '<tr><td>'+esc(d.namaKomponen)+'</td><td>'+esc(d.keterangan)+'</td><td class="r">Rp '+fmtRp(d.nominal)+'</td></tr>'; }).join('')
+      + '</tbody><tfoot><tr><td colspan="2"><b>Total RAB</b></td><td class="r"><b>Rp '+fmtRp(h.totalDiajukan)+'</b></td></tr></tfoot></table>';
+  }
+  body += '<div class="pt-sec">'+(res.detail&&res.detail.length?'B':'A')+'. Realisasi Anggaran</div>'
+    + '<table class="pt-tbl"><thead><tr><th>Komponen</th><th>Keterangan</th><th class="r">Nominal</th><th class="r">PPh 21</th><th class="r">PPh 23</th><th>No. Bukti</th></tr></thead><tbody>'
+    + realisasi.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td>'+esc(r.keterangan)+'</td><td class="r">Rp '+fmtRp(r.nominal)+'</td><td class="r">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="r">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td>'+esc(r.noBukti)+'</td></tr>'; }).join('')
+    + '</tbody><tfoot><tr><td colspan="2"><b>Total Realisasi</b></td><td class="r"><b>Rp '+fmtRp(totalRealisasi)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph21)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph23)+'</b></td><td></td></tr></tfoot></table>';
+  body += '<div class="pt-sec">'+(res.detail&&res.detail.length?'C':'B')+'. Ringkasan</div>'
+    + '<table class="pt-summary"><tr><td>Dana Dicairkan / Diajukan</td><td class="r">Rp '+fmtRp(h.totalDiajukan)+'</td></tr>'
+    + '<tr><td>Total Realisasi (bersih setelah PPh)</td><td class="r">Rp '+fmtRp(netRealisasi)+'</td></tr>'
+    + '<tr class="total"><td>'+(selisih>0?'Surplus (dikembalikan ke Kas)':(selisih<0?'Defisit (kekurangan)':'Selisih (sesuai, tidak ada surplus/defisit)'))+'</td><td class="r">Rp '+fmtRp(Math.abs(selisih))+'</td></tr></table>';
+  var buktiKasHtml = '';
+  if(h.jenis==='MUKA' && h.noBuktiKasKeluar) buktiKasHtml += '<div>No. Bukti Kas Keluar (Pencairan Dana): <b>'+esc(h.noBuktiKasKeluar)+'</b></div>';
+  if(h.jenis==='SEKALIGUS' && h.noBuktiKasKeluar) buktiKasHtml += '<div>No. Bukti Kas Keluar (Penggantian Biaya): <b>'+esc(h.noBuktiKasKeluar)+'</b></div>';
+  if(h.noBuktiKasMasuk) buktiKasHtml += '<div>No. Bukti Kas Masuk (Surplus Dikembalikan): <b>'+esc(h.noBuktiKasMasuk)+'</b></div>';
+  if(h.noBuktiKasKeluarTambahan) buktiKasHtml += '<div>No. Bukti Kas Keluar (Kekurangan Dibayar): <b>'+esc(h.noBuktiKasKeluarTambahan)+'</b></div>';
+  if(buktiKasHtml) body += '<div style="margin-top:8px;font-size:9pt;">'+buktiKasHtml+'</div>';
+  body += '<div class="pt-ttd"><div class="kol">Dibuat oleh,<br>'+esc(namaPengaju)+'<div class="garis">( ......................................... )</div></div>'
+    + '<div class="kol">Diverifikasi oleh,<br>Bagian Keuangan<div class="garis">( ......................................... )</div></div></div>';
+  _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lampiran LPJ '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+}
+function cetakTandaTerimaLpj(){
+  var res = PD.detail; if(!res){ toast('error','Detail belum dimuat'); return; }
+  var h = res.header;
+  var namaPengaju = h.diajukanOlehNama || h.diajukanOleh || h.kodeUnit;
+  var css = '*{box-sizing:border-box;color:#000 !important;} @page{size:A4 landscape;margin:14mm 16mm;} body{font-family:Arial,sans-serif;font-size:10pt;padding:0;} '
+    + '.pt-title{text-align:center;font-weight:700;text-decoration:underline;margin:14px 0;font-size:12pt;letter-spacing:.4px;} '
+    + '.pt-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;} .pt-info{width:100%;font-size:10pt;} .pt-info td{padding:3px 0;vertical-align:top;} .pt-info td:first-child{width:160px;} '
+    + '.pt-ttd{display:flex;justify-content:space-between;margin-top:70px;font-size:10pt;text-align:center;} .pt-ttd .kol{width:44%;} .pt-ttd .garis{margin-top:60px;border-top:1px solid #000;padding-top:4px;}';
+  var body = pdKopHtml() + '<div class="pt-title">TANDA TERIMA LAPORAN PERTANGGUNGJAWABAN (LPJ)</div>'
+    + '<div class="pt-grid"><table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr><tr><td>Unit</td><td>: '+esc(h.kodeUnit)+'</td></tr><tr><td>Nama Kegiatan</td><td>: '+esc(h.judul)+'</td></tr></table>'
+    + '<table class="pt-info"><tr><td>Dana Dicairkan</td><td>: Rp '+fmtRp(h.totalDiajukan)+'</td></tr><tr><td>Total Realisasi</td><td>: Rp '+fmtRp(h.totalRealisasi)+'</td></tr><tr><td>Tanggal LPJ Diterima</td><td>: '+new Date().toLocaleDateString('id-ID')+'</td></tr></table></div>'
+    + '<p style="font-size:10pt;margin-top:14px;">Dokumen LPJ (RAB, Realisasi, dan bukti pendukung) untuk kegiatan di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.</p>'
+    + '<div class="pt-ttd"><div class="kol">Yang Menyerahkan,<br>'+esc(namaPengaju)+'<div class="garis">( ......................................... )</div></div>'
+    + '<div class="kol">Yang Menerima,<br>Bagian Keuangan<div class="garis">( ......................................... )</div></div></div>';
+  _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+}
+
 </script>
 <div class="tx-pos-dropdown d-none" id="gc-pos-dd-shared" style="position:fixed;"></div>
 <div class="tx-pos-dropdown d-none" id="gc-ket-dd-shared" style="position:fixed;"></div>
