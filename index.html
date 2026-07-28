@@ -901,6 +901,22 @@
             </div>
           </div></div>
 
+          <div class="card mb-3"><div class="card-body">
+            <div class="section-title mb-2"><i class="fas fa-money-bill-transfer"></i>Metode Pembayaran</div>
+            <div class="d-flex gap-2 mb-3" id="pd-metode-sekaligus-toggle">
+              <div class="pos-tab active" data-metode="TUNAI" onclick="pdToggleMetodeBayar('sekaligus','TUNAI')"><i class="fas fa-money-bill-wave"></i>Tunai</div>
+              <div class="pos-tab" data-metode="TRANSFER" onclick="pdToggleMetodeBayar('sekaligus','TRANSFER')"><i class="fas fa-building-columns"></i>Transfer</div>
+            </div>
+            <div id="pd-rekening-sekaligus" class="d-none">
+              <p class="text-muted small mb-2">Rekening tujuan penggantian biaya (punya Anda/pengaju).</p>
+              <div class="row g-2">
+                <div class="col-md-4"><label class="form-label small mb-1">No. Rekening</label><input type="text" class="form-control form-control-sm" id="pd-no-rek-sekaligus" placeholder="mis. 1234567890"></div>
+                <div class="col-md-4"><label class="form-label small mb-1">Nama Pemilik Rekening</label><input type="text" class="form-control form-control-sm" id="pd-nama-rek-sekaligus" placeholder="Sesuai buku tabungan"></div>
+                <div class="col-md-4"><label class="form-label small mb-1">Nama Bank</label><input type="text" class="form-control form-control-sm" id="pd-nama-bank-sekaligus" placeholder="mis. BCA"></div>
+              </div>
+            </div>
+          </div></div>
+
           <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitPenggantianBiaya(this)"><i class="fas fa-paper-plane me-1"></i>Ajukan Penggantian Biaya</button>
           <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
         </div>
@@ -925,6 +941,22 @@
             <div class="pd-drop" id="pd-drop-memo-tagihan" style="max-width:420px;" onclick="document.getElementById('pd-file-memo-tagihan').click()">
               <i class="fas fa-file-pdf"></i><div class="pd-drop-text">Klik atau seret file PDF ke sini</div>
               <input type="file" id="pd-file-memo-tagihan" accept="application/pdf" class="d-none" data-drop-id="pd-drop-memo-tagihan" onchange="pdPilihFile(this,'memoFileTagihan')">
+            </div>
+          </div></div>
+
+          <div class="card mb-3"><div class="card-body">
+            <div class="section-title mb-2"><i class="fas fa-money-bill-transfer"></i>Metode Pembayaran</div>
+            <div class="d-flex gap-2 mb-3" id="pd-metode-tagihan-toggle">
+              <div class="pos-tab active" data-metode="TUNAI" onclick="pdToggleMetodeBayar('tagihan','TUNAI')"><i class="fas fa-money-bill-wave"></i>Tunai</div>
+              <div class="pos-tab" data-metode="TRANSFER" onclick="pdToggleMetodeBayar('tagihan','TRANSFER')"><i class="fas fa-building-columns"></i>Transfer</div>
+            </div>
+            <div id="pd-rekening-tagihan" class="d-none">
+              <p class="text-muted small mb-2">Rekening tujuan pembayaran (rekening pihak ketiga yang ditagih).</p>
+              <div class="row g-2">
+                <div class="col-md-4"><label class="form-label small mb-1">No. Rekening</label><input type="text" class="form-control form-control-sm" id="pd-no-rek-tagihan" placeholder="mis. 1234567890"></div>
+                <div class="col-md-4"><label class="form-label small mb-1">Nama Pemilik Rekening</label><input type="text" class="form-control form-control-sm" id="pd-nama-rek-tagihan" placeholder="Sesuai buku tabungan"></div>
+                <div class="col-md-4"><label class="form-label small mb-1">Nama Bank</label><input type="text" class="form-control form-control-sm" id="pd-nama-bank-tagihan" placeholder="mis. BCA"></div>
+              </div>
             </div>
           </div></div>
 
@@ -5136,7 +5168,7 @@ var PD = {
   lpjFileSekaligus:null,
   tagihanJudul:'', tagihanKepada:'', tagihanNominal:0, memoFileTagihan:null,
   detail:null,
-  realisasiEdit:[], lpjFileEdit:null, buktiBayarFile:null,
+  realisasiEdit:[], lpjFileEdit:null, buktiBayarFile:null, buktiTransferSekaligus:null,
   komponenList:[], // master data "Nama Komponen" (dropdown RAB & Realisasi), dimuat sekali per sesi
   komponenTerbatasRealisasi:null // kalau diisi (array nama), dropdown Realisasi HANYA boleh pilih dari sini (akuntabel thd RAB) -- null = tidak dibatasi
 };
@@ -5298,6 +5330,9 @@ function pdResetForm(){
   document.getElementById('pd-judul-tagihan').value = '';
   document.getElementById('pd-kepada-tagihan').value = '';
   document.getElementById('pd-nominal-tagihan').value = '';
+  pdToggleMetodeBayar('sekaligus','TUNAI'); pdToggleMetodeBayar('tagihan','TUNAI');
+  document.getElementById('pd-no-rek-sekaligus').value = ''; document.getElementById('pd-nama-rek-sekaligus').value = ''; document.getElementById('pd-nama-bank-sekaligus').value = '';
+  document.getElementById('pd-no-rek-tagihan').value = ''; document.getElementById('pd-nama-rek-tagihan').value = ''; document.getElementById('pd-nama-bank-tagihan').value = '';
   pdRenderTabelRab(); pdRenderTabelRealisasiForm();
   pdRenderDropzone('pd-drop-surat', null); pdRenderDropzone('pd-drop-lpj-sekaligus', null); pdRenderDropzone('pd-drop-memo-tagihan', null);
 }
@@ -5482,6 +5517,12 @@ function pdSubmitPermohonanDana(btn){
     pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
   }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
 }
+// Toggle Tunai/Transfer di form Ajukan Baru (Penggantian Biaya & Tagihan) --
+// prefix: 'sekaligus' atau 'tagihan'.
+function pdToggleMetodeBayar(prefix, metode){
+  document.querySelectorAll('#pd-metode-'+prefix+'-toggle .pos-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.metode===metode); });
+  document.getElementById('pd-rekening-'+prefix).classList.toggle('d-none', metode!=='TRANSFER');
+}
 function pdSubmitPenggantianBiaya(btn){
   var judul = document.getElementById('pd-judul-sekaligus').value.trim();
   var tgl = document.getElementById('pd-tgl-sekaligus').value;
@@ -5489,9 +5530,14 @@ function pdSubmitPenggantianBiaya(btn){
   if(!judul){ toast('error','Nama kegiatan/keperluan wajib diisi'); return; }
   if(!realisasi.length){ toast('error','Rincian biaya minimal 1 komponen dengan nominal > 0'); return; }
   if(!PD.lpjFileSekaligus){ toast('error','Bukti LPJ (PDF) wajib diunggah'); return; }
+  var metode = document.querySelector('#pd-metode-sekaligus-toggle .pos-tab.active').dataset.metode;
+  var noRekening = document.getElementById('pd-no-rek-sekaligus').value.trim();
+  var namaRekening = document.getElementById('pd-nama-rek-sekaligus').value.trim();
+  var namaBank = document.getElementById('pd-nama-bank-sekaligus').value.trim();
+  if(metode==='TRANSFER' && (!noRekening || !namaRekening || !namaBank)){ toast('error','No. Rekening, Nama Pemilik Rekening, dan Nama Bank wajib diisi kalau metode Transfer'); return; }
   btnBusy(btn, true);
   var idKey = _idemKey('ajukan_sekaligus', {judul:judul,tgl:tgl,realisasi:realisasi});
-  gasCall('ajukanPenggantianBiaya', {judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus}, STATE.token, idKey).then(function(res){
+  gasCall('ajukanPenggantianBiaya', {judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank}, STATE.token, idKey).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
     toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
@@ -5506,9 +5552,14 @@ function pdSubmitTagihan(btn){
   if(!kepada){ toast('error','Dibayarkan kepada wajib diisi'); return; }
   if(!nominal){ toast('error','Nominal tagihan wajib diisi'); return; }
   if(!PD.memoFileTagihan){ toast('error','Memo & invoice (PDF) wajib diunggah'); return; }
+  var metode = document.querySelector('#pd-metode-tagihan-toggle .pos-tab.active').dataset.metode;
+  var noRekening = document.getElementById('pd-no-rek-tagihan').value.trim();
+  var namaRekening = document.getElementById('pd-nama-rek-tagihan').value.trim();
+  var namaBank = document.getElementById('pd-nama-bank-tagihan').value.trim();
+  if(metode==='TRANSFER' && (!noRekening || !namaRekening || !namaBank)){ toast('error','No. Rekening, Nama Pemilik Rekening, dan Nama Bank wajib diisi kalau metode Transfer'); return; }
   btnBusy(btn, true);
   var idKey = _idemKey('ajukan_tagihan', {judul:judul,kepada:kepada,nominal:nominal});
-  gasCall('ajukanTagihan', {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan}, STATE.token, idKey).then(function(res){
+  gasCall('ajukanTagihan', {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank}, STATE.token, idKey).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
     toast('success','Tagihan '+res.idPengajuan+' berhasil diajukan');
@@ -5787,11 +5838,15 @@ function pdRenderDetailSingkat(res){
     if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); }); }, 0);
   } else {
     var bodyTahap1;
+    var infoMetode = '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">METODE PEMBAYARAN</div>'
+      + '<span class="badge-pd" style="background:'+(h.metodePembayaran==='TRANSFER'?'#e0e7ff;color:#3730a3':'#dcfce7;color:#166534')+';"><i class="fas '+(h.metodePembayaran==='TRANSFER'?'fa-building-columns':'fa-money-bill-wave')+' me-1"></i>'+(h.metodePembayaran==='TRANSFER'?'Transfer':'Tunai')+'</span>'
+      + (h.metodePembayaran==='TRANSFER' ? ('<div class="small text-muted mt-2">'+esc(h.namaRekening)+' &mdash; '+esc(h.namaBank)+' &mdash; No. Rek. '+esc(h.noRekening)+'</div>') : '')
+      + '</div>';
     if(h.jenis==='TAGIHAN'){
       bodyTahap1 = '<table class="table tbl mb-0"><tbody><tr><td class="text-muted" style="width:180px;">Dibayarkan Kepada</td><td>'+esc(h.dibayarkanKepada)+'</td></tr><tr><td class="text-muted">Nominal Tagihan</td><td class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</td></tr></tbody></table>'
-        + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">MEMO & INVOICE</div>'+pdFileChip(fileUtama)+'</div>' + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
+        + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">MEMO & INVOICE</div>'+pdFileChip(fileUtama)+'</div>' + infoMetode + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
     } else {
-      bodyTahap1 = pdTabelRealisasiReadonly(res.realisasi) + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(fileUtama)+'</div>' + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
+      bodyTahap1 = pdTabelRealisasiReadonly(res.realisasi) + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(fileUtama)+'</div>' + infoMetode + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
     }
     html += pdBlock(h.jenis==='TAGIHAN'?'fa-file-invoice-dollar':'fa-receipt', judul1, 'done', '', bodyTahap1);
   }
@@ -5804,17 +5859,28 @@ function pdRenderDetailSingkat(res){
   }
   if(st(2)==='active'){
     if(h.jenis==='TAGIHAN'){
+      // Kalau metode TRANSFER: bukti bayar (bukti transfer) yg diunggah SUDAH
+      // CUKUP jadi bukti -- No. Bukti Kas Keluar TIDAK perlu ditampilkan sama
+      // sekali (bukan pergerakan kas fisik). Kalau TUNAI: tetap wajib diisi.
+      var inputBuktiKasTagihan = h.metodePembayaran==='TRANSFER' ? '' : ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>');
       html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
         isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-tagihan-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Tolak)"></textarea>'
-          + '<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI BAYAR (oleh Admin)</div>'
-          + '<div class="pd-drop mb-2" id="pd-drop-bukti-bayar" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-bayar\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret bukti transfer (PDF) ke sini</div><input type="file" id="pd-file-bukti-bayar" accept="application/pdf" class="d-none" data-drop-id="pd-drop-bukti-bayar" onchange="pdPilihFile(this,\'buktiBayarFile\')"></div>'
-          + '<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>'
+          + '<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI '+(h.metodePembayaran==='TRANSFER'?'TRANSFER':'BAYAR')+' (oleh Admin)</div>'
+          + '<div class="pd-drop mb-2" id="pd-drop-bukti-bayar" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-bayar\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret bukti '+(h.metodePembayaran==='TRANSFER'?'transfer':'bayar')+' (PDF) ke sini</div><input type="file" id="pd-file-bukti-bayar" accept="application/pdf" class="d-none" data-drop-id="pd-drop-bukti-bayar" onchange="pdPilihFile(this,\'buktiBayarFile\')"></div>'
+          + inputBuktiKasTagihan
           + '<button class="btn btn-sm" id="btn-tagihan-selesai-'+h.idPengajuan+'" onclick="pdAksiVerifikasiTagihan(\''+h.idPengajuan+'\',\'SELESAI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Setujui & Tandai Sudah Dibayar</button> '
           + '<button class="btn btn-sm btn-outline-danger" id="btn-tagihan-tolak-'+h.idPengajuan+'" onclick="pdAksiVerifikasiTagihan(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
           : pdCatatanTunggu('Menunggu Admin memverifikasi & membayar. Bukti bayar akan diunggah oleh Admin.'));
     } else {
+      // Penggantian Biaya: kalau metode TRANSFER, ganti "No. Bukti Kas
+      // Keluar" jadi unggah bukti transfer (menggantikan bukti kas manual,
+      // karena transfer bukan pergerakan kas fisik).
+      var inputBayarSekaligus = h.metodePembayaran==='TRANSFER'
+        ? ('<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI TRANSFER</div>'
+          + '<div class="pd-drop mb-2" id="pd-drop-bukti-transfer" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-transfer\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret bukti transfer (PDF/gambar) ke sini</div><input type="file" id="pd-file-bukti-transfer" accept="application/pdf,image/*" class="d-none" data-drop-id="pd-drop-bukti-transfer" onchange="pdPilihFile(this,\'buktiTransferSekaligus\')"></div>')
+        : ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>');
       html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
-        isAdmin ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>'
+        isAdmin ? (inputBayarSekaligus
           + '<textarea class="form-control form-control-sm mb-2" id="pd-catatan-verif-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi/Tolak)"></textarea>'
           + '<button class="btn btn-sm" id="btn-sk-selesai-'+h.idPengajuan+'" onclick="pdAksiVerifikasiSekaligus(\''+h.idPengajuan+'\',\'SELESAI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Setujui & Ganti Dana</button> '
           + '<button class="btn btn-sm btn-outline-danger" id="btn-sk-revisi-'+h.idPengajuan+'" onclick="pdAksiVerifikasiSekaligus(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
@@ -5943,7 +6009,7 @@ function pdAksiVerifikasiLpj(id, keputusan, btn){
   var noBukti = (document.getElementById('pd-bukti-verif-'+id)||{}).value || '';
   if(keputusan==='SELESAI' && document.getElementById('pd-bukti-verif-'+id) && !noBukti){ toast('error','No. Bukti Kas wajib diisi'); return; }
   btnBusy(btn, true);
-  gasCall('verifikasiLpjPengajuan', id, keputusan, catatan, noBukti, STATE.token).then(function(res){
+  gasCall('verifikasiLpjPengajuan', id, keputusan, catatan, noBukti, null, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
     toast('success','Verifikasi tersimpan'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
@@ -5963,10 +6029,19 @@ function pdAksiKirimRevisiSekaligus(id, btn){
 function pdAksiVerifikasiSekaligus(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-verif-'+id)||{}).value || '';
   if(keputusan!=='SELESAI' && !catatan){ toast('error','Catatan wajib diisi'); return; }
-  var noBukti = (document.getElementById('pd-bukti-kas-'+id)||{}).value || '';
-  if(keputusan==='SELESAI' && !noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
+  var metodeTransfer = PD.detail && PD.detail.header && PD.detail.header.metodePembayaran==='TRANSFER';
+  var noBukti = '', buktiTransferFile = null;
+  if(keputusan==='SELESAI'){
+    if(metodeTransfer){
+      buktiTransferFile = PD.buktiTransferSekaligus;
+      if(!buktiTransferFile){ toast('error','Bukti transfer wajib diunggah'); return; }
+    } else {
+      noBukti = (document.getElementById('pd-bukti-kas-'+id)||{}).value || '';
+      if(!noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
+    }
+  }
   btnBusy(btn, true);
-  gasCall('verifikasiPenggantianBiaya', id, keputusan, catatan, noBukti, STATE.token).then(function(res){
+  gasCall('verifikasiPenggantianBiaya', id, keputusan, catatan, noBukti, buktiTransferFile, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
     toast('success','Verifikasi tersimpan'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
@@ -5975,8 +6050,12 @@ function pdAksiVerifikasiSekaligus(id, keputusan, btn){
 function pdAksiVerifikasiTagihan(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-tagihan-'+id)||{}).value || '';
   if(keputusan==='SELESAI' && !PD.buktiBayarFile){ toast('error','Bukti bayar (PDF) wajib diunggah'); return; }
-  var noBukti = (document.getElementById('pd-bukti-kas-'+id)||{}).value || '';
-  if(keputusan==='SELESAI' && !noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
+  var metodeTransfer = PD.detail && PD.detail.header && PD.detail.header.metodePembayaran==='TRANSFER';
+  var noBukti = '';
+  if(keputusan==='SELESAI' && !metodeTransfer){
+    noBukti = (document.getElementById('pd-bukti-kas-'+id)||{}).value || '';
+    if(!noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
+  }
   if(keputusan==='DITOLAK' && !catatan){ toast('error','Catatan alasan penolakan wajib diisi'); return; }
   btnBusy(btn, true);
   gasCall('verifikasiTagihan', id, keputusan, catatan, PD.buktiBayarFile, noBukti, STATE.token).then(function(res){
@@ -6046,6 +6125,8 @@ function cetakLampiranLpj(){
       + '<table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr>'
       + '<tr><td>Nama Tagihan</td><td>: '+esc(h.judul)+'</td></tr>'
       + '<tr><td>Dibayarkan Kepada</td><td>: '+esc(h.dibayarkanKepada)+'</td></tr>'
+      + '<tr><td>Metode Pembayaran</td><td>: '+(h.metodePembayaran==='TRANSFER'?'Transfer':'Tunai')+'</td></tr>'
+      + (h.metodePembayaran==='TRANSFER' ? ('<tr><td>Rekening Tujuan</td><td>: '+esc(h.namaRekening)+' &mdash; '+esc(h.namaBank)+' &mdash; '+esc(h.noRekening)+'</td></tr>') : '')
       + '<tr><td>Tanggal Dibayar</td><td>: '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+'</td></tr></table>'
       + '<div class="pt-sec">Ringkasan</div>'
       + '<table class="pt-summary"><tr><td>Nominal Tagihan</td><td class="r">Rp '+fmtRp(h.totalDiajukan)+'</td></tr>'
@@ -6086,7 +6167,11 @@ function cetakLampiranLpj(){
     + '<tr class="total"><td>'+(selisih>0?'Surplus (dikembalikan ke Kas)':(selisih<0?'Defisit (kekurangan)':'Selisih (sesuai, tidak ada surplus/defisit)'))+'</td><td class="r">Rp '+fmtRp(Math.abs(selisih))+'</td></tr></table>';
   var buktiKasHtml = '';
   if(h.jenis==='MUKA' && h.noBuktiKasKeluar) buktiKasHtml += '<div>No. Bukti Kas Keluar (Pencairan Dana): <b>'+esc(h.noBuktiKasKeluar)+'</b></div>';
-  if(h.jenis==='SEKALIGUS' && h.noBuktiKasKeluar) buktiKasHtml += '<div>No. Bukti Kas Keluar (Penggantian Biaya): <b>'+esc(h.noBuktiKasKeluar)+'</b></div>';
+  if(h.jenis==='SEKALIGUS'){
+    buktiKasHtml += '<div>Metode Pembayaran: <b>'+(h.metodePembayaran==='TRANSFER'?'Transfer':'Tunai')+'</b></div>';
+    if(h.metodePembayaran==='TRANSFER') buktiKasHtml += '<div>Rekening Tujuan: <b>'+esc(h.namaRekening)+' &mdash; '+esc(h.namaBank)+' &mdash; '+esc(h.noRekening)+'</b></div>';
+    if(h.noBuktiKasKeluar) buktiKasHtml += '<div>No. Bukti Kas Keluar (Penggantian Biaya): <b>'+esc(h.noBuktiKasKeluar)+'</b></div>';
+  }
   if(h.noBuktiKasMasuk) buktiKasHtml += '<div>No. Bukti Kas Masuk (Surplus Dikembalikan): <b>'+esc(h.noBuktiKasMasuk)+'</b></div>';
   if(h.noBuktiKasKeluarTambahan) buktiKasHtml += '<div>No. Bukti Kas Keluar (Kekurangan Dibayar): <b>'+esc(h.noBuktiKasKeluarTambahan)+'</b></div>';
   if(buktiKasHtml) body += '<div style="margin-top:8px;font-size:9pt;">'+buktiKasHtml+'</div>';
