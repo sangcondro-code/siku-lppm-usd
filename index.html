@@ -447,6 +447,7 @@
           <select id="lu-pilih-bulan" class="form-select form-select-sm" style="width:auto;" onchange="loadLaporanUnitIsi()">
             <option value="">Semua Bulan (1 Tahun)</option>
           </select>
+          <button class="btn btn-sm btn-outline-secondary" id="lu-btn-segarkan" onclick="loadLaporanUnitIsi(null, true)" title="Ambil data terbaru langsung dari SIMK, lewati cache"><i class="fas fa-rotate me-1"></i>Segarkan</button>
           <button class="btn btn-sm btn-outline-secondary" onclick="cetakLaporanUnit()"><i class="fas fa-print me-1"></i>Cetak</button>
         </div>
       </div>
@@ -1145,7 +1146,7 @@ function gasCallBatch(calls){
     return Promise.reject(new Error('GAS_WEB_APP_URL belum diisi.'));
   }
   var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-  var timeoutId = controller ? setTimeout(function(){ controller.abort(); }, 45000) : null;
+  var timeoutId = controller ? setTimeout(function(){ controller.abort(); }, 90000) : null;
   return fetch(GAS_WEB_APP_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1166,7 +1167,7 @@ function gasCallBatch(calls){
   })
   .catch(function(err){
     if (timeoutId) clearTimeout(timeoutId);
-    if (err && err.name === 'AbortError') throw new Error('Waktu tunggu habis (45 detik) -- server tidak merespons. Coba lagi, atau periksa koneksi internet Anda.');
+    if (err && err.name === 'AbortError') throw new Error('Waktu tunggu habis (90 detik) -- server tidak merespons. Kalau ini terjadi di menu Laporan Unit, kemungkinan SIMK (sumber data eksternal) sedang lambat/tidak merespons -- coba lagi sebentar lagi.');
     throw (err instanceof Error) ? err : new Error(String(err));
   });
 }
@@ -1183,7 +1184,7 @@ function _gasCallFetch(fnName){
   // pesan apa pun. AbortController di sini memastikan selalu ada kepastian
   // (berhasil, gagal jelas, ATAU "waktu tunggu habis" -- tidak pernah diam).
   var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-  var timeoutId = controller ? setTimeout(function(){ controller.abort(); }, 45000) : null;
+  var timeoutId = controller ? setTimeout(function(){ controller.abort(); }, 90000) : null;
   // Content-Type SENGAJA 'text/plain;charset=utf-8' (bukan application/json)
   // supaya browser mengirim permintaan ini sebagai "simple request" dan
   // TIDAK melakukan preflight OPTIONS lebih dulu — Apps Script Web App
@@ -1207,7 +1208,7 @@ function _gasCallFetch(fnName){
   })
   .catch(function(err){
     if (timeoutId) clearTimeout(timeoutId);
-    if (err && err.name === 'AbortError') throw new Error('Waktu tunggu habis (45 detik) -- server tidak merespons. Coba lagi, atau periksa koneksi internet Anda.');
+    if (err && err.name === 'AbortError') throw new Error('Waktu tunggu habis (90 detik) -- server tidak merespons. Kalau ini terjadi di menu Laporan Unit, kemungkinan SIMK (sumber data eksternal) sedang lambat/tidak merespons -- coba lagi sebentar lagi.');
     throw (err instanceof Error) ? err : new Error(String(err));
   });
 }
@@ -4950,7 +4951,7 @@ function _luPeriode(){
   var ym = STATE.tahunAktif + '-' + mm;
   return { dari:ym, sampai:ym, label:BULAN_NAMA[bulan-1] + ' ' + STATE.tahunAktif };
 }
-function loadLaporanUnitIsi(kodeUnitUnit){
+function loadLaporanUnitIsi(kodeUnitUnit, paksaBaru){
   var kodeUnit = kodeUnitUnit || (document.getElementById('lu-pilih-unit') ? document.getElementById('lu-pilih-unit').value : '');
   if(!kodeUnit) return;
   var bulan = document.getElementById('lu-pilih-bulan').value;
@@ -4958,13 +4959,17 @@ function loadLaporanUnitIsi(kodeUnitUnit){
   var key = STATE.tahunAktif + '_' + kodeUnit + '_' + (bulan||'semua');
   var cached = _laporanUnitCache[key];
   var el = document.getElementById('lu-isi');
-  if(cached) _renderLaporanUnitHtml(cached, periode.label);
-  else el.innerHTML = '<p class="text-muted small">Memuat dari SIMK (bisa beberapa detik)...</p>';
-  gasCall('getLaporanUnitSimk', STATE.tahunAktif, kodeUnit, periode.dari, periode.sampai, STATE.token).then(function(res){
-    if(!res.success){ if(!cached) el.innerHTML = '<p class="text-danger small">'+_gcEsc(res.message)+'</p>'; return; }
+  var btnSegarkan = document.getElementById('lu-btn-segarkan');
+  if(paksaBaru && btnSegarkan) btnBusy(btnSegarkan, true);
+  if(cached && !paksaBaru) _renderLaporanUnitHtml(cached, periode.label);
+  else if(!cached) el.innerHTML = '<p class="text-muted small"><i class="fas fa-spinner fa-spin me-1"></i>Memuat dari SIMK (pemuatan pertama bisa 10-20 detik, setelahnya lebih cepat karena tersimpan sementara)...</p>';
+  gasCall('getLaporanUnitSimk', STATE.tahunAktif, kodeUnit, periode.dari, periode.sampai, STATE.token, !!paksaBaru).then(function(res){
+    if(btnSegarkan) btnBusy(btnSegarkan, false);
+    if(!res.success){ if(!cached) el.innerHTML = '<p class="text-danger small">'+_gcEsc(res.message)+'</p>'; else toast('error', res.message); return; }
     _laporanUnitCache[key] = res;
     _renderLaporanUnitHtml(res, periode.label);
-  }).catch(function(){ if(!cached) el.innerHTML = '<p class="text-danger small">Gagal memuat dari SIMK.</p>'; });
+    if(paksaBaru) toast('success','Data terbaru dari SIMK berhasil dimuat');
+  }).catch(function(){ if(btnSegarkan) btnBusy(btnSegarkan, false); if(!cached) el.innerHTML = '<p class="text-danger small">Gagal memuat dari SIMK.</p>'; else toast('error','Gagal menyegarkan dari SIMK'); });
 }
 // Baris tabel Pemasukan/Pengeluaran (gaya SIMK: Tgl | Keterangan | Jumlah,
 // footer "Total Pemasukan"/"Total Pengeluaran").
