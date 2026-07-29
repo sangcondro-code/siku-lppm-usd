@@ -441,9 +441,9 @@
          Unit mana saja yang sudah dipetakan ke kode akun SIMK. -->
     <div id="view-laporanunit" class="view d-none">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-        <h5 class="page-title">Laporan Unit <span class="text-muted small">— dari SIMK</span></h5>
+        <h5 class="page-title">Laporan Unit <span class="text-muted small" id="lu-nama-unit-label"></span></h5>
         <div class="d-flex gap-2 align-items-center flex-wrap">
-          <select id="lu-pilih-unit" class="form-select form-select-sm admin-only" style="width:auto;" onchange="loadLaporanUnitIsi()"></select>
+          <select id="lu-pilih-unit" class="form-select form-select-sm admin-only" style="width:auto;" onchange="_luPerbaruiLabelUnit(); loadLaporanUnitIsi();"></select>
           <select id="lu-pilih-bulan" class="form-select form-select-sm" style="width:auto;" onchange="loadLaporanUnitIsi()">
             <option value="">Semua Bulan (1 Tahun)</option>
           </select>
@@ -5009,13 +5009,24 @@ function loadLaporanUnit(){
       if(!res.success){ document.getElementById('lu-isi').innerHTML = '<p class="text-danger small">'+_gcEsc(res.message)+'</p>'; return; }
       if(!res.data.length){ document.getElementById('lu-isi').innerHTML = '<p class="text-muted small">Belum ada Unit yang dipetakan ke kode akun SIMK. Atur dulu di menu Kelola Unit &amp; Pos.</p>'; sel.innerHTML=''; return; }
       sel.innerHTML = res.data.map(function(u){ return '<option value="'+u.kodeUnit+'">'+_gcEsc(u.namaUnit)+'</option>'; }).join('');
+      _luPerbaruiLabelUnit();
       loadLaporanUnitIsi();
     });
   } else {
     var punyaSaya = (STATE.myUnits||[])[0];
     if(!punyaSaya){ document.getElementById('lu-isi').innerHTML = '<p class="text-muted small">Akun Anda belum terhubung ke Unit manapun.</p>'; return; }
+    document.getElementById('lu-nama-unit-label').textContent = '— ' + punyaSaya.namaUnit;
     loadLaporanUnitIsi(punyaSaya.kodeUnit);
   }
+}
+// Label nama Unit di judul halaman -- utk Admin, ikuti Unit yang SEDANG
+// dipilih di dropdown (bukan "dari SIMK" yang tidak informatif & terlihat
+// kurang rapi -- SIMK itu detail teknis di belakang layar, bukan sesuatu
+// yang perlu ditonjolkan ke pengguna).
+function _luPerbaruiLabelUnit(){
+  var sel = document.getElementById('lu-pilih-unit');
+  var opt = sel && sel.options[sel.selectedIndex];
+  document.getElementById('lu-nama-unit-label').textContent = opt ? ('— ' + opt.textContent) : '';
 }
 // bulan kosong ('') = seluruh tahun (dari/sampai kosong, sama seperti
 // "Semua Bulan" di SIMK); bulan terisi = 1 bulan itu saja (dari=sampai=
@@ -5039,7 +5050,7 @@ function loadLaporanUnitIsi(kodeUnitUnit, paksaBaru){
   var btnSegarkan = document.getElementById('lu-btn-segarkan');
   if(paksaBaru && btnSegarkan) btnBusy(btnSegarkan, true);
   if(cached && !paksaBaru) _renderLaporanUnitHtml(cached, periode.label);
-  else if(!cached) el.innerHTML = '<p class="text-muted small"><i class="fas fa-spinner fa-spin me-1"></i>Memuat dari SIMK (pemuatan pertama bisa 10-20 detik, setelahnya lebih cepat karena tersimpan sementara)...</p>';
+  else if(!cached) el.innerHTML = '<p class="text-muted small"><i class="fas fa-spinner fa-spin me-1"></i>Memuat laporan...</p>';
   gasCall('getLaporanUnitSimk', STATE.tahunAktif, kodeUnit, periode.dari, periode.sampai, STATE.token, !!paksaBaru).then(function(res){
     if(btnSegarkan) btnBusy(btnSegarkan, false);
     if(!res.success){ if(!cached) el.innerHTML = '<p class="text-danger small">'+_gcEsc(res.message)+'</p>'; else toast('error', res.message); return; }
