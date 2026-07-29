@@ -631,7 +631,7 @@
     <!-- ROLLOVER TAHUN -->
     <div id="view-tahun" class="view d-none">
       <h5 class="page-title mb-3">Rollover Tahun Baru</h5>
-      <div class="card"><div class="card-body">
+      <div class="card mb-3"><div class="card-body">
         <p class="text-muted small">Setiap tahun akan dibuat 1 spreadsheet baru berisi 12 sheet bulan + 1 sheet Rekonsiliasi, tersimpan rapi di folder Drive <b>REKAP GIRO BANK USD / &lt;tahun&gt;</b>.</p>
         <div class="d-flex gap-2 align-items-end mb-3">
           <div><label class="form-label small mb-1">Tahun</label><input type="number" class="form-control form-control-sm" id="rt-tahun" style="width:120px;"></div>
@@ -639,6 +639,18 @@
         </div>
         <div class="section-title"><i class="fas fa-list"></i>Tahun Tersedia</div>
         <div id="daftar-tahun-list" class="d-flex flex-wrap gap-2"></div>
+      </div></div>
+
+      <div class="card mb-3"><div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+          <div class="section-title mb-0"><i class="fas fa-box-archive"></i>Arsip Pengajuan Dana</div>
+          <button class="btn btn-sm" style="background:var(--maroon);color:white;" id="rt-btn-arsip-semua" onclick="rtArsipkanSemua()"><i class="fas fa-box-archive me-1"></i>Arsipkan Semua</button>
+        </div>
+        <p class="text-muted small mb-2">Pengajuan berstatus <b>Selesai</b>/<b>Ditolak</b> di bawah ini siap dipindahkan ke arsip tahun anggarannya masing-masing (otomatis dilakukan juga saat Rollover, tapi bisa dipicu manual kapan saja dari sini). Sengaja dipusatkan di sini, bukan di Daftar Pengajuan, supaya tidak tercampur dengan pekerjaan yang masih berjalan.</p>
+        <div class="table-responsive"><table class="table tbl mb-0">
+          <thead><tr><th>No. Pengajuan</th><th>Judul</th><th>Unit</th><th>Status</th><th class="text-end">Nominal</th><th></th></tr></thead>
+          <tbody id="rt-tbody-arsip"><tr><td colspan="6" class="text-center text-muted py-3">Memuat...</td></tr></tbody>
+        </table></div>
       </div></div>
     </div>
 
@@ -1482,6 +1494,14 @@ function gotoView(name){
   // (biar sidebar-nya menyorot tombol yg BENAR-BENAR diklik, bukan ikut ke
   // "Daftar Pengajuan") -- tapi keduanya sama-sama menampilkan div yang SAMA.
   var namaKonten = (name === 'pengajuanform') ? 'pengajuan' : name;
+  // Cek DULU (sebelum toggle d-none di bawah) apakah kita SUDAH ada di view
+  // Pengajuan Dana -- penting utk kasus gotoView dipanggil ULANG sbg
+  // "refresh view yang sama" (mis. ganti tahun aktif global lewat navbar
+  // memanggil gotoView(view aktif skrg) -- lihat onGantiTahunGlobal), BUKAN
+  // navigasi baru dari menu lain. Kalau memang cuma refresh, tab yang lagi
+  // aktif (termasuk tab "Arsip") harus TETAP, tidak boleh ikut ke-reset ke
+  // "Semua" -- itu bug yg baru dilaporkan (tab Arsip "kabur" tiap ganti tahun).
+  var sudahDiPengajuan = namaKonten==='pengajuan' && !document.getElementById('view-pengajuan').classList.contains('d-none');
   document.querySelectorAll('.view').forEach(function(v){ v.classList.add('d-none'); });
   document.getElementById('view-' + namaKonten).classList.remove('d-none');
   document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.toggle('active', n.dataset.view===name); });
@@ -1501,10 +1521,9 @@ function gotoView(name){
   if(namaKonten==='setup') loadSetupView();
   if(namaKonten==='log') loadLogView();
   if(namaKonten==='pengajuan'){
-    PD.kategori = 'SEMUA';
-    PD.halaman = 1;
+    if(!sudahDiPengajuan){ PD.kategori = 'SEMUA'; PD.halaman = 1; } // reset ke Semua CUMA kalau navigasi baru dari menu lain, bukan sekadar refresh (mis. ganti tahun)
     loadPengajuanDana();
-    if(name==='pengajuanform') pdSub('form');
+    if(name==='pengajuanform') pdSub('form'); // sesi yang di-restore lagi ke tombol ini -> langsung ke sub-panel form, bukan daftar
   }
 }
 var BULAN_NAMA = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
@@ -4213,6 +4232,64 @@ function loadTahunView(){
   document.getElementById('daftar-tahun-list').innerHTML = STATE.daftarTahun.map(function(t){
     return '<span class="badge" style="background:var(--maroon);">'+t+'</span>';
   }).join(' ');
+  rtMuatDaftarArsip();
+}
+// Daftar pengajuan siap-arsip (Selesai/Ditolak) + aksinya -- dipusatkan di
+// sini (menu Rollover), BUKAN tersebar sbg tombol per-baris di Daftar
+// Pengajuan, biar Admin fokus di 1 tempat khusus utk kerja beres-beres ini.
+function rtMuatDaftarArsip(){
+  var tbody = document.getElementById('rt-tbody-arsip');
+  tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-1"></i>Memuat...</td></tr>';
+  gasCall('getPengajuanSiapArsip', STATE.token).then(function(res){
+    if(!res || !res.success){ tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">'+esc(res.message)+'</td></tr>'; document.getElementById('rt-btn-arsip-semua').disabled = true; return; }
+    document.getElementById('rt-btn-arsip-semua').disabled = !res.data.length;
+    if(!res.data.length){ tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Tidak ada pengajuan yang siap diarsipkan saat ini.</td></tr>'; return; }
+    tbody.innerHTML = res.data.map(function(p){
+      var bs = PD_BADGE_STATUS[p.status] || ['badge-pd', p.status];
+      return '<tr><td class="text-nowrap">'+p.idPengajuan+'</td><td>'+esc(p.judul)+'</td><td>'+esc(p.kodeUnit)+'</td>'
+        + '<td><span class="badge-pd '+bs[0]+'">'+bs[1]+'</span></td>'
+        + '<td class="text-end">Rp '+fmtRp(p.totalDiajukan)+'</td>'
+        + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary" onclick="rtArsipkanSatu(\''+p.idPengajuan+'\', this)" title="Arsipkan pengajuan ini saja"><i class="fas fa-box-archive"></i></button></td></tr>';
+    }).join('');
+  }).catch(function(err){ tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Gagal memuat: '+esc((err&&err.message)||'')+'</td></tr>'; });
+}
+function rtArsipkanSatu(id, btn){
+  Swal.fire({
+    title:'Arsipkan '+id+'?',
+    html:'<div class="small text-muted">Pengajuan ini akan pindah ke arsip tahun anggarannya dan tidak lagi muncul di Daftar Pengajuan aktif (data tidak hilang, tetap bisa dilihat lewat tab Arsip di Daftar Pengajuan).</div>',
+    icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Arsipkan', confirmButtonColor:'#800000', cancelButtonText:'Batal'
+  }).then(function(r){
+    if(!r.isConfirmed) return;
+    btnBusy(btn, true);
+    gasCall('arsipkanPengajuanManual', id, STATE.token).then(function(res){
+      btnBusy(btn, false);
+      if(!res || !res.success){ toast('error', res.message); return; }
+      toast('success','Diarsipkan'); rtMuatDaftarArsip();
+    }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal mengarsipkan'); });
+  });
+}
+// Arsipkan SEMUA sekaligus -- dialog konfirmasi pakai kotak centang "saya
+// paham" (tombol tetap nonaktif sampai dicentang) karena ini aksi massal,
+// butuh kesadaran ekstra sebelum dijalankan.
+function rtArsipkanSemua(){
+  var jumlah = document.querySelectorAll('#rt-tbody-arsip tr').length;
+  Swal.fire({
+    title:'Arsipkan semua yang siap?',
+    html:'<div class="text-start"><div class="small text-muted mb-2">Semua pengajuan berstatus Selesai/Ditolak yang terlihat di tabel ini akan dipindahkan ke arsip tahun anggarannya masing-masing. Tidak bisa dibatalkan satu-satu setelah berjalan (tapi data tidak hilang, tetap bisa dilihat lewat tab Arsip).</div>'
+      + '<div class="form-check mt-2"><input type="checkbox" class="form-check-input" id="sw-arsip-massal-paham" onchange="Swal.getConfirmButton().disabled = !this.checked;"><label class="form-check-label small" for="sw-arsip-massal-paham">Saya paham dan yakin ingin mengarsipkan semuanya.</label></div></div>',
+    icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Arsipkan Semua', confirmButtonColor:'#800000', cancelButtonText:'Batal',
+    didOpen:function(){ Swal.getConfirmButton().disabled = true; }
+  }).then(function(r){
+    if(!r.isConfirmed) return;
+    var btn = document.getElementById('rt-btn-arsip-semua');
+    btnBusy(btn, true);
+    gasCall('arsipkanPengajuanMassal', STATE.token).then(function(res){
+      btnBusy(btn, false);
+      if(!res || !res.success){ toast('error', res.message); return; }
+      toast('success', res.jumlah+' pengajuan berhasil diarsipkan'+(res.gagal&&res.gagal.length?(', '+res.gagal.length+' gagal (lihat Log Aktivitas)'):''));
+      rtMuatDaftarArsip();
+    }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal mengarsipkan'); });
+  });
 }
 function submitRollover(){
   var tahun = document.getElementById('rt-tahun').value;
@@ -5223,6 +5300,10 @@ function pdSetKategori(kat){
   document.querySelectorAll('#pd-kategori-tabs .pos-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.kat===kat); });
   pdRenderDaftarTable();
 }
+// Detail arsip -- READ-ONLY, dipakai dari menu Rollover Tahun kalau
+// suatu saat Admin perlu cek isi arsip langsung (bukan lewat Daftar
+// Pengajuan -- arsip sengaja TIDAK ada tampilan terpisah di sana, murni
+// urusan backend/performa, tidak terlihat beda sama sekali oleh user).
 var PD_KATEGORI_LABEL = { BARU:'Pengajuan Baru', PROSES:'Proses', SELESAI:'Selesai', SEMUA:'Semua' };
 var PD_KATEGORI_STATUS = {
   BARU:['DIAJUKAN','MENUNGGU_VERIFIKASI'],
