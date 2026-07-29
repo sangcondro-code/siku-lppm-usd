@@ -632,7 +632,7 @@
     <div id="view-tahun" class="view d-none">
       <h5 class="page-title mb-3">Rollover Tahun Baru</h5>
       <div class="card mb-3"><div class="card-body">
-        <p class="text-muted small">Setiap tahun akan dibuat 1 spreadsheet baru berisi 12 sheet bulan + 1 sheet Rekonsiliasi, tersimpan rapi di folder Drive <b>REKAP GIRO BANK USD / &lt;tahun&gt;</b>.</p>
+        <p class="text-muted small">Setiap tahun akan dibuat 1 spreadsheet baru berisi 12 sheet bulan + 1 sheet Rekonsiliasi (juga jadi tempat arsip Pengajuan Dana tahun itu), tersimpan rapi di folder Drive <b>SIKU LPPM USD / &lt;tahun&gt;</b>.</p>
         <div class="d-flex gap-2 align-items-end mb-3">
           <div><label class="form-label small mb-1">Tahun</label><input type="number" class="form-control form-control-sm" id="rt-tahun" style="width:120px;"></div>
           <button class="btn btn-sm" style="background:var(--maroon);color:white;" onclick="submitRollover()"><i class="fas fa-calendar-plus me-1"></i>Buat / Buka Tahun Ini</button>
@@ -5212,7 +5212,6 @@ function loadLogView(){
   showBar();
   gasCall('getLogAktivitas', 200, STATE.token).then(function(res){
     hideBar();
-    console.log('getLogAktivitas response:', res);
     if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat log (respons kosong dari server, coba lagi)'); return; }
     document.getElementById('tbody-log').innerHTML = res.data.map(function(l){
       return '<tr><td>'+_gcEsc(l.waktu)+'</td><td>'+_gcEsc(l.username)+'</td><td>'+_gcEsc(l.aksi)+'</td><td>'+_gcEsc(l.detail||'')+'</td></tr>';
