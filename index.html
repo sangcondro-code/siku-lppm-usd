@@ -5459,6 +5459,38 @@ function pdGantiUkuranHalaman(sel){
   PD.halaman = 1;
   pdRenderDaftarTable();
 }
+// Menggabungkan 3 pemanggilan yang SERING dibutuhkan BERSAMAAN (ringkasan
+// kartu + badge notifikasi + daftar tabel) jadi 1x round-trip lewat
+// gasCallBatch, bukan 3x panggilan terpisah spt sebelumnya -- dipakai
+// menggantikan pola "pdMuatRingkasanDanDaftar();" yang tadinya
+// tersebar di banyak tempat (tiap kali habis 1 aksi: setuju/tolak/revisi/
+// verifikasi/dst). Kalau batch-nya sendiri gagal total (jaringan dsb),
+// JATUH BALIK ke cara lama (3 panggilan terpisah) -- fitur tetap jalan.
+function pdMuatRingkasanDanDaftar(){
+  gasCallBatch([
+    { fn:'getRingkasanPengajuan', args:[STATE.token] },
+    { fn:'getJumlahPengajuanPerluPerhatian', args:[STATE.token] },
+    { fn:'getDaftarPengajuan', args:[PD.filterStatus, PD.filterUnit, 'SEMUA', STATE.token] }
+  ]).then(function(hasil){
+    var resRingkasan = hasil[0], resBadge = hasil[1], resDaftar = hasil[2];
+    if(resRingkasan && resRingkasan.success){
+      PD.ringkasan = resRingkasan;
+      document.getElementById('pd-r-baru').textContent = resRingkasan.jumlahBaru;
+      document.getElementById('pd-r-proses').textContent = resRingkasan.jumlahProses;
+      document.getElementById('pd-r-selesai').textContent = resRingkasan.jumlahSelesai;
+      document.getElementById('pd-r-total').textContent = 'Rp ' + fmtRp(resRingkasan.totalTahunIni);
+    }
+    if(resBadge && resBadge.success){
+      var elBadge = document.getElementById('pengajuan-badge');
+      if(elBadge){
+        if(resBadge.jumlah > 0){ elBadge.textContent = resBadge.jumlah > 99 ? '99+' : resBadge.jumlah; elBadge.classList.remove('d-none'); }
+        else elBadge.classList.add('d-none');
+      }
+    }
+    if(resDaftar && resDaftar.success){ PD.daftar = resDaftar.data; pdRenderDaftarTable(); }
+    else if(resDaftar){ toast('error', resDaftar.message); }
+  }).catch(function(){ pdMuatRingkasanDanDaftar(); });
+}
 function pdMuatRingkasan(){
   gasCall('getRingkasanPengajuan', STATE.token).then(function(res){
     if(!res || !res.success) return;
@@ -5810,7 +5842,7 @@ function pdSubmitPermohonanDana(btn){
       btnBusy(btn, false);
       if(!res || !res.success){ toast('error', res.message); return; }
       toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
-      pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
+      pdMuatRingkasanDanDaftar(); pdSub('daftar');
     }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
   });
 }
@@ -5839,7 +5871,7 @@ function pdSubmitPenggantianBiaya(btn){
       btnBusy(btn, false);
       if(!res || !res.success){ toast('error', res.message); return; }
       toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
-      pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
+      pdMuatRingkasanDanDaftar(); pdSub('daftar');
     }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
   });
 }
@@ -5863,7 +5895,7 @@ function pdSubmitTagihan(btn){
       btnBusy(btn, false);
       if(!res || !res.success){ toast('error', res.message); return; }
       toast('success','Tagihan '+res.idPengajuan+' berhasil diajukan');
-      pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
+      pdMuatRingkasanDanDaftar(); pdSub('daftar');
     }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengajukan tagihan'); });
   });
 }
@@ -6227,7 +6259,7 @@ function pdAksiSetujui(id, btn){
   gasCall('setujuiPermohonanDana', id, catatan, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan disetujui'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+    toast('success','Pengajuan disetujui'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 // Admin minta REVISI di tahap Persetujuan awal -- tahap 1 (Pengajuan) akan
@@ -6239,7 +6271,7 @@ function pdAksiRevisi(id, btn){
   gasCall('revisiPengajuan', id, catatan, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan dikembalikan untuk direvisi'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+    toast('success','Pengajuan dikembalikan untuk direvisi'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 function pdAksiTolak(id, btn){
@@ -6249,7 +6281,7 @@ function pdAksiTolak(id, btn){
   gasCall('tolakPermohonanDana', id, catatan, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan ditolak'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+    toast('success','Pengajuan ditolak'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 // Unit kirim ULANG pengajuan (RAB + surat) sesudah diminta revisi di tahap
@@ -6261,7 +6293,7 @@ function pdAksiKirimUlang(id, btn){
   gasCall('kirimUlangPengajuan', id, {rab:rab, suratFile:PD.suratFile}, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan dikirim ulang'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+    toast('success','Pengajuan dikirim ulang'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim ulang'); });
 }
 // Hapus pengajuan (khusus Admin) -- WAJIB konfirmasi dulu karena ireversibel
@@ -6278,7 +6310,7 @@ function pdAksiHapus(id, judul, btn){
     gasCall('hapusPengajuan', id, STATE.token).then(function(res){
       btnBusy(btn, false);
       if(!res || !res.success){ toast('error', res.message); return; }
-      toast('success','Pengajuan dihapus'); pdMuatRingkasan(); pdMuatDaftar();
+      toast('success','Pengajuan dihapus'); pdMuatRingkasanDanDaftar();
     }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menghapus'); });
   });
 }
@@ -6290,7 +6322,7 @@ function pdAksiCairkan(id, btn){
   gasCall('cairkanDana', id, tgl, noBukti, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Dana ditandai sudah dicairkan'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+    toast('success','Dana ditandai sudah dicairkan'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 function pdAksiKirimLpj(id, btn){
@@ -6301,7 +6333,7 @@ function pdAksiKirimLpj(id, btn){
   gasCall('kirimLpjPengajuan', id, realisasi, PD.lpjFileEdit, '', STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','LPJ terkirim'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+    toast('success','LPJ terkirim'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim LPJ'); });
 }
 function pdAksiVerifikasiLpj(id, keputusan, btn){
@@ -6313,7 +6345,7 @@ function pdAksiVerifikasiLpj(id, keputusan, btn){
   gasCall('verifikasiLpjPengajuan', id, keputusan, catatan, noBukti, null, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Verifikasi tersimpan'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+    toast('success','Verifikasi tersimpan'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 function pdAksiKirimRevisiSekaligus(id, btn){
@@ -6324,7 +6356,7 @@ function pdAksiKirimRevisiSekaligus(id, btn){
   gasCall('kirimPenggantianBiayaRevisi', id, realisasi, PD.lpjFileEdit, '', STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Terkirim ulang'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+    toast('success','Terkirim ulang'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim'); });
 }
 function pdAksiVerifikasiSekaligus(id, keputusan, btn){
@@ -6345,7 +6377,7 @@ function pdAksiVerifikasiSekaligus(id, keputusan, btn){
   gasCall('verifikasiPenggantianBiaya', id, keputusan, catatan, noBukti, buktiTransferFile, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Verifikasi tersimpan'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+    toast('success','Verifikasi tersimpan'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 function pdAksiVerifikasiTagihan(id, keputusan, btn){
@@ -6362,7 +6394,7 @@ function pdAksiVerifikasiTagihan(id, keputusan, btn){
   gasCall('verifikasiTagihan', id, keputusan, catatan, PD.buktiBayarFile, noBukti, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Tersimpan'); pdMuatRingkasan(); pdMuatDaftar(); pdBukaDetail(id);
+    toast('success','Tersimpan'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 
