@@ -727,7 +727,7 @@
       </div></div>
     </div>
 
-        <!-- JURNAL MEMORIAL (ADMIN) -->
+    <!-- JURNAL MEMORIAL (ADMIN) -->
     <div id="view-memorial" class="view d-none">
       <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
         <h5 class="page-title">Jurnal Memorial</h5>
@@ -1136,115 +1136,7 @@ function enterPindah(e, nextId){
 }
 function togglePassVis(id, el){ var i=document.getElementById(id); if(i.type==='password'){i.type='text';el.classList.replace('fa-eye','fa-eye-slash');} else {i.type='password';el.classList.replace('fa-eye-slash','fa-eye');} }
 
-// ============================================================
-// RPC SHIM — pengganti google.script.run untuk hosting DI LUAR Apps Script
-// (mis. GitHub Pages / hosting statis lain). google.script.run HANYA
-// tersedia kalau HTML ini disajikan LEWAT HtmlService Apps Script sendiri;
-// dari domain lain (github.io, dst) objek itu tidak ada sama sekali. Shim
-// ini menggantinya dengan fetch() biasa ke URL Web App (.../exec) yang
-// sama persis dipakai backend, mengikuti protokol JSON {fn, args} yang
-// sudah dibaca oleh doPost()+RPC_WHITELIST di Code.gs — jadi TIDAK ADA
-// perubahan apapun yang dibutuhkan di sisi backend.
-//
-// CARA PAKAI:
-// 1) Di Apps Script editor: Deploy > New deployment > Web app.
-//    - Execute as     : Me
-//    - Who has access : Anyone
-//    (harus "Anyone", BUKAN "Anyone with Google account" — kalau tidak,
-//    browser akan diarahkan ke halaman login Google, bukan JSON).
-// 2) Copy URL yang berakhiran ".../exec", tempel di GAS_WEB_APP_URL di
-//    bawah ini.
-// 3) Upload index-github.html ini (rename jadi index.html) ke repo GitHub,
-//    aktifkan GitHub Pages.
-// Semua pemanggilan gasCall(...) di seluruh file ini TIDAK PERLU diubah;
-// tanda tangan & bentuk hasilnya (Promise -> {success:true/false,...})
-// persis sama seperti versi google.script.run.
-// ============================================================
-var GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw69OIEt4B5EmosDfWIbotxvE2NXgz5JPdpHSyaE7VZg_5ppSwjOcszoQL6hWMrFXo0tw/exec';
-
-// Panggil BEBERAPA fungsi RPC yang SALING BEBAS sekaligus dalam SATU
-// request HTTP (dibaca oleh mode "batch" di doPost() Code.gs), menggantikan
-// pola Promise.all([gasCall(...), gasCall(...), ...]). Karena file ini
-// di-host di luar Apps Script, tiap gasCall() terpisah membayar 1 round-
-// trip HTTP PENUH (termasuk redirect internal ke googleusercontent.com) ke
-// Google -- kalau ada 3-4 panggilan independen dibutuhkan bersamaan (mis.
-// saat memuat 1 halaman), menggabungkannya jadi 1 request jauh lebih cepat
-// daripada N request paralel.
-// calls: [{fn:'namaFungsi', args:[...]}, ...]
-// Return: Promise -> array hasil, urutan SAMA PERSIS dengan urutan calls
-// (jadi kode pemanggil yang sebelumnya pakai Promise.all([...]).then(function(hasil){
-// var a=hasil[0], b=hasil[1]; ... }) TIDAK PERLU diubah strukturnya).
-function gasCallBatch(calls){
-  if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.indexOf('TEMPEL_URL_WEB_APP') !== -1) {
-    return Promise.reject(new Error('GAS_WEB_APP_URL belum diisi.'));
-  }
-  var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-  var timeoutId = controller ? setTimeout(function(){ controller.abort(); }, 90000) : null;
-  return fetch(GAS_WEB_APP_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ calls: calls }),
-    signal: controller ? controller.signal : undefined
-  })
-  .then(function(resp){
-    if (timeoutId) clearTimeout(timeoutId);
-    if (!resp.ok) throw new Error('Server merespons HTTP ' + resp.status + '.');
-    return resp.text();
-  })
-  .then(function(text){
-    var data;
-    try { data = JSON.parse(text); }
-    catch (eParse) { throw new Error('Respons server tidak valid (bukan JSON).'); }
-    if (!data || !data.success || !Array.isArray(data.results)) throw new Error((data && data.message) || 'Gagal memproses batch.');
-    return data.results;
-  })
-  .catch(function(err){
-    if (timeoutId) clearTimeout(timeoutId);
-    if (err && err.name === 'AbortError') throw new Error('Waktu tunggu habis (90 detik) -- server tidak merespons. Kalau ini terjadi di menu Laporan Unit, kemungkinan SIMK (sumber data eksternal) sedang lambat/tidak merespons -- coba lagi sebentar lagi.');
-    throw (err instanceof Error) ? err : new Error(String(err));
-  });
-}
-
-function _gasCallFetch(fnName){
-  var args = Array.prototype.slice.call(arguments, 1);
-  if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.indexOf('TEMPEL_URL_WEB_APP') !== -1) {
-    return Promise.reject(new Error('GAS_WEB_APP_URL belum diisi. Deploy Code.gs sebagai Web App (Anyone), lalu tempel URL-nya di bagian atas index.html.'));
-  }
-  // BATAS WAKTU eksplisit (45 detik) -- fetch() bawaan browser TIDAK punya
-  // timeout sama sekali; kalau server macet/lambat (mis. LockService lama
-  // menunggu giliran, atau koneksi terputus di tengah), permintaan bisa
-  // menggantung TANPA BATAS dan user cuma lihat spinner selamanya tanpa
-  // pesan apa pun. AbortController di sini memastikan selalu ada kepastian
-  // (berhasil, gagal jelas, ATAU "waktu tunggu habis" -- tidak pernah diam).
-  var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-  var timeoutId = controller ? setTimeout(function(){ controller.abort(); }, 90000) : null;
-  // Content-Type SENGAJA 'text/plain;charset=utf-8' (bukan application/json)
-  // supaya browser mengirim permintaan ini sebagai "simple request" dan
-  // TIDAK melakukan preflight OPTIONS lebih dulu — Apps Script Web App
-  // tidak punya handler doOptions(), jadi kalau preflight terjadi,
-  // permintaan akan gagal kena CORS. e.postData.contents di doPost() tetap
-  // terbaca normal walau Content-Type-nya text/plain.
-  return fetch(GAS_WEB_APP_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ fn: fnName, args: args }),
-    signal: controller ? controller.signal : undefined
-  })
-  .then(function(resp){
-    if (timeoutId) clearTimeout(timeoutId);
-    if (!resp.ok) throw new Error('Server merespons HTTP ' + resp.status + '.');
-    return resp.text();
-  })
-  .then(function(text){
-    try { return JSON.parse(text); }
-    catch (eParse) { throw new Error('Respons server tidak valid (bukan JSON) — pastikan GAS_WEB_APP_URL benar & deployment "Anyone".'); }
-  })
-  .catch(function(err){
-    if (timeoutId) clearTimeout(timeoutId);
-    if (err && err.name === 'AbortError') throw new Error('Waktu tunggu habis (90 detik) -- server tidak merespons. Kalau ini terjadi di menu Laporan Unit, kemungkinan SIMK (sumber data eksternal) sedang lambat/tidak merespons -- coba lagi sebentar lagi.');
-    throw (err instanceof Error) ? err : new Error(String(err));
-  });
-}
+// Wrapper generik pemanggilan Apps Script -> Promise
 // PERBAIKAN LOCK SERVICE: backend mengunci SEMUA proses simpan/edit/hapus
 // lewat 1 kunci global (LockService), supaya data tidak pernah tabrakan --
 // tapi konsekuensinya, kalau beberapa orang menyimpan BERSAMAAN, yang
@@ -1258,16 +1150,26 @@ function _gasCallFetch(fnName){
 var LOCK_BUSY_MSG = 'Sistem sedang memproses permintaan lain, coba lagi sebentar.';
 function gasCall(fnName){
   var args = Array.prototype.slice.call(arguments, 1);
-  return _gasCallDenganRetry(fnName, args, 0);
+  return _gasCallSatuKali(fnName, args, 0);
 }
-function _gasCallDenganRetry(fnName, args, percobaan){
-  return _gasCallFetch.apply(null, [fnName].concat(args)).then(function(res){
+function _gasCallSatuKali(fnName, args, percobaan){
+  return new Promise(function(resolve, reject){
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(function(err){ reject(err); })[fnName].apply(null, args);
+  }).then(function(res){
+    // PERBAIKAN: kalau respons dari server kosong (null/undefined -- pernah
+    // terjadi kalau fungsi belum ke-deploy ulang, sesi Apps Script terputus
+    // di tengah, dsb), JANGAN diteruskan apa adanya -- semua pemanggil di
+    // seluruh aplikasi asumsinya res SELALU sebuah objek dengan res.success,
+    // jadi res=null akan bikin error kriptik "Cannot read properties of
+    // null" yang membingungkan. Diseragamkan di SATU titik ini saja.
     if(res === null || res === undefined){
       return { success:false, message:'Server tidak mengembalikan respons ("'+fnName+'"). Coba muat ulang halaman -- kalau masih terjadi, kemungkinan ada perubahan kode yang belum ter-deploy ulang.' };
     }
     if(res && res.success === false && res.message === LOCK_BUSY_MSG && percobaan < 3){
       return new Promise(function(r){ setTimeout(r, 700 * (percobaan + 1)); })
-        .then(function(){ return _gasCallDenganRetry(fnName, args, percobaan + 1); });
+        .then(function(){ return _gasCallSatuKali(fnName, args, percobaan + 1); });
     }
     return res;
   });
@@ -1415,11 +1317,7 @@ function afterLogin(){
 
   // 2) Ambil data terbaru dari server di belakang layar
   showBar();
-  gasCallBatch([
-    { fn:'getDaftarTahun', args:[STATE.token] },
-    { fn:'getMyPos', args:[STATE.token] },
-    { fn:'getSetup', args:[STATE.token] }
-  ]).then(function(res){
+  Promise.all([ gasCall('getDaftarTahun', STATE.token), gasCall('getMyPos', STATE.token), gasCall('getSetup', STATE.token) ]).then(function(res){
     hideLoading(); hideBar();
     var thn = res[0], pos = res[1], setup = res[2];
     STATE.daftarTahun = thn.data || []; STATE.tahunAktif = thn.tahunAktif || (STATE.daftarTahun[STATE.daftarTahun.length-1]);
@@ -1454,6 +1352,11 @@ function refreshViewSilently(name){
   else if(name==='user') loadUserView();
   else if(name==='log') loadLogView();
   else if(name==='pengajuan'){
+    // Status pengajuan sering dipantau nyaris real-time -- tapi HANYA
+    // refresh diam-diam kalau sedang di sub-panel Daftar, JANGAN kalau
+    // sedang di Form (isi pengajuan baru) atau Detail (sedang baca/ketik
+    // komentar/catatan revisi) -- supaya tidak mengganggu isian yang belum
+    // disimpan.
     var subDaftar = document.getElementById('pd-sub-daftar');
     if(subDaftar && !subDaftar.classList.contains('d-none')){ pdMuatRingkasan(); pdMuatDaftar(); }
   }
@@ -2264,7 +2167,7 @@ function gcRowHtml(r,i,rentang){
     + '<td class="tx-col-icon">'+(i+1)+'</td>'
     + '<td><input type="date" class="form-control form-control-sm px-1" style="font-size:.78rem;" value="'+_gcEsc(r.tgl)+'" min="'+rentang.min+'" max="'+rentang.max+'"'
         + ' onchange="gcUpd('+r.id+',\'tgl\',this.value)" onkeydown="gcKey(event,'+r.id+',\'tgl\')"></td>'
-        + '<td><div class="tx-pos-wrap">'
+    + '<td><div class="tx-pos-wrap">'
         + '<input type="text" class="form-control form-control-sm tx-pos-input" style="caret-color:auto;cursor:text;" autocomplete="off" placeholder="- Pilih Unit \u2192 Pos -"'
           + ' value="'+_gcEsc(r.posLabel)+'" id="gc-pos-'+r.id+'"'
           + ' onfocus="gcPosFocus('+r.id+')" oninput="gcPosInput('+r.id+')" onkeydown="gcPosKey(event,'+r.id+')" onblur="gcPosBlur('+r.id+')">'
@@ -2748,7 +2651,6 @@ function revPilih(kp){
   renderTransaksiTable();
 }
 
-
 // ── IMPORT MASSAL DARI EXCEL (paste) ──────────────────────────────
 // Solusi untuk data asli yang jumlahnya ratusan baris per pos: blok kolom
 // Tanggal/Keterangan/Debet/Kredit di Excel/Google Sheets ASLI (bukan dari
@@ -2868,7 +2770,6 @@ function bukaUbahPosVerifikasi(id, kodePosSaatIni){
     });
   });
 }
-
 
 // ============================================================
 // HUBUNGI ADMIN (PESAN) — obrolan sederhana Unit<->Admin, disimpan di
@@ -3133,6 +3034,10 @@ function muatBadgePesan(){
     else el.classList.add('d-none');
   });
 }
+// Badge notifikasi utk "Daftar Pengajuan" (Pengajuan Dana) -- role-aware:
+// Admin lihat jumlah pengajuan yg PERLU DIA proses (Menunggu ACC/Verifikasi),
+// Unit lihat jumlah pengajuan MEREKA yg PERLU DIREVISI. Pola sama persis
+// dgn muatBadgePesan() supaya konsisten.
 function muatBadgePengajuan(){
   gasCall('getJumlahPengajuanPerluPerhatian', STATE.token).then(function(res){
     if(!res.success) return;
@@ -3268,6 +3173,12 @@ function _konsoKey(){ return STATE.tahunAktif + '_' + document.getElementById('s
 // Konsolidasi di-cache per tahun_bulan di memori -- kalau bulan yang sama
 // sudah pernah dimuat di sesi ini, tampil instan dari cache, lalu refresh diam-diam.
 var _konsolidasiRawCache = {};
+// Edit transaksi langsung dari tampilan Konsolidasi (yang tadinya
+// murni read-only) -- KHUSUS di sini ada pilihan PINDAH POS, karena
+// inilah tampilan gabungan semua Pos, jadi paling gampang ketahuan kalau
+// ada transaksi yg kepencet masuk Pos yang salah. Backend
+// (updateTransaksi) sudah divalidasi supaya Unit cuma bisa pindah ke Pos
+// miliknya sendiri, tidak bisa asal comot Pos unit lain.
 function editTransaksiKonso(id, bulan){
   var key = STATE.tahunAktif + '_' + bulan;
   var cache = _konsolidasiRawCache[key];
@@ -3295,8 +3206,8 @@ function editTransaksiKonso(id, bulan){
     if(!res.isConfirmed) return;
     gasCall('updateTransaksi', STATE.tahunAktif, bulan, id, res.value, STATE.token).then(function(rr){
       if(!rr.success){ toast('error', rr.message); return; }
-      delete _konsolidasiRawCache[key];
-      delete CACHE.rekap[key];
+      delete _konsolidasiRawCache[key]; // data sudah berubah -- paksa ambil ulang, jangan pakai cache basi
+      delete CACHE.rekap[key]; // ikut tampil di "Input Rekap Bulanan" juga
       toast('success','Tersimpan'); loadKonsolidasi();
     }).catch(function(){ toast('error','Gagal menyimpan'); });
   });
@@ -3311,11 +3222,11 @@ function loadKonsolidasi(){
   var key = STATE.tahunAktif + '_' + bulan;
   var cached = _konsolidasiRawCache[key];
   if(cached) _renderKonsolidasi(bulan, cached);
-  gasCallBatch([
-    { fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
-    { fn:'getRekonsiliasi', args:[STATE.tahunAktif, bulan, STATE.token] },
-    { fn:'getTambahanBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
-    { fn:'getKategoriTambahanList', args:[STATE.token] }
+  Promise.all([
+    gasCall('getRekapBulan', STATE.tahunAktif, bulan, STATE.token),
+    gasCall('getRekonsiliasi', STATE.tahunAktif, bulan, STATE.token),
+    gasCall('getTambahanBulan', STATE.tahunAktif, bulan, STATE.token),
+    gasCall('getKategoriTambahanList', STATE.token)
   ]).then(function(hasil){
     if(!hasil[0].success){ if(!cached) toast('error', hasil[0].message); return; }
     _konsolidasiRawCache[key] = hasil;
@@ -3957,9 +3868,9 @@ function cetakKonsolidasi(){
 var _unitPosData = { units:[], pos:[] };
 function loadUnitPos(){
   showBar();
-  gasCallBatch([
-    { fn:'getUnitPosList', args:[STATE.token] },
-    { fn:'getKategoriTambahanList', args:[STATE.token] }
+  Promise.all([
+    gasCall('getUnitPosList', STATE.token),
+    gasCall('getKategoriTambahanList', STATE.token)
   ]).then(function(hasil){
     hideBar();
     var res = hasil[0], katRes = hasil[1];
@@ -4013,10 +3924,6 @@ function bukaGantiKodeUnit(kodeLama){
     }).catch(function(){ Swal.close(); toast('error','Gagal mengganti kode'); });
   });
 }
-// Geser urutan Unit satu posisi (naik=-1 / turun=+1). Ditukar dulu di UI
-// (optimistic) biar responsif, lalu urutan lengkap terbaru dikirim ke server
-// untuk disimpan permanen di kolom "Urutan" sheet Unit.
-
 // Geser urutan Unit satu posisi (naik=-1 / turun=+1). Ditukar dulu di UI
 // (optimistic) biar responsif, lalu urutan lengkap terbaru dikirim ke server
 // untuk disimpan permanen di kolom "Urutan" sheet Unit.
@@ -4215,7 +4122,7 @@ function loadKomponenAnggaranSetup(){
   gasCall('getKomponenAnggaranList', STATE.token).then(function(res){
     if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat Komponen Anggaran'); return; }
     _komponenAnggaranData = res.data;
-    PD.komponenList = res.data;
+    PD.komponenList = res.data; // ikut disegarkan utk dropdown Pengajuan Dana
     renderKomponenAnggaranTable();
   }).catch(function(err){ toast('error', (err && err.message) || 'Gagal memuat Komponen Anggaran'); });
 }
@@ -4272,7 +4179,7 @@ function hapusKomponenAnggaranSetup(kode){
 // ============================================================
 function loadUserView(){
   showBar();
-  gasCallBatch([ { fn:'getUserList', args:[STATE.token] }, { fn:'getUnitPosList', args:[STATE.token] } ]).then(function(res){
+  Promise.all([ gasCall('getUserList', STATE.token), gasCall('getUnitPosList', STATE.token) ]).then(function(res){
     hideBar();
     var users = res[0], unitPos = res[1];
     if(!users.success){ toast('error', users.message); return; }
@@ -4563,6 +4470,10 @@ function toggleSelaluPisahMemorialUnit(kodeUnit, dicentang){
     });
   });
 }
+// Toggle tampilan statis <-> form edit di halaman Pengaturan -- sengaja
+// TIDAK ada cara lain utk memicu edit selain tombol ini (tidak ada
+// double-click, tidak ada auto-edit-on-focus), supaya field pengaturan
+// yang jarang diubah tidak gampang kepencet/keubah tidak sengaja.
 function stMulaiEdit(){
   document.getElementById('st-tampilan-statis').classList.add('d-none');
   document.getElementById('st-btn-edit').classList.add('d-none');
@@ -4584,7 +4495,7 @@ function submitSetup(e){
     STATE.namaBank = data.namaBank || STATE.namaBank;
     STATE.kodeRekeningKasBank = data.kodeRekeningKasBank || '';
     toast('success','Pengaturan tersimpan');
-    loadSetupView();
+    loadSetupView(); // muat ulang -- sekalian refresh tampilan statis dgn nilai terbaru & balik dari mode edit
   }).catch(function(){ btnBusy(btn, false); toast('error','Gagal menyimpan'); });
 }
 
@@ -4622,27 +4533,17 @@ function loadJurnalMemorial(){
   var bulan = document.getElementById('sel-bulan-memorial').value;
   if(!bulan) return;
   showBar();
-  // Semua panggilan jalan BERSAMAAN dalam SATU request batch (bukan tunggu
-  // status kunci dulu baru mulai tarik data, dan bukan N request terpisah)
-  // — ini yang bikin ganti bulan jauh lebih cepat. Kalau ternyata terkunci,
-  // hasil data mentahnya tinggal dibuang, tidak masalah (lebih murah
-  // daripada menunggu 2x giliran bolak-balik ke server).
-  var pakaiCacheKategori = !!CACHE.kategoriTambahan;
-  var callsMemorial = [
-    { fn:'getStatusJurnalMemorial', args:[STATE.tahunAktif, bulan, STATE.token] },
-    { fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
-    { fn:'getTambahanBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
-    { fn:'getMemorialTambahan', args:[STATE.tahunAktif, bulan, STATE.token] }
-  ];
-  if (!pakaiCacheKategori) callsMemorial.push({ fn:'getKategoriTambahanList', args:[STATE.token] });
-  gasCallBatch(callsMemorial).then(function(hasilBatch){
-    // Urutan dikembalikan SAMA PERSIS seperti Promise.all([...]) sebelumnya
-    // (statusRes, rekap, tb, katRes, mtRes) supaya kode di bawah tidak berubah.
-    var hasil = [
-      hasilBatch[0], hasilBatch[1], hasilBatch[2],
-      pakaiCacheKategori ? {success:true, data:CACHE.kategoriTambahan} : hasilBatch[4],
-      hasilBatch[3]
-    ];
+  // Semua panggilan jalan BERSAMAAN (bukan tunggu status kunci dulu baru
+  // mulai tarik data) — ini yang bikin ganti bulan jauh lebih cepat. Kalau
+  // ternyata terkunci, hasil data mentahnya tinggal dibuang, tidak masalah
+  // (lebih murah daripada menunggu 2x giliran bolak-balik ke server).
+  Promise.all([
+    gasCall('getStatusJurnalMemorial', STATE.tahunAktif, bulan, STATE.token),
+    gasCall('getRekapBulan', STATE.tahunAktif, bulan, STATE.token),
+    gasCall('getTambahanBulan', STATE.tahunAktif, bulan, STATE.token),
+    CACHE.kategoriTambahan ? Promise.resolve({success:true, data:CACHE.kategoriTambahan}) : gasCall('getKategoriTambahanList', STATE.token),
+    gasCall('getMemorialTambahan', STATE.tahunAktif, bulan, STATE.token)
+  ]).then(function(hasil){
     hideBar();
     var statusRes = hasil[0], rekap = hasil[1], tb = hasil[2], katRes = hasil[3], mtRes = hasil[4];
     if(!statusRes.success){ toast('error', statusRes.message); return; }
@@ -5247,6 +5148,10 @@ function cetakLaporanUnit(){
   if(!d){ toast('error','Belum ada data untuk dicetak'); return; }
   var periode = _luPeriode();
 
+  // CSS & kop/footer SENGAJA disamakan persis dengan gaya cetak resmi yang
+  // sudah dipakai di SIKU LPPM USD sendiri (lihat cetakKonsolidasi) -- yang
+  // itu sendiri memang meniru gaya SIMK (kop LPPM USD, ukuran font, garis,
+  // format angka monospace rata kanan, dst).
   var css = [
     '*{color:#000 !important;}',
     'body{font-family:Arial,sans-serif;font-size:8.5pt;color:#000;margin:0;padding:0;counter-reset:page;}',
@@ -5353,10 +5258,7 @@ function loadLogView(){
 // ============================================================
 (function pulihkanSesi(){
   var tersimpan = ssGet('token');
-  if(!tersimpan){
-    gasCall('loginUserBySession', '').catch(function(){}); // warm-up diam-diam, lihat catatan di atas
-    return;
-  }
+  if(!tersimpan){ return; } // tidak ada sesi tersimpan -> tampilkan Login seperti biasa
   showLoading('Memulihkan sesi...');
   gasCall('loginUserBySession', tersimpan).then(function(res){
     hideLoading();
@@ -5773,6 +5675,29 @@ function pdRenderDropzone(dropId, namaFile){
 // ============================================================
 // SUBMIT 3 JENIS
 // ============================================================
+// Cek pengajuan serupa/duplikat SEBELUM benar-benar submit -- kalau
+// ditemukan, tampilkan peringatan & minta konfirmasi eksplisit dulu.
+// Kalau pengecekannya sendiri gagal (mis. jaringan bermasalah), JANGAN
+// blokir submit -- lanjut saja seperti biasa (ini cuma peringatan
+// tambahan, bukan validasi wajib).
+function pdCekSerupaLaluLanjut(judul, jenis, lanjutFn){
+  gasCall('cekPengajuanSerupa', judul, jenis, STATE.token).then(function(res){
+    if(res && res.success && res.serupa && res.serupa.length){
+      var daftarHtml = res.serupa.map(function(s){
+        return '<li class="mb-1"><b>'+s.idPengajuan+'</b> &mdash; "'+esc(s.judul)+'" <span class="text-muted">('+s.jamLalu+' jam lalu, status: '+esc(s.status)+')</span></li>';
+      }).join('');
+      Swal.fire({
+        title:'Ada pengajuan mirip baru-baru ini',
+        html:'<div class="text-start small">Ditemukan pengajuan dengan judul mirip dari Unit yang sama, dalam 24 jam terakhir:'
+          + '<ul class="mt-2 mb-2">'+daftarHtml+'</ul>'
+          + 'Kalau ini <b>bukan</b> pengajuan yang sama (misal tidak sengaja klik dua kali), silakan lanjutkan.</div>',
+        icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Tetap Ajukan', cancelButtonText:'Batal, Cek Dulu', confirmButtonColor:'#800000'
+      }).then(function(r){ if(r.isConfirmed) lanjutFn(); });
+    } else {
+      lanjutFn();
+    }
+  }).catch(function(){ lanjutFn(); });
+}
 function pdSubmitPermohonanDana(btn){
   var judul = document.getElementById('pd-judul-muka').value.trim();
   var tgl = document.getElementById('pd-tgl-muka').value;
@@ -5780,14 +5705,16 @@ function pdSubmitPermohonanDana(btn){
   if(!judul){ toast('error','Nama kegiatan wajib diisi'); return; }
   if(!rab.length){ toast('error','RAB minimal 1 komponen dengan nominal > 0'); return; }
   if(!PD.suratFile){ toast('error','Surat pengajuan (PDF) wajib diunggah'); return; }
-  btnBusy(btn, true);
-  var idKey = _idemKey('ajukan_muka', {judul:judul,tgl:tgl,rab:rab});
-  gasCall('ajukanPermohonanDanaKegiatan', {judul:judul, tglPengajuan:tgl, rab:rab, suratFile:PD.suratFile}, STATE.token, idKey).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
-    pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
-  }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
+  pdCekSerupaLaluLanjut(judul, 'MUKA', function(){
+    btnBusy(btn, true);
+    var idKey = _idemKey('ajukan_muka', {judul:judul,tgl:tgl,rab:rab});
+    gasCall('ajukanPermohonanDanaKegiatan', {judul:judul, tglPengajuan:tgl, rab:rab, suratFile:PD.suratFile}, STATE.token, idKey).then(function(res){
+      btnBusy(btn, false);
+      if(!res || !res.success){ toast('error', res.message); return; }
+      toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
+      pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
+    }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
+  });
 }
 // Toggle Tunai/Transfer di form Ajukan Baru (Penggantian Biaya & Tagihan) --
 // prefix: 'sekaligus' atau 'tagihan'.
@@ -5807,14 +5734,16 @@ function pdSubmitPenggantianBiaya(btn){
   var namaRekening = document.getElementById('pd-nama-rek-sekaligus').value.trim();
   var namaBank = document.getElementById('pd-nama-bank-sekaligus').value.trim();
   if(metode==='TRANSFER' && (!noRekening || !namaRekening || !namaBank)){ toast('error','No. Rekening, Nama Pemilik Rekening, dan Nama Bank wajib diisi kalau metode Transfer'); return; }
-  btnBusy(btn, true);
-  var idKey = _idemKey('ajukan_sekaligus', {judul:judul,tgl:tgl,realisasi:realisasi});
-  gasCall('ajukanPenggantianBiaya', {judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank}, STATE.token, idKey).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
-    pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
-  }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
+  pdCekSerupaLaluLanjut(judul, 'SEKALIGUS', function(){
+    btnBusy(btn, true);
+    var idKey = _idemKey('ajukan_sekaligus', {judul:judul,tgl:tgl,realisasi:realisasi});
+    gasCall('ajukanPenggantianBiaya', {judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank}, STATE.token, idKey).then(function(res){
+      btnBusy(btn, false);
+      if(!res || !res.success){ toast('error', res.message); return; }
+      toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
+      pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
+    }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
+  });
 }
 function pdSubmitTagihan(btn){
   var judul = document.getElementById('pd-judul-tagihan').value.trim();
@@ -5829,14 +5758,16 @@ function pdSubmitTagihan(btn){
   var namaRekening = document.getElementById('pd-nama-rek-tagihan').value.trim();
   var namaBank = document.getElementById('pd-nama-bank-tagihan').value.trim();
   if(metode==='TRANSFER' && (!noRekening || !namaRekening || !namaBank)){ toast('error','No. Rekening, Nama Pemilik Rekening, dan Nama Bank wajib diisi kalau metode Transfer'); return; }
-  btnBusy(btn, true);
-  var idKey = _idemKey('ajukan_tagihan', {judul:judul,kepada:kepada,nominal:nominal});
-  gasCall('ajukanTagihan', {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank}, STATE.token, idKey).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Tagihan '+res.idPengajuan+' berhasil diajukan');
-    pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
-  }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengajukan tagihan'); });
+  pdCekSerupaLaluLanjut(judul, 'TAGIHAN', function(){
+    btnBusy(btn, true);
+    var idKey = _idemKey('ajukan_tagihan', {judul:judul,kepada:kepada,nominal:nominal});
+    gasCall('ajukanTagihan', {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank}, STATE.token, idKey).then(function(res){
+      btnBusy(btn, false);
+      if(!res || !res.success){ toast('error', res.message); return; }
+      toast('success','Tagihan '+res.idPengajuan+' berhasil diajukan');
+      pdMuatRingkasan(); pdMuatDaftar(); pdSub('daftar');
+    }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengajukan tagihan'); });
+  });
 }
 
 // ============================================================
