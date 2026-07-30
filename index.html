@@ -1711,8 +1711,8 @@ function _renderTxRow(r, i, kodePosDrag){
     + '<td class="tx-col-icon">'+(i+1)+'</td><td>'+r.tanggal+'</td><td class="tx-col-clip" title="'+_gcEsc(r.keterangan||'')+'">'+_gcEsc(r.keterangan||'')+'</td>'
     + '<td class="text-end">'+fmtRp(r.debet)+'</td><td class="text-end">'+fmtRp(r.kredit)+'</td>'
     + '<td class="tx-col-clip" title="'+(r.inputOleh||'').replace(/"/g,'&quot;')+'">'+(r.inputOleh||'')+'</td>'
-    + '<td class="no-print tx-aksi"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksi(\''+r.id+'\')"><i class="fas fa-edit"></i></button>'
-    + '<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksi(\''+r.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+    + '<td class="no-print tx-aksi"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksi(\''+r.id+'\', this)"><i class="fas fa-edit"></i></button>'
+    + '<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksi(\''+r.id+'\', this)"><i class="fas fa-trash"></i></button></td></tr>';
 }
 // Urutkan array transaksi: pakai urutan MANUAL (kolom Urutan) kalau ada,
 // baru fallback ke tanggal — supaya baris yang belum pernah digeser tetap
@@ -1955,76 +1955,99 @@ function hapusTerpilihTambahan(){
     }).catch(function(){ CACHE.tambahan[key] = CACHE.tambahan[key].concat(backup); _refreshTambahanEverywhere(key); toast('error','Gagal menghapus'); });
   });
 }
-function editTransaksi(id){
+function editTransaksi(id, btn){
   var r = _arrTransaksiAktif().filter(function(d){return d.id===id;})[0];
   if(!r) return;
   var bulan = document.getElementById('sel-bulan-input').value;
   var rentangEd = _rentangTanggalBulanInput();
-  // Opsi pindah Pos HANYA utk Admin -- Admin punya wewenang penuh
-  // memindahkan transaksi ke Pos MANAPUN lintas Unit (utk membetulkan salah
-  // posting), sedangkan Unit tetap TIDAK bisa pindah ke Pos Unit lain di
-  // sini (kalau memang salah punya, pakai tombol "Kembalikan" di halaman
-  // Verifikasi Transaksi -- lihat batalkanVerifikasiTransaksi).
-  var lanjutkanDialog = function(opsiPos){
-    Swal.fire({
-      title:'Edit Transaksi',
-      html:'<div style="text-align:left;">'
-        +'<label class="form-label small mb-1">Tanggal</label><input type="date" id="ed-tgl" class="form-control form-control-sm mb-2" value="'+(r.tanggal||'')+'" min="'+rentangEd.min+'" max="'+rentangEd.max+'">'
-        +'<label class="form-label small mb-1">Keterangan</label><input type="text" id="ed-ket" class="form-control form-control-sm mb-2" value="'+_gcEsc(r.keterangan||'')+'">'
-        +'<div class="row g-2"><div class="col-6"><label class="form-label small mb-1">Debet</label><input type="text" inputmode="decimal" id="ed-debet" class="form-control form-control-sm text-end" value="'+fmtRp(r.debet)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()"></div>'
-        +'<div class="col-6"><label class="form-label small mb-1">Kredit</label><input type="text" inputmode="decimal" id="ed-kredit" class="form-control form-control-sm text-end" value="'+fmtRp(r.kredit)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()"></div></div>'
-        + (opsiPos ? ('<label class="form-label small mb-1 mt-2">Pos <span class="text-muted">(pindahkan kalau salah posting)</span></label>'
-          + '<select id="ed-pos-admin" class="form-select form-select-sm">'+opsiPos+'</select>') : '')
-        +'</div>',
-      confirmButtonText:'Simpan', confirmButtonColor:'#800000', showCancelButton:true, cancelButtonText:'Batal',
-      preConfirm:function(){
-        var tgl = document.getElementById('ed-tgl').value;
-        if(!tgl){ Swal.showValidationMessage('Tanggal wajib diisi.'); return false; }
-        var hasil = { kodePos:(r.kodePos||STATE_posAktif), tanggal:tgl, keterangan:document.getElementById('ed-ket').value,
-                 debet:angkaKeAngka(document.getElementById('ed-debet').value), kredit:angkaKeAngka(document.getElementById('ed-kredit').value) };
-        var elPosAdmin = document.getElementById('ed-pos-admin');
-        if(elPosAdmin && elPosAdmin.value !== (r.kodePos||'')) hasil.kodePosBaru = elPosAdmin.value;
-        return hasil;
-      }
-    }).then(function(res){
-      if(!res.isConfirmed) return;
+  var isAdmin = STATE.role==='ADMIN';
+  // Dialog LANGSUNG dibuka (tidak menunggu apa pun) -- utk Admin, dropdown
+  // Pos tampil dulu dgn 1 opsi placeholder ("Memuat...") lalu diisi ULANG
+  // begitu daftar Pos selesai diambil DI LATAR BELAKANG (lihat didOpen di
+  // bawah). Jadi Edit selalu terasa instan, tidak pernah menunggu network
+  // dulu baru dialognya kelihatan.
+  Swal.fire({
+    title:'Edit Transaksi',
+    html:'<div style="text-align:left;">'
+      +'<label class="form-label small mb-1">Tanggal</label><input type="date" id="ed-tgl" class="form-control form-control-sm mb-2" value="'+(r.tanggal||'')+'" min="'+rentangEd.min+'" max="'+rentangEd.max+'">'
+      +'<label class="form-label small mb-1">Keterangan</label><input type="text" id="ed-ket" class="form-control form-control-sm mb-2" value="'+_gcEsc(r.keterangan||'')+'">'
+      +'<div class="row g-2"><div class="col-6"><label class="form-label small mb-1">Debet</label><input type="text" inputmode="decimal" id="ed-debet" class="form-control form-control-sm text-end" value="'+fmtRp(r.debet)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()"></div>'
+      +'<div class="col-6"><label class="form-label small mb-1">Kredit</label><input type="text" inputmode="decimal" id="ed-kredit" class="form-control form-control-sm text-end" value="'+fmtRp(r.kredit)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()"></div></div>'
+      + (isAdmin ? ('<label class="form-label small mb-1 mt-2">Pos</label>'
+        + '<select id="ed-pos-admin" class="form-select form-select-sm" disabled><option>Memuat pilihan Pos...</option></select>') : '')
+      +'</div>',
+    confirmButtonText:'Simpan', confirmButtonColor:'#800000', showCancelButton:true, cancelButtonText:'Batal',
+    allowOutsideClick:false, allowEscapeKey:false,
+    didOpen: function(){
+      if(!isAdmin) return;
+      gasCall('getUnitPosList', STATE.token).then(function(res){
+        var el = document.getElementById('ed-pos-admin');
+        if(!el || !res || !res.success) return;
+        // res.pos cuma punya kodeUnit (kode), BUKAN namaUnit langsung --
+        // perlu dicocokkan dulu ke res.units supaya labelnya bisa tampilkan
+        // nama Unit yang benar (dulu langsung pakai p.namaUnit yg TIDAK ADA
+        // di objek Pos, hasilnya "undefined" di tiap baris).
+        var petaNamaUnit = {}; (res.units||[]).forEach(function(u){ petaNamaUnit[u.kodeUnit] = u.namaUnit; });
+        var opsiPos = (res.pos||[]).map(function(p){ return '<option value="'+p.kodePos+'"'+(p.kodePos===r.kodePos?' selected':'')+'>'+(petaNamaUnit[p.kodeUnit]||p.kodeUnit)+' — '+p.namaPos+'</option>'; }).join('');
+        el.innerHTML = '<option value="'+POS_BELUM_JELAS+'">— Belum Jelas Milik Siapa —</option>' + opsiPos;
+        el.disabled = false;
+      }).catch(function(){ var el = document.getElementById('ed-pos-admin'); if(el) el.innerHTML = '<option value="">(gagal memuat daftar Pos)</option>'; });
+    },
+    preConfirm:function(){
+      var tgl = document.getElementById('ed-tgl').value;
+      if(!tgl){ Swal.showValidationMessage('Tanggal wajib diisi.'); return false; }
+      var hasil = { kodePos:(r.kodePos||STATE_posAktif), tanggal:tgl, keterangan:document.getElementById('ed-ket').value,
+               debet:angkaKeAngka(document.getElementById('ed-debet').value), kredit:angkaKeAngka(document.getElementById('ed-kredit').value) };
+      var elPosAdmin = document.getElementById('ed-pos-admin');
+      var posDipilih = (elPosAdmin && !elPosAdmin.disabled) ? elPosAdmin.value : null;
+      if(posDipilih === POS_BELUM_JELAS) hasil.kembalikanKeBelumJelas = true;
+      else if(posDipilih && posDipilih !== (r.kodePos||'')) hasil.kodePosBaru = posDipilih;
+      Swal.showLoading();
+      var pRek = gasCall('updateTransaksi', STATE.tahunAktif, bulan, id, hasil, STATE.token);
+      return pRek.then(function(rr){
+        if(!rr.success){ Swal.showValidationMessage(rr.message); return false; }
+        if(!hasil.kembalikanKeBelumJelas) return hasil;
+        return gasCall('batalkanVerifikasiTransaksi', STATE.tahunAktif, bulan, id, STATE.token).then(function(rr2){
+          if(!rr2.success){ Swal.showValidationMessage('Data lain tersimpan, tapi gagal dikembalikan ke Belum Jelas: ' + rr2.message); return false; }
+          return hasil;
+        });
+      }).catch(function(){ Swal.showValidationMessage('Gagal menyimpan, coba lagi.'); return false; });
+    }
+  }).then(function(res){
+    if(!res.isConfirmed) return;
+    var hasil = res.value;
+    if(hasil.kembalikanKeBelumJelas){
+      toast('success','Tersimpan & dikembalikan ke daftar Belum Jelas Pos-nya');
+    } else {
       var arr = _arrTransaksiAktif();
       var idx = arr.findIndex(function(d){return d.id===id;});
-      var backup = idx>-1 ? Object.assign({}, arr[idx]) : null;
-      if(idx>-1) Object.assign(arr[idx], res.value);
-      renderTransaksiTable();
-      gasCall('updateTransaksi', STATE.tahunAktif, bulan, id, res.value, STATE.token).then(function(rr){
-        if(!rr.success){ if(backup && idx>-1) arr[idx]=backup; renderTransaksiTable(); toast('error', rr.message); return; }
-        toast('success', res.value.kodePosBaru ? 'Tersimpan & dipindah ke Pos lain' : 'Tersimpan');
-        if(res.value.kodePosBaru){ delete CACHE.rekap[STATE.tahunAktif+'_'+bulan]; loadRekapBulan(); }
-      }).catch(function(){ if(backup && idx>-1) arr[idx]=backup; renderTransaksiTable(); toast('error','Gagal menyimpan (dikembalikan)'); });
-    });
-  };
-  if(STATE.role==='ADMIN'){
-    gasCall('getUnitPosList', STATE.token).then(function(res){
-      var opsiPos = '';
-      if(res && res.success){
-        opsiPos = (res.pos||[]).map(function(p){ return '<option value="'+p.kodePos+'"'+(p.kodePos===r.kodePos?' selected':'')+'>'+p.namaUnit+' — '+p.namaPos+'</option>'; }).join('');
-      }
-      lanjutkanDialog(opsiPos);
-    }).catch(function(){ lanjutkanDialog(''); });
-  } else {
-    lanjutkanDialog('');
-  }
+      if(idx>-1) Object.assign(arr[idx], hasil);
+      toast('success', hasil.kodePosBaru ? 'Tersimpan & dipindah ke Pos lain' : 'Tersimpan');
+    }
+    delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
+    delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
+    loadRekapBulan();
+  });
 }
 function hapusTransaksi(id){
-  Swal.fire({title:'Hapus transaksi ini?', icon:'warning', showCancelButton:true, confirmButtonText:'Hapus', confirmButtonColor:'#dc2626'}).then(function(res){
+  Swal.fire({
+    title:'Hapus transaksi ini?', icon:'warning', showCancelButton:true, confirmButtonText:'Hapus', confirmButtonColor:'#dc2626',
+    allowOutsideClick:false, allowEscapeKey:false,
+    preConfirm: function(){
+      var bulan = document.getElementById('sel-bulan-input').value;
+      Swal.showLoading();
+      return gasCall('deleteTransaksi', STATE.tahunAktif, bulan, id, STATE.token).then(function(r){
+        if(!r.success){ Swal.showValidationMessage(r.message); return false; }
+        return true;
+      }).catch(function(){ Swal.showValidationMessage('Gagal menghapus, coba lagi.'); return false; });
+    }
+  }).then(function(res){
     if(!res.isConfirmed) return;
-    var bulan = document.getElementById('sel-bulan-input').value;
     var arr = _arrTransaksiAktif();
     var idx = arr.findIndex(function(d){return d.id===id;});
-    var backup = idx>-1 ? arr[idx] : null;
-    if(idx>-1) arr.splice(idx,1); // optimistic: langsung hilang dari layar
+    if(idx>-1) arr.splice(idx,1);
     renderTransaksiTable();
-    gasCall('deleteTransaksi', STATE.tahunAktif, bulan, id, STATE.token).then(function(r){
-      if(!r.success){ if(backup) arr.splice(idx,0,backup); renderTransaksiTable(); toast('error', r.message); return; }
-      toast('success','Terhapus');
-    }).catch(function(){ if(backup) arr.splice(idx,0,backup); renderTransaksiTable(); toast('error','Gagal menghapus (dikembalikan)'); });
+    toast('success','Terhapus');
   });
 }
 // ============================================================
@@ -2077,8 +2100,8 @@ function renderRekeningKoranTable(){
       + '<td class="text-end">'+(r.debet?fmtRp(r.debet):'&mdash;')+'</td>'
       + '<td class="text-end">'+(r.kredit?fmtRp(r.kredit):'&mdash;')+'</td>'
       + '<td class="tx-col-clip" title="'+_gcEsc(r.sumber==='tambahan'?(r.namaPos||''):(_rekKoranUnitNama[r.kodeUnit]||''))+'">'+labelUnit+'</td>'
-      + '<td class="no-print tx-aksi"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksiRK(\''+r.id+'\')"><i class="fas fa-edit"></i></button>'
-      + '<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksiRK(\''+r.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+      + '<td class="no-print tx-aksi"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksiRK(\''+r.id+'\', this)"><i class="fas fa-edit"></i></button>'
+      + '<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksiRK(\''+r.id+'\', this)"><i class="fas fa-trash"></i></button></td></tr>';
   }).join('') || '<tr><td colspan="8" class="text-center text-muted">'+(kataKunci?'Tidak ada hasil untuk pencarian tersebut':'Belum ada data bulan ini')+'</td></tr>';
   document.getElementById('tot-debet-rekkoran').textContent = fmtRp(d);
   document.getElementById('tot-kredit-rekkoran').textContent = fmtRp(k);
@@ -2120,7 +2143,7 @@ function rkDragEnd(){
   document.querySelectorAll('.tx-dragging').forEach(function(el){ el.classList.remove('tx-dragging'); });
   document.querySelectorAll('.tx-drop-before,.tx-drop-after').forEach(function(el){ el.classList.remove('tx-drop-before','tx-drop-after'); });
 }
-function editTransaksiRK(id){
+function editTransaksiRK(id, btn){
   var r = _rekKoranRows.filter(function(d){return d.id===id;})[0];
   if(!r) return;
   var bulan = document.getElementById('sel-bulan-rekkoran').value;
@@ -2133,77 +2156,98 @@ function editTransaksiRK(id){
     return { min: STATE.tahunAktif+'-'+p2(bulan)+'-01', max: STATE.tahunAktif+'-'+p2(bulan)+'-'+p2(akhir) };
   })() : { min:'', max:'' };
   var isTambahan = r.sumber==='tambahan';
-  // Opsi pindah Pos -- SAMA seperti di Input Rekap Bulanan (editTransaksi),
-  // cuma berlaku utk baris transaksi biasa (bukan item Non-Unit, itu ganti
-  // kategori lewat menu lain, sudah ada catatannya di dialog).
-  var lanjutkanDialogRK = function(opsiPos){
-    Swal.fire({
-      title: isTambahan ? 'Edit Item Non-Unit' : 'Edit Transaksi',
-      html:'<div style="text-align:left;">'
-        +(isTambahan ? '<p class="text-muted small mb-2">Kategori: <b>'+_gcEsc(r.namaPos||'')+'</b> (ganti kategori lewat menu Input Rekap Bulanan &rarr; Input Non Unit)</p>' : '')
-        +'<label class="form-label small mb-1">Tanggal</label><input type="date" id="ed-tgl" class="form-control form-control-sm mb-2" value="'+(r.tanggal||'')+'" min="'+rentangEd.min+'" max="'+rentangEd.max+'">'
-        +'<label class="form-label small mb-1">Keterangan</label><input type="text" id="ed-ket" class="form-control form-control-sm mb-2" value="'+_gcEsc(r.keterangan||'')+'">'
-        +'<div class="row g-2"><div class="col-6"><label class="form-label small mb-1">Debet</label><input type="text" inputmode="decimal" id="ed-debet" class="form-control form-control-sm text-end" value="'+fmtRp(r.debet)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()"></div>'
-        +'<div class="col-6"><label class="form-label small mb-1">Kredit</label><input type="text" inputmode="decimal" id="ed-kredit" class="form-control form-control-sm text-end" value="'+fmtRp(r.kredit)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()"></div></div>'
-        + (opsiPos ? ('<label class="form-label small mb-1 mt-2">Pos <span class="text-muted">(pindahkan kalau salah posting)</span></label>'
-          + '<select id="ed-pos-admin" class="form-select form-select-sm">'+opsiPos+'</select>') : '')
-        +'</div>',
-      confirmButtonText:'Simpan', confirmButtonColor:'#800000', showCancelButton:true, cancelButtonText:'Batal',
-      preConfirm:function(){
-        var tgl = document.getElementById('ed-tgl').value;
-        if(!tgl){ Swal.showValidationMessage('Tanggal wajib diisi.'); return false; }
-        var v = { tanggal:tgl, keterangan:document.getElementById('ed-ket').value,
-                 debet:angkaKeAngka(document.getElementById('ed-debet').value), kredit:angkaKeAngka(document.getElementById('ed-kredit').value) };
-        if(isTambahan) v.kodeKategori = r.kodeKategori; else v.kodePos = r.kodePos;
-        var elPosAdmin = document.getElementById('ed-pos-admin');
-        if(elPosAdmin && elPosAdmin.value !== (r.kodePos||'')) v.kodePosBaru = elPosAdmin.value;
-        return v;
-      }
-    }).then(function(res){
-      if(!res.isConfirmed) return;
-      var idx = _rekKoranRows.findIndex(function(d){return d.id===id;});
-      var backup = idx>-1 ? Object.assign({}, _rekKoranRows[idx]) : null;
-      if(idx>-1) Object.assign(_rekKoranRows[idx], res.value);
-      renderRekeningKoranTable();
+  // Dialog LANGSUNG dibuka (tidak menunggu apa pun) -- dropdown Pos tampil
+  // dgn placeholder "Memuat..." lalu diisi ULANG begitu daftar Pos selesai
+  // diambil DI LATAR BELAKANG (lihat didOpen di bawah), sama seperti
+  // editTransaksi di Input Rekap Bulanan.
+  Swal.fire({
+    title: isTambahan ? 'Edit Item Non-Unit' : 'Edit Transaksi',
+    html:'<div style="text-align:left;">'
+      +(isTambahan ? '<p class="text-muted small mb-2">Kategori: <b>'+_gcEsc(r.namaPos||'')+'</b> (ganti kategori lewat menu Input Rekap Bulanan &rarr; Input Non Unit)</p>' : '')
+      +'<label class="form-label small mb-1">Tanggal</label><input type="date" id="ed-tgl" class="form-control form-control-sm mb-2" value="'+(r.tanggal||'')+'" min="'+rentangEd.min+'" max="'+rentangEd.max+'">'
+      +'<label class="form-label small mb-1">Keterangan</label><input type="text" id="ed-ket" class="form-control form-control-sm mb-2" value="'+_gcEsc(r.keterangan||'')+'">'
+      +'<div class="row g-2"><div class="col-6"><label class="form-label small mb-1">Debet</label><input type="text" inputmode="decimal" id="ed-debet" class="form-control form-control-sm text-end" value="'+fmtRp(r.debet)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()"></div>'
+      +'<div class="col-6"><label class="form-label small mb-1">Kredit</label><input type="text" inputmode="decimal" id="ed-kredit" class="form-control form-control-sm text-end" value="'+fmtRp(r.kredit)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()"></div></div>'
+      + (!isTambahan ? ('<label class="form-label small mb-1 mt-2">Pos</label>'
+        + '<select id="ed-pos-admin" class="form-select form-select-sm" disabled><option>Memuat pilihan Pos...</option></select>') : '')
+      +'</div>',
+    confirmButtonText:'Simpan', confirmButtonColor:'#800000', showCancelButton:true, cancelButtonText:'Batal',
+    allowOutsideClick:false, allowEscapeKey:false,
+    didOpen: function(){
+      if(isTambahan) return;
+      gasCall('getUnitPosList', STATE.token).then(function(res){
+        var el = document.getElementById('ed-pos-admin');
+        if(!el || !res || !res.success) return;
+        // res.pos cuma punya kodeUnit (kode), BUKAN namaUnit langsung --
+        // perlu dicocokkan dulu ke res.units supaya labelnya tampilkan nama
+        // Unit yang benar (dulu langsung pakai p.namaUnit yg TIDAK ADA di
+        // objek Pos, hasilnya "undefined" di tiap baris).
+        var petaNamaUnit = {}; (res.units||[]).forEach(function(u){ petaNamaUnit[u.kodeUnit] = u.namaUnit; });
+        var opsiPos = (res.pos||[]).map(function(p){ return '<option value="'+p.kodePos+'"'+(p.kodePos===r.kodePos?' selected':'')+'>'+(petaNamaUnit[p.kodeUnit]||p.kodeUnit)+' — '+p.namaPos+'</option>'; }).join('');
+        el.innerHTML = '<option value="'+POS_BELUM_JELAS+'">— Belum Jelas Milik Siapa —</option>' + opsiPos;
+        el.disabled = false;
+      }).catch(function(){ var el = document.getElementById('ed-pos-admin'); if(el) el.innerHTML = '<option value="">(gagal memuat daftar Pos)</option>'; });
+    },
+    preConfirm:function(){
+      var tgl = document.getElementById('ed-tgl').value;
+      if(!tgl){ Swal.showValidationMessage('Tanggal wajib diisi.'); return false; }
+      var v = { tanggal:tgl, keterangan:document.getElementById('ed-ket').value,
+               debet:angkaKeAngka(document.getElementById('ed-debet').value), kredit:angkaKeAngka(document.getElementById('ed-kredit').value) };
+      if(isTambahan) v.kodeKategori = r.kodeKategori; else v.kodePos = r.kodePos;
+      var elPosAdmin = document.getElementById('ed-pos-admin');
+      var posDipilih = (elPosAdmin && !elPosAdmin.disabled) ? elPosAdmin.value : null;
+      if(posDipilih === POS_BELUM_JELAS) v.kembalikanKeBelumJelas = true;
+      else if(posDipilih && posDipilih !== (r.kodePos||'')) v.kodePosBaru = posDipilih;
+      Swal.showLoading();
       var rpc = isTambahan ? 'updateTambahan' : 'updateTransaksi';
-      gasCall(rpc, STATE.tahunAktif, bulan, id, res.value, STATE.token).then(function(rr){
-        if(!rr.success){ if(backup && idx>-1) _rekKoranRows[idx]=backup; renderRekeningKoranTable(); toast('error', rr.message); return; }
-        delete CACHE.rekap[STATE.tahunAktif + '_' + bulan]; // data yang sama juga tampil di "Input Rekap Bulanan" -> jangan sampai basi di sana (pakai bulan di HALAMAN INI, bukan filter halaman lain)
-        delete CACHE.tambahan[STATE.tahunAktif + '_' + bulan]; // juga tampil di "Input Non Unit"
-        toast('success', res.value.kodePosBaru ? 'Tersimpan & dipindah ke Pos lain' : 'Tersimpan');
-        if(res.value.kodePosBaru) loadRekapRekeningKoran();
-      }).catch(function(){ if(backup && idx>-1) _rekKoranRows[idx]=backup; renderRekeningKoranTable(); toast('error','Gagal menyimpan (dikembalikan)'); });
-    });
-  };
-  if(!isTambahan){
-    gasCall('getUnitPosList', STATE.token).then(function(res){
-      var opsiPos = '';
-      if(res && res.success){
-        opsiPos = (res.pos||[]).map(function(p){ return '<option value="'+p.kodePos+'"'+(p.kodePos===r.kodePos?' selected':'')+'>'+p.namaUnit+' — '+p.namaPos+'</option>'; }).join('');
-      }
-      lanjutkanDialogRK(opsiPos);
-    }).catch(function(){ lanjutkanDialogRK(''); });
-  } else {
-    lanjutkanDialogRK('');
-  }
+      return gasCall(rpc, STATE.tahunAktif, bulan, id, v, STATE.token).then(function(rr){
+        if(!rr.success){ Swal.showValidationMessage(rr.message); return false; }
+        if(!v.kembalikanKeBelumJelas) return v;
+        return gasCall('batalkanVerifikasiTransaksi', STATE.tahunAktif, bulan, id, STATE.token).then(function(rr2){
+          if(!rr2.success){ Swal.showValidationMessage('Data lain tersimpan, tapi gagal dikembalikan ke Belum Jelas: ' + rr2.message); return false; }
+          return v;
+        });
+      }).catch(function(){ Swal.showValidationMessage('Gagal menyimpan, coba lagi.'); return false; });
+    }
+  }).then(function(res){
+    if(!res.isConfirmed) return;
+    var v = res.value;
+    delete CACHE.rekap[STATE.tahunAktif + '_' + bulan]; // data yang sama juga tampil di "Input Rekap Bulanan" -> jangan sampai basi di sana (pakai bulan di HALAMAN INI, bukan filter halaman lain)
+    delete CACHE.tambahan[STATE.tahunAktif + '_' + bulan]; // juga tampil di "Input Non Unit"
+    delete CACHE.belumVerifikasi[STATE.tahunAktif + '_' + bulan];
+    if(v.kembalikanKeBelumJelas){
+      toast('success','Tersimpan & dikembalikan ke daftar Belum Jelas Pos-nya');
+    } else {
+      var idx = _rekKoranRows.findIndex(function(d){return d.id===id;});
+      if(idx>-1) Object.assign(_rekKoranRows[idx], v);
+      toast('success', v.kodePosBaru ? 'Tersimpan & dipindah ke Pos lain' : 'Tersimpan');
+    }
+    loadRekapRekeningKoran();
+  });
 }
 function hapusTransaksiRK(id){
   var r = _rekKoranRows.filter(function(d){return d.id===id;})[0];
   var isTambahan = r && r.sumber==='tambahan';
-  Swal.fire({title:'Hapus '+(isTambahan?'item':'transaksi')+' ini?', icon:'warning', showCancelButton:true, confirmButtonText:'Hapus', confirmButtonColor:'#dc2626'}).then(function(res){
+  Swal.fire({
+    title:'Hapus '+(isTambahan?'item':'transaksi')+' ini?', icon:'warning', showCancelButton:true, confirmButtonText:'Hapus', confirmButtonColor:'#dc2626',
+    allowOutsideClick:false, allowEscapeKey:false,
+    preConfirm: function(){
+      var bulan = document.getElementById('sel-bulan-rekkoran').value;
+      var rpc = isTambahan ? 'deleteTambahan' : 'deleteTransaksi';
+      Swal.showLoading();
+      return gasCall(rpc, STATE.tahunAktif, bulan, id, STATE.token).then(function(r2){
+        if(!r2.success){ Swal.showValidationMessage(r2.message); return false; }
+        delete CACHE.rekap[STATE.tahunAktif + '_' + bulan];
+        delete CACHE.tambahan[STATE.tahunAktif + '_' + bulan];
+        return true;
+      }).catch(function(){ Swal.showValidationMessage('Gagal menghapus, coba lagi.'); return false; });
+    }
+  }).then(function(res){
     if(!res.isConfirmed) return;
-    var bulan = document.getElementById('sel-bulan-rekkoran').value;
     var idx = _rekKoranRows.findIndex(function(d){return d.id===id;});
-    var backup = idx>-1 ? _rekKoranRows[idx] : null;
     if(idx>-1) _rekKoranRows.splice(idx,1);
     renderRekeningKoranTable();
-    var rpc = isTambahan ? 'deleteTambahan' : 'deleteTransaksi';
-    gasCall(rpc, STATE.tahunAktif, bulan, id, STATE.token).then(function(r2){
-      if(!r2.success){ if(backup) _rekKoranRows.splice(idx,0,backup); renderRekeningKoranTable(); toast('error', r2.message); return; }
-      delete CACHE.rekap[STATE.tahunAktif + '_' + bulan];
-      delete CACHE.tambahan[STATE.tahunAktif + '_' + bulan];
-      toast('success','Terhapus');
-    }).catch(function(){ if(backup) _rekKoranRows.splice(idx,0,backup); renderRekeningKoranTable(); toast('error','Gagal menghapus (dikembalikan)'); });
+    toast('success','Terhapus');
   });
 }
 // ============================================================
@@ -3368,27 +3412,45 @@ function editTransaksiKonso(id, bulan){
   Swal.fire({
     title:'Edit Transaksi',
     html:'<div style="text-align:left;">'
-      + '<label class="form-label small mb-1">Pos <span class="text-muted">(pindahkan kalau salah/kurang tepat)</span></label><select id="ed-pos" class="form-select form-select-sm mb-2">'+opsiPos+'</select>'
+      // Opsi paling atas "Belum Jelas Milik Siapa" -- kalau ternyata ini
+      // BUKAN transaksi Unit ini (salah klaim sendiri, atau Admin salah
+      // posting), langsung kembalikan ke pool Verifikasi dari sini juga,
+      // tidak perlu pindah menu ke Verifikasi Transaksi dulu.
+      + '<label class="form-label small mb-1">Pos</label><select id="ed-pos" class="form-select form-select-sm mb-2">'
+        + '<option value="'+POS_BELUM_JELAS+'">— Belum Jelas Milik Siapa —</option>'
+        + opsiPos+'</select>'
       + '<label class="form-label small mb-1">Tanggal</label><input type="date" id="ed-tgl" class="form-control form-control-sm mb-2" value="'+(r.tanggal||'')+'">'
       + '<label class="form-label small mb-1">Keterangan</label><input type="text" id="ed-ket" class="form-control form-control-sm mb-2" value="'+_gcEsc(r.keterangan||'')+'">'
       + '<div class="row g-2"><div class="col-6"><label class="form-label small mb-1">Debet</label><input type="text" inputmode="decimal" id="ed-debet" class="form-control form-control-sm text-end" value="'+fmtRp(r.debet)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()"></div>'
       + '<div class="col-6"><label class="form-label small mb-1">Kredit</label><input type="text" inputmode="decimal" id="ed-kredit" class="form-control form-control-sm text-end" value="'+fmtRp(r.kredit)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()"></div></div>'
       + '</div>',
     confirmButtonText:'Simpan', confirmButtonColor:'#800000', showCancelButton:true, cancelButtonText:'Batal',
+    allowOutsideClick:false, allowEscapeKey:false,
     preConfirm:function(){
       var tgl = document.getElementById('ed-tgl').value;
       if(!tgl){ Swal.showValidationMessage('Tanggal wajib diisi.'); return false; }
-      return { kodePosBaru:document.getElementById('ed-pos').value, tanggal:tgl, keterangan:document.getElementById('ed-ket').value,
+      var posDipilih = document.getElementById('ed-pos').value;
+      var v = { tanggal:tgl, keterangan:document.getElementById('ed-ket').value,
                debet:angkaKeAngka(document.getElementById('ed-debet').value), kredit:angkaKeAngka(document.getElementById('ed-kredit').value) };
+      if(posDipilih === POS_BELUM_JELAS) v.kembalikanKeBelumJelas = true;
+      else v.kodePosBaru = posDipilih;
+      Swal.showLoading();
+      return gasCall('updateTransaksi', STATE.tahunAktif, bulan, id, v, STATE.token).then(function(rr){
+        if(!rr.success){ Swal.showValidationMessage(rr.message); return false; }
+        if(!v.kembalikanKeBelumJelas) return v;
+        return gasCall('batalkanVerifikasiTransaksi', STATE.tahunAktif, bulan, id, STATE.token).then(function(rr2){
+          if(!rr2.success){ Swal.showValidationMessage('Data lain tersimpan, tapi gagal dikembalikan ke Belum Jelas: ' + rr2.message); return false; }
+          return v;
+        });
+      }).catch(function(){ Swal.showValidationMessage('Gagal menyimpan, coba lagi.'); return false; });
     }
   }).then(function(res){
     if(!res.isConfirmed) return;
-    gasCall('updateTransaksi', STATE.tahunAktif, bulan, id, res.value, STATE.token).then(function(rr){
-      if(!rr.success){ toast('error', rr.message); return; }
-      delete _konsolidasiRawCache[key];
-      delete CACHE.rekap[key];
-      toast('success','Tersimpan'); loadKonsolidasi();
-    }).catch(function(){ toast('error','Gagal menyimpan'); });
+    delete _konsolidasiRawCache[key]; // data sudah berubah -- paksa ambil ulang, jangan pakai cache basi
+    delete CACHE.rekap[key]; // ikut tampil di "Input Rekap Bulanan" juga
+    delete CACHE.belumVerifikasi[key];
+    toast('success', res.value.kembalikanKeBelumJelas ? 'Tersimpan & dikembalikan ke daftar Belum Jelas Pos-nya' : 'Tersimpan');
+    loadKonsolidasi();
   });
 }
 function loadKonsolidasi(){
