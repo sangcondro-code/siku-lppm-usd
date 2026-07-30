@@ -2998,7 +2998,10 @@ function tanyaAdminTentangTransaksiVf(idx){
     }
   }).then(function(res){
     if(!res.isConfirmed) return;
-    var konteks = 'Verifikasi ' + bulanNama + ' ' + r.tanggal + ': ' + (r.keterangan || '-');
+    // Format konteks disamakan PERSIS dgn yang tampil di preview dialog di
+    // atas ("Soal transaksi: Nama -- Bulan, Tanggal") -- supaya Admin lihat
+    // format yang SAMA PERSIS, bukan urutan kata berbeda yang membingungkan.
+    var konteks = (r.keterangan || '(tanpa keterangan)') + ' — ' + bulanNama + ', ' + r.tanggal;
     gasCall('kirimPesanKeAdmin', res.value, konteks, STATE.token).then(function(r2){
       if(!r2.success){ toast('error', r2.message); return; }
       toast('success','Pesan terkirim ke Admin');
@@ -5187,11 +5190,16 @@ function loadLaporanUnitIsi(kodeUnitUnit, paksaBaru){
 // footer "Total Pemasukan"/"Total Pengeluaran").
 function _tabelLaporanUnitHtml(judul, rows){
   var tot = rows.reduce(function(s,r){ return s+r.jumlah; }, 0);
-  var body = rows.length ? rows.map(function(r){ return '<tr><td class="lu-c" style="width:15%;">'+r.tanggal+'</td><td>'+_gcEsc(r.keterangan)+'</td><td class="text-end">'+fmtRp(r.jumlah)+'</td></tr>'; }).join('')
+  // Kolom tanggal SENGAJA lebar tetap (bukan persentase) + white-space:nowrap
+  // -- supaya "2026-07-13" tidak pernah membungkuk jadi 2 baris, walau
+  // tabelnya sendiri jadi sempit karena dibagi 2 kolom (Pemasukan |
+  // Pengeluaran) berdampingan di layar laptop. 100px dipilih supaya masih
+  // lega setelah dikurangi padding tabel (12px kiri+kanan, lihat .tbl td).
+  var body = rows.length ? rows.map(function(r){ return '<tr><td class="lu-c" style="width:100px;white-space:nowrap;">'+r.tanggal+'</td><td>'+_gcEsc(r.keterangan)+'</td><td class="text-end" style="white-space:nowrap;">'+fmtRp(r.jumlah)+'</td></tr>'; }).join('')
     : '<tr><td colspan="3" class="text-center text-muted">-</td></tr>';
-  return '<table class="table tbl mb-0"><thead><tr><th style="width:15%;">Tgl</th><th>'+judul+'</th><th class="text-end">Jumlah (Rp)</th></tr></thead>'
+  return '<table class="table tbl mb-0" style="table-layout:fixed;"><thead><tr><th style="width:100px;white-space:nowrap;">Tgl</th><th>'+judul+'</th><th class="text-end" style="width:120px;white-space:nowrap;">Jumlah (Rp)</th></tr></thead>'
     + '<tbody>'+body+'</tbody>'
-    + '<tfoot><tr><td colspan="2">Total '+judul+'</td><td class="text-end">'+fmtRp(tot)+'</td></tr></tfoot></table>';
+    + '<tfoot><tr><td colspan="2">Total '+judul+'</td><td class="text-end" style="white-space:nowrap;">'+fmtRp(tot)+'</td></tr></tfoot></table>';
 }
 // Baris ringkasan bawah (gaya SIMK: Saldo Awal, (+) Pemasukan,
 // (-) Pengeluaran, (=) Surplus/Defisit, Saldo Akhir -- baris terakhir tebal).
