@@ -565,6 +565,7 @@
 
 
       <div class="section-title mt-4"><i class="fas fa-list"></i>Rincian Transaksi per Unit &amp; Pos</div>
+      <div id="konso-lock-banner"></div>
       <div id="konsolidasi-body"></div>
       <div class="card mt-3"><div class="card-body">
         <div class="section-title"><i class="fas fa-list-ol"></i>Total per Unit/Pos (Sistem)</div>
@@ -3711,6 +3712,14 @@ function kembalikanTransaksiKonso(id, bulan){
     loadKonsolidasi();
   });
 }
+function renderKonsoLockBanner(){
+  var el = document.getElementById('konso-lock-banner');
+  if(!el) return;
+  el.innerHTML = _konsoLocked
+    ? '<div class="alert alert-warning d-flex align-items-center gap-2 mb-3 no-print"><i class="fas fa-lock"></i><span class="small">Jurnal Memorial bulan ini sudah <b>terkunci</b> — transaksi bulan ini sudah final dan tidak bisa diubah/dikembalikan lagi. Buka kunci dulu di menu Jurnal Memorial kalau memang perlu koreksi.</span></div>'
+    : '';
+}
+var _konsoLocked = false;
 function loadKonsolidasi(){
   var bulan = document.getElementById('sel-bulan-konsolidasi').value;
   if(!bulan) return;
@@ -3731,13 +3740,21 @@ function loadKonsolidasi(){
     _konsolidasiRawCache[key] = hasil;
     _renderKonsolidasi(bulan, hasil);
   }).catch(function(){ if(!cached) toast('error','Gagal memuat konsolidasi'); });
+  gasCall('getStatusKunciBulan', STATE.tahunAktif, bulan, STATE.token).then(function(res){
+    if(res && res.success && bulan === document.getElementById('sel-bulan-konsolidasi').value){
+      _konsoLocked = !!res.locked;
+      renderKonsoLockBanner();
+      var dataUntukRender = _konsolidasiRawCache[key];
+      if(dataUntukRender) _renderKonsolidasi(bulan, dataUntukRender);
+    }
+  }).catch(function(){});
 }
 // Baris tabel Rekap Konsolidasi UNTUK UNIT -- boleh Edit transaksi miliknya
 // sendiri (tombol pensil, buka form editTransaksiKonso).
 function _barisTransaksiKonsoUnit(r, i, bulan){
   return '<tr><td>'+(i+1)+'</td><td>'+r.tanggal+'</td><td>'+_gcEsc(r.keterangan||'')+'</td><td class="text-end">'+fmtRp(r.debet)+'</td><td class="text-end">'+fmtRp(r.kredit)+'</td>'
-    + '<td class="no-print text-center text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksiKonso(\''+r.id+'\',\''+bulan+'\')" title="Perbaiki Pos/keterangan kalau kurang tepat"><i class="fas fa-edit"></i></button>'
-    + '<button class="btn btn-sm btn-outline-danger" onclick="kembalikanTransaksiKonso(\''+r.id+'\',\''+bulan+'\')" title="Kembalikan ke Belum Jelas Pos-nya (kalau ternyata bukan punya Unit ini)"><i class="fas fa-rotate-left"></i></button></td></tr>';
+    + '<td class="no-print text-center text-nowrap'+(_konsoLocked?' locked-ui':'')+'"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksiKonso(\''+r.id+'\',\''+bulan+'\')" title="Perbaiki Pos/keterangan kalau kurang tepat"'+(_konsoLocked?' disabled':'')+'><i class="fas fa-edit"></i></button>'
+    + '<button class="btn btn-sm btn-outline-danger" onclick="kembalikanTransaksiKonso(\''+r.id+'\',\''+bulan+'\')" title="Kembalikan ke Belum Jelas Pos-nya (kalau ternyata bukan punya Unit ini)"'+(_konsoLocked?' disabled':'')+'><i class="fas fa-rotate-left"></i></button></td></tr>';
 }
 // Baris tabel Rekap Konsolidasi UNTUK ADMIN -- READ-ONLY, sengaja TANPA
 // kolom Aksi/Edit sama sekali (bukan cuma disembunyikan) -- ini yg diminta:
@@ -5272,6 +5289,23 @@ function renderMemorialLockBanner(){
     btnKunci.classList.remove('d-none');
   }
 }
+// Begitu bulan dikunci/dibuka kuncinya, SEMUA halaman lain yang punya
+// cache sendiri utk bulan yg sama (Konsolidasi, Verifikasi Transaksi,
+// Input Rekap Bulanan, Rekening Koran) harus langsung tahu -- kalau tidak,
+// mereka akan terus menampilkan status kunci/tombol yg BASI sampai cache
+// atau jendela "tenang" 20 detik (_bolehSegarkan) itu sendiri kedaluwarsa.
+// Fungsi ini menghapus SEMUA cache & timestamp debounce terkait bulan itu
+// di SEMUA halaman sekaligus, supaya kunjungan BERIKUTNYA ke halaman mana
+// pun (secepat apa pun setelah kunci/buka kunci) SELALU mengambil status
+// terbaru dari server, tidak menunggu.
+function _segarkanSemuaSetelahKunciBerubah(tahun, bulan){
+  var key = tahun + '_' + bulan;
+  delete _konsolidasiRawCache[key];
+  delete CACHE.rekap[key];
+  delete _vfCache[key];
+  delete _lastFetchAt['verifikasi_'+key];
+  delete _lastFetchAt['dashboard_'+tahun]; // ringkasan Dashboard ikut menampilkan jumlah per status, aman ikut disegarkan
+}
 function kunciMemorial(){
   var memo = _bangunDaftarMemo();
   if(!memo.length){ toast('error','Tidak ada data untuk dikunci'); return; }
@@ -5285,6 +5319,7 @@ function kunciMemorial(){
     gasCall('kunciJurnalMemorial', STATE.tahunAktif, bulan, memoFinal, ambang, STATE.token).then(function(res){
       btnBusy(btn, false);
       if(!res.success){ toast('error', res.message); return; }
+      _segarkanSemuaSetelahKunciBerubah(STATE.tahunAktif, bulan);
       toast('success','Jurnal Memorial dikunci'); loadJurnalMemorial();
     }).catch(function(){ btnBusy(btn, false); toast('error','Gagal mengunci'); });
   });
@@ -5304,6 +5339,8 @@ function bukaKunciMemorial(){
     }
   }).then(function(r){
     if(!r.isConfirmed) return;
+    var bulan = document.getElementById('sel-bulan-memorial').value;
+    _segarkanSemuaSetelahKunciBerubah(STATE.tahunAktif, bulan);
     toast('success','Kunci dibuka'); loadJurnalMemorial();
   });
 }
