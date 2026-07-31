@@ -278,7 +278,7 @@
     <div class="nav-label">Dashboard</div>
     <div class="nav-item active" data-view="dashboard" onclick="gotoView('dashboard')"><i class="fas fa-chart-pie"></i> Dashboard</div>
     <div class="nav-label">Pengajuan Dana</div>
-    <div class="nav-item" data-view="pengajuan" onclick="gotoView('pengajuan')"><i class="fas fa-hand-holding-dollar"></i> Daftar Pengajuan<span id="pengajuan-badge" class="badge-pesan d-none">0</span></div>
+    <div class="nav-item" data-view="pengajuan" onclick="gotoView('pengajuan')"><i class="fas fa-hand-holding-dollar"></i> Pengajuan Dana<span id="pengajuan-badge" class="badge-pesan d-none">0</span></div>
     <div class="nav-label">Rekap Giro Bank</div>
     <div class="nav-item admin-only" data-view="input" onclick="gotoView('input')"><i class="fas fa-edit"></i> <span id="nav-label-input">Input Rekap Bulanan</span></div>
     <div class="nav-item" data-view="verifikasi" onclick="gotoView('verifikasi')"><i class="fas fa-check-circle"></i> Verifikasi Transaksi</div>
@@ -861,6 +861,7 @@
             <div class="pos-tab active" data-jenis="muka" onclick="pdJenisPengajuan('muka')"><i class="fas fa-hand-holding-dollar"></i>Permohonan Dana Kegiatan</div>
             <div class="pos-tab" data-jenis="sekaligus" onclick="pdJenisPengajuan('sekaligus')"><i class="fas fa-receipt"></i>Penggantian Biaya (Reimbursement)</div>
             <div class="pos-tab" data-jenis="tagihan" onclick="pdJenisPengajuan('tagihan')"><i class="fas fa-file-invoice-dollar"></i>Permintaan Pembayaran Tagihan</div>
+            <div class="pos-tab" data-jenis="laporan" onclick="pdJenisPengajuan('laporan')"><i class="fas fa-store"></i>Laporan Usaha Unit</div>
           </div>
         </div></div>
 
@@ -874,6 +875,8 @@
               <div class="col-md-4"><label class="form-label small mb-1">Tanggal Pengajuan</label>
                 <input type="date" class="form-control form-control-sm" id="pd-tgl-muka"></div>
             </div>
+            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Ajukan atas nama Unit (khusus Admin -- mis. bantu upload tagihan yang masuk ke LPPM)</label>
+              <select class="form-select form-select-sm" id="pd-unit-admin-muka"><option value="">-- pilih Unit (kosongkan kalau untuk diri sendiri) --</option></select></div></div>
           </div></div>
 
           <div class="card mb-3"><div class="card-body">
@@ -898,6 +901,7 @@
           </div></div>
 
           <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitPermohonanDana(this)"><i class="fas fa-paper-plane me-1"></i>Ajukan Sekarang</button>
+          <button class="btn btn-outline-info text-white" onclick="pdSimpanDraftBaru('muka', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
           <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
         </div>
 
@@ -911,6 +915,8 @@
               <div class="col-md-4"><label class="form-label small mb-1">Tanggal Pengeluaran</label>
                 <input type="date" class="form-control form-control-sm" id="pd-tgl-sekaligus"></div>
             </div>
+            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Ajukan atas nama Unit (khusus Admin -- mis. bantu upload tagihan yang masuk ke LPPM)</label>
+              <select class="form-select form-select-sm" id="pd-unit-admin-sekaligus"><option value="">-- pilih Unit (kosongkan kalau untuk diri sendiri) --</option></select></div></div>
           </div></div>
 
           <div class="card mb-3"><div class="card-body">
@@ -952,6 +958,7 @@
           </div></div>
 
           <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitPenggantianBiaya(this)"><i class="fas fa-paper-plane me-1"></i>Ajukan Penggantian Biaya</button>
+          <button class="btn btn-outline-info text-white" onclick="pdSimpanDraftBaru('sekaligus', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
           <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
         </div>
 
@@ -967,6 +974,8 @@
               <div class="col-md-3"><label class="form-label small mb-1">Nominal Tagihan</label>
                 <input class="form-control form-control-sm text-end" id="pd-nominal-tagihan" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)"></div>
             </div>
+            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Ajukan atas nama Unit (khusus Admin -- mis. bantu upload tagihan yang masuk ke LPPM)</label>
+              <select class="form-select form-select-sm" id="pd-unit-admin-tagihan"><option value="">-- pilih Unit (kosongkan kalau untuk diri sendiri) --</option></select></div></div>
           </div></div>
 
           <div class="card mb-3"><div class="card-body">
@@ -999,6 +1008,60 @@
           </div>
 
           <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitTagihan(this)"><i class="fas fa-paper-plane me-1"></i>Ajukan Tagihan</button>
+          <button class="btn btn-outline-info text-white" onclick="pdSimpanDraftBaru('tagihan', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
+          <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
+        </div>
+
+        <!-- PANEL: LAPORAN USAHA UNIT (bulanan, Unit yang jual barang/buku) -->
+        <div id="pd-panel-jenis-laporan" class="d-none">
+          <div class="card mb-3"><div class="card-body">
+            <div class="section-title"><i class="fas fa-store"></i>Periode Laporan</div>
+            <p class="text-muted small mb-2">Untuk Unit yang berjualan barang/buku &mdash; laporkan pemasukan (penjualan, akan disetor utuh ke LPPM) &amp; pengeluaran (operasional, mis. beli stok) bulan ini. LPPM akan mencatat BKM &amp; BKK atas laporan ini.</p>
+            <div class="row g-2">
+              <div class="col-md-4"><label class="form-label small mb-1">Bulan</label>
+                <select class="form-select form-select-sm" id="pd-bulan-laporan"></select></div>
+              <div class="col-md-4"><label class="form-label small mb-1">Tahun</label>
+                <input class="form-control form-control-sm" id="pd-tahun-laporan" disabled></div>
+            </div>
+            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Laporan atas nama Unit (khusus Admin)</label>
+              <select class="form-select form-select-sm" id="pd-unit-admin-laporan"><option value="">-- pilih Unit --</option></select></div></div>
+          </div></div>
+
+          <div class="card mb-3"><div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="section-title mb-0 text-success"><i class="fas fa-arrow-down-to-bracket"></i>Pemasukan (Penjualan)</div>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="pdTambahBarisLaporan('laporanPemasukan')"><i class="fas fa-plus me-1"></i>Baris</button>
+            </div>
+            <div class="table-responsive"><table class="table tbl mb-0">
+              <thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th style="width:6%"></th></tr></thead>
+              <tbody id="pd-tbody-laporan-masuk"></tbody>
+            </table></div>
+            <div class="text-end mt-2"><b>Total Pemasukan: </b><span id="pd-total-laporanPemasukan">Rp 0</span></div>
+          </div></div>
+
+          <div class="card mb-3"><div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="section-title mb-0 text-danger"><i class="fas fa-arrow-up-from-bracket"></i>Pengeluaran (Operasional)</div>
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="pdTambahBarisLaporan('laporanPengeluaran')"><i class="fas fa-plus me-1"></i>Baris</button>
+            </div>
+            <div class="table-responsive"><table class="table tbl mb-0">
+              <thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th style="width:6%"></th></tr></thead>
+              <tbody id="pd-tbody-laporan-keluar"></tbody>
+            </table></div>
+            <div class="text-end mt-2"><b>Total Pengeluaran: </b><span id="pd-total-laporanPengeluaran">Rp 0</span></div>
+          </div></div>
+
+          <div class="card mb-3"><div class="card-body">
+            <div class="section-title"><i class="fas fa-paperclip"></i>Bukti Pendukung (Nota/Kwitansi, 1 PDF gabungan)</div>
+            <p class="text-muted small mb-2">Gabungkan semua bukti penjualan &amp; pembelian bulan ini jadi 1 file PDF. Maks 10MB.</p>
+            <div class="pd-drop" id="pd-drop-laporan" style="max-width:420px;" onclick="document.getElementById('pd-file-laporan').click()">
+              <i class="fas fa-file-pdf"></i><div class="pd-drop-text">Klik atau seret file PDF ke sini</div>
+              <input type="file" id="pd-file-laporan" accept="application/pdf" class="d-none" data-drop-id="pd-drop-laporan" onchange="pdPilihFile(this,'laporanBuktiFile')">
+            </div>
+          </div></div>
+
+          <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitLaporanUnit(this)"><i class="fas fa-paper-plane me-1"></i>Kirim Laporan</button>
+          <button class="btn btn-outline-info text-white" onclick="pdSimpanDraftBaru('laporan', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
           <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
         </div>
       </div>
@@ -1399,10 +1462,11 @@ function afterLogin(){
   muatBadgePengajuan();
 
   // 1) Tampilkan dulu dari cache lokal kalau ada (instan, tanpa spinner)
-  var cachedInit = lsGet('init_' + STATE.username);
+  var cachedInit = lsGet('init_v2_' + STATE.username);
   if(cachedInit){
     STATE.daftarTahun = cachedInit.daftarTahun || [];
     STATE.tahunAktif = cachedInit.tahunAktif;
+    STATE.tahunSistemAktif = cachedInit.tahunAktif;
     STATE.myPos = cachedInit.myPos || [];
     STATE.myUnits = cachedInit.myUnits || [];
     STATE.namaBank = cachedInit.namaBank || STATE.namaBank;
@@ -1423,9 +1487,18 @@ function afterLogin(){
     hideLoading(); hideBar();
     var thn = res[0], pos = res[1], setup = res[2];
     STATE.daftarTahun = thn.data || []; STATE.tahunAktif = thn.tahunAktif || (STATE.daftarTahun[STATE.daftarTahun.length-1]);
+    // PERBAIKAN BUG: STATE.tahunAktif adalah variabel GLOBAL yang dipakai
+    // bersama utk selector "Tahun" di banyak menu (Rekap Bulanan, Jurnal
+    // Memorial, dst) yg MEMANG boleh di-switch user (lihat onGantiTahunGlobal)
+    // -- BUKAN berarti "tahun anggaran aktif sistem". Simpan salinan
+    // terpisah yang TIDAK PERNAH ikut berubah kalau user switch tahun di
+    // menu lain, dipakai KHUSUS di tempat yang butuh "tahun sistem saat
+    // ini" secara akurat (mis. tampilan form Laporan Usaha Unit -- nilai
+    // ini murni informasi, backend selalu menentukan sendiri).
+    STATE.tahunSistemAktif = STATE.tahunAktif;
     STATE.myPos = pos.pos || []; STATE.myUnits = pos.units || [];
     if(setup && setup.success){ STATE.namaBank = setup.namaBank || STATE.namaBank; STATE.kodeRekeningKasBank = setup.kodeRekeningKasBank || ''; }
-    lsSet('init_' + STATE.username, { daftarTahun:STATE.daftarTahun, tahunAktif:STATE.tahunAktif, myPos:STATE.myPos, myUnits:STATE.myUnits, namaBank:STATE.namaBank, kodeRekeningKasBank:STATE.kodeRekeningKasBank });
+    lsSet('init_v2_' + STATE.username, { daftarTahun:STATE.daftarTahun, tahunAktif:STATE.tahunAktif, myPos:STATE.myPos, myUnits:STATE.myUnits, namaBank:STATE.namaBank, kodeRekeningKasBank:STATE.kodeRekeningKasBank });
     renderSelTahunGlobal();
     gotoView(document.querySelector('.nav-item.active') ? document.querySelector('.nav-item.active').dataset.view : 'dashboard');
   }).catch(function(){ hideLoading(); hideBar(); if(!cachedInit) toast('error','Gagal memuat data awal'); });
@@ -1544,6 +1617,13 @@ function gotoView(name){
   if(namaKonten==='pengajuan'){
     if(!sudahDiPengajuan){ PD.kategori = 'SEMUA'; PD.halaman = 1; } // reset ke Semua CUMA kalau navigasi baru dari menu lain, bukan sekadar refresh (mis. ganti tahun)
     loadPengajuanDana();
+    // PERBAIKAN BUG: dropdown "Ajukan atas nama Unit" (khusus Admin) tadinya
+    // CUMA diisi lewat pdBukaFormBaru() -- kalau sesi di-restore LANGSUNG ke
+    // sub-panel form (lihat "sesi yang di-restore" di bawah, mis. refresh
+    // browser saat form sedang terbuka), dropdown itu ketinggalan kosong.
+    // Dipanggil di sini juga (aman, ada penjaga "sudah pernah diisi?" di
+    // dalamnya sendiri) supaya SELALU terisi begitu masuk ke view ini.
+    if(STATE.role==='ADMIN') pdIsiUnitAdminDropdown();
     if(name==='pengajuanform') pdSub('form'); // sesi yang di-restore lagi ke tombol ini -> langsung ke sub-panel form, bukan daftar
   }
 }
@@ -3045,7 +3125,7 @@ function hapusPesanChat(waktuISO){
         _pesanCacheSaya = null;
         renderPesanUnit();
       }
-    });
+    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menghapus, coba lagi.'); });
   });
 }
 
@@ -3609,7 +3689,7 @@ function submitPosUnitSaya(e){
     // Tempel langsung ke cache lokal — tidak perlu round-trip getMyPos lagi.
     var unitInfo = units.filter(function(u){return u.kodeUnit===kodeUnit;})[0];
     STATE.myPos.push({ kodePos:res.kodePos, namaPos:nama, kodeUnit:kodeUnit, urutan:STATE.myPos.length+1, aktif:true });
-    lsSet('init_' + STATE.username, Object.assign(lsGet('init_'+STATE.username) || {}, { myPos:STATE.myPos, myUnits:STATE.myUnits }));
+    lsSet('init_v2_' + STATE.username, Object.assign(lsGet('init_v2_'+STATE.username) || {}, { myPos:STATE.myPos, myUnits:STATE.myUnits }));
     renderPosUnitSayaForm();
   }).catch(function(){ btnBusy(btn, false); toast('error','Gagal menyimpan'); });
 }
@@ -4153,8 +4233,8 @@ function loadUnitPos(){
     // menampilkan pilihan yang SUDAH BASI sampai logout-login ulang.
     if(STATE.role==='ADMIN'){
       STATE.myPos = res.pos || []; STATE.myUnits = res.units || [];
-      var cachedInitUpd = lsGet('init_' + STATE.username) || {};
-      lsSet('init_' + STATE.username, Object.assign(cachedInitUpd, { myPos:STATE.myPos, myUnits:STATE.myUnits }));
+      var cachedInitUpd = lsGet('init_v2_' + STATE.username) || {};
+      lsSet('init_v2_' + STATE.username, Object.assign(cachedInitUpd, { myPos:STATE.myPos, myUnits:STATE.myUnits }));
     }
     renderUnitTable();
     renderPosGroups();
@@ -4282,7 +4362,7 @@ function bukaEditUnit(kode){
     if(!res.isConfirmed) return;
     gasCall('saveUnit', res.value, STATE.username, STATE.token).then(function(r){
       if(!r.success){ toast('error', r.message); return; } toast('success','Unit diperbarui'); loadUnitPos();
-    });
+    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menyimpan, coba lagi.'); });
   });
 }
 function hapusUnit(kode){
@@ -4334,7 +4414,7 @@ function bukaEditPos(kode){
     if(!res.isConfirmed) return;
     gasCall('savePos', res.value, STATE.username, STATE.token).then(function(r){
       if(!r.success){ toast('error', r.message); return; } toast('success','Pos diperbarui'); loadUnitPos();
-    });
+    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menyimpan, coba lagi.'); });
   });
 }
 function hapusPos(kode){
@@ -4401,7 +4481,7 @@ function bukaEditKategori(kode){
     if(!res.isConfirmed) return;
     gasCall('saveKategoriTambahan', res.value, STATE.username, STATE.token).then(function(r){
       if(!r.success){ toast('error', r.message); return; } toast('success','Kategori diperbarui'); loadUnitPos();
-    });
+    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menyimpan, coba lagi.'); });
   });
 }
 function hapusKategoriTambahan(kode){
@@ -4409,7 +4489,7 @@ function hapusKategoriTambahan(kode){
     if(!r.isConfirmed) return;
     gasCall('deleteKategoriTambahan', kode, STATE.username, STATE.token).then(function(res){
       if(!res.success){ toast('error', res.message); return; } toast('success','Kategori dihapus'); loadUnitPos();
-    });
+    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menghapus, coba lagi.'); });
   });
 }
 
@@ -4532,7 +4612,7 @@ function hapusUser(username){
     if(!r.isConfirmed) return;
     gasCall('deleteUser', username, STATE.username, STATE.token).then(function(res){
       if(!res.success){ toast('error', res.message); return; } toast('success','Terhapus'); loadUserView();
-    });
+    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menghapus, coba lagi.'); });
   });
 }
 
@@ -4635,7 +4715,7 @@ function submitRollover(){
       hideLoading();
       if(!res.success){ toast('error', res.message); return; }
       Swal.fire('Berhasil', 'Tahun '+tahun+(res.sudahAda?' sudah tersedia sebelumnya.':' berhasil dibuat.')+' <a href="'+res.url+'" target="_blank">Buka spreadsheet</a>', 'success');
-      gasCall('getDaftarTahun', STATE.token).then(function(t){ STATE.daftarTahun = t.data; STATE.tahunAktif = t.tahunAktif; lsSet('init_' + STATE.username, Object.assign(lsGet('init_'+STATE.username)||{}, {daftarTahun:STATE.daftarTahun, tahunAktif:STATE.tahunAktif})); renderSelTahunGlobal(); loadTahunView(); });
+      gasCall('getDaftarTahun', STATE.token).then(function(t){ STATE.daftarTahun = t.data; STATE.tahunAktif = t.tahunAktif; STATE.tahunSistemAktif = t.tahunAktif; lsSet('init_v2_' + STATE.username, Object.assign(lsGet('init_v2_'+STATE.username)||{}, {daftarTahun:STATE.daftarTahun, tahunAktif:STATE.tahunAktif})); renderSelTahunGlobal(); loadTahunView(); });
     }).catch(function(){ hideLoading(); toast('error','Gagal membuat tahun baru'); });
   });
 }
@@ -5603,6 +5683,8 @@ var PD = {
   realisasiSekaligus:[{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}],
   lpjFileSekaligus:null,
   tagihanJudul:'', tagihanKepada:'', tagihanNominal:0, memoFileTagihan:null,
+  laporanBulan:(new Date().getMonth()+1), laporanPemasukan:[{tanggal:'',keterangan:'',nominal:0}], laporanPengeluaran:[{tanggal:'',keterangan:'',nominal:0}], laporanBuktiFile:null,
+  laporanEditMasuk:[], laporanEditKeluar:[], laporanEditBuktiFile:null,
   detail:null,
   realisasiEdit:[], lpjFileEdit:null, buktiBayarFile:null, buktiTransferSekaligus:null,
   komponenList:[], // master data "Nama Komponen" (dropdown RAB & Realisasi), dimuat sekali per sesi
@@ -5611,6 +5693,7 @@ var PD = {
 var PD_TAHAP_LABEL_MUKA = ['Pengajuan','Persetujuan','Pencairan','Realisasi & LPJ','Verifikasi'];
 var PD_TAHAP_LABEL_SEKALIGUS = ['Pengajuan & LPJ','Verifikasi Admin','Selesai'];
 var PD_TAHAP_LABEL_TAGIHAN = ['Pengajuan Tagihan','Verifikasi & Pembayaran','Selesai'];
+var PD_TAHAP_LABEL_LAPORAN = ['Laporan Bulanan','Verifikasi & Pencatatan BKM/BKK','Selesai'];
 
 // Pemuat terpusat utk daftar Komponen Anggaran -- dipakai di SEMUA titik yang
 // menampilkan dropdown "Nama Komponen" (form Ajukan Baru, & saat tahap
@@ -5782,7 +5865,7 @@ var PD_BADGE_STATUS = {
   DICAIRKAN:['badge-pd-dicairkan','Dicairkan'], MENUNGGU_VERIFIKASI:['badge-pd-menunggu-verifikasi','Menunggu Verifikasi'],
   PERLU_REVISI:['badge-pd-perlu-revisi','Perlu Revisi'], SELESAI:['badge-pd-selesai','Selesai'], DITOLAK:['badge-pd-ditolak','Ditolak']
 };
-var PD_BADGE_JENIS = { MUKA:['#dbeafe','#1d4ed8','Dana Kegiatan'], SEKALIGUS:['#e0e7ff','#3730a3','Penggantian Biaya'], TAGIHAN:['#fef9c3','#854d0e','Tagihan'] };
+var PD_BADGE_JENIS = { MUKA:['#dbeafe','#1d4ed8','Dana Kegiatan'], SEKALIGUS:['#e0e7ff','#3730a3','Penggantian Biaya'], TAGIHAN:['#fef9c3','#854d0e','Tagihan'], LAPORAN_UNIT:['#dcfce7','#166534','Laporan Usaha'] };
 // Label dokumen per tipe file -- dipakai di EXPORT CSV & CETAK (BUKAN di
 // tampilan layar -- UI Daftar Pengajuan sengaja tetap seperti semula,
 // tanpa chip link tambahan di situ).
@@ -5837,16 +5920,19 @@ function pdSub(nama){
   ['daftar','form','detail'].forEach(function(s){ document.getElementById('pd-sub-'+s).classList.toggle('d-none', s!==nama); });
   window.scrollTo({top:0, behavior:'smooth'});
 }
-function pdBukaFormBaru(){ pdResetForm(); gotoView('pengajuanform'); }
+function pdBukaFormBaru(){ pdResetForm(); gotoView('pengajuanform'); pdCekDraftBaru('muka'); pdIsiUnitAdminDropdown(); }
 function pdResetForm(){
   PD.jenisForm = 'MUKA';
+  PD_DRAFT_DICEK.baru_muka = false; PD_DRAFT_DICEK.baru_sekaligus = false; PD_DRAFT_DICEK.baru_tagihan = false; PD_DRAFT_DICEK.baru_laporan = false; // izinkan tawaran "lanjutkan draft?" muncul lagi tiap kali form ini dibuka dari awal
   PD.rab = [{namaKomponen:'',keterangan:'',nominal:0}]; PD.suratFile = null;
   PD.realisasiSekaligus = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.lpjFileSekaligus = null;
   PD.tagihanJudul=''; PD.tagihanKepada=''; PD.tagihanNominal=0; PD.memoFileTagihan = null;
+  PD.laporanBulan = new Date().getMonth()+1; PD.laporanPemasukan = [{tanggal:'',keterangan:'',nominal:0}]; PD.laporanPengeluaran = [{tanggal:'',keterangan:'',nominal:0}]; PD.laporanBuktiFile = null;
   document.querySelectorAll('#pd-jenis-toggle .pos-tab').forEach(function(el){ el.classList.toggle('active', el.dataset.jenis==='muka'); });
   document.getElementById('pd-panel-jenis-muka').classList.remove('d-none');
   document.getElementById('pd-panel-jenis-sekaligus').classList.add('d-none');
   document.getElementById('pd-panel-jenis-tagihan').classList.add('d-none');
+  document.getElementById('pd-panel-jenis-laporan').classList.add('d-none');
   document.getElementById('pd-judul-muka').value = '';
   document.getElementById('pd-tgl-muka').value = new Date().toISOString().slice(0,10);
   document.getElementById('pd-judul-sekaligus').value = '';
@@ -5854,11 +5940,32 @@ function pdResetForm(){
   document.getElementById('pd-judul-tagihan').value = '';
   document.getElementById('pd-kepada-tagihan').value = '';
   document.getElementById('pd-nominal-tagihan').value = '';
+  var selBulanLaporan = document.getElementById('pd-bulan-laporan');
+  if(selBulanLaporan && !selBulanLaporan.options.length) selBulanLaporan.innerHTML = BULAN_NAMA.map(function(n,i){ return '<option value="'+(i+1)+'">'+n+'</option>'; }).join('');
+  if(selBulanLaporan) selBulanLaporan.value = String(PD.laporanBulan);
+  document.getElementById('pd-tahun-laporan').value = STATE.tahunSistemAktif;
+  document.getElementById('pd-unit-admin-muka').value = ''; document.getElementById('pd-unit-admin-sekaligus').value = ''; document.getElementById('pd-unit-admin-tagihan').value = ''; document.getElementById('pd-unit-admin-laporan').value = '';
   pdToggleMetodeBayar('sekaligus','TUNAI'); pdToggleMetodeBayar('tagihan','TUNAI');
   document.getElementById('pd-no-rek-sekaligus').value = ''; document.getElementById('pd-nama-rek-sekaligus').value = ''; document.getElementById('pd-nama-bank-sekaligus').value = '';
   document.getElementById('pd-no-rek-tagihan').value = ''; document.getElementById('pd-nama-rek-tagihan').value = ''; document.getElementById('pd-nama-bank-tagihan').value = '';
-  pdRenderTabelRab(); pdRenderTabelRealisasiForm();
-  pdRenderDropzone('pd-drop-surat', null); pdRenderDropzone('pd-drop-lpj-sekaligus', null); pdRenderDropzone('pd-drop-memo-tagihan', null);
+  pdRenderTabelRab(); pdRenderTabelRealisasiForm(); pdRenderTabelLaporan('laporanPemasukan'); pdRenderTabelLaporan('laporanPengeluaran');
+  pdRenderDropzone('pd-drop-surat', null); pdRenderDropzone('pd-drop-lpj-sekaligus', null); pdRenderDropzone('pd-drop-memo-tagihan', null); pdRenderDropzone('pd-drop-laporan', null);
+}
+// Isi dropdown "Ajukan atas nama Unit" (khusus Admin) di ke-4 panel form
+// baru -- pola sama seperti pd-filter-unit yang sudah ada, dipisah supaya
+// tidak perlu ubah kode lama. Diisi SEKALI saja (cek options.length) --
+// daftar Unit jarang berubah dalam 1 sesi.
+function pdIsiUnitAdminDropdown(){
+  if(STATE.role!=='ADMIN') return;
+  var selMuka = document.getElementById('pd-unit-admin-muka');
+  if(selMuka && selMuka.options.length > 1) return; // sudah pernah diisi
+  gasCall('getUnitPosList', STATE.token).then(function(res){
+    if(!res.success) return;
+    var opsi = '<option value="">-- pilih Unit (kosongkan kalau untuk diri sendiri) --</option>' + res.units.map(function(u){ return '<option value="'+u.kodeUnit+'">'+esc(u.namaUnit)+'</option>'; }).join('');
+    ['pd-unit-admin-muka','pd-unit-admin-sekaligus','pd-unit-admin-tagihan'].forEach(function(id){ var el = document.getElementById(id); if(el) el.innerHTML = opsi; });
+    var elLap = document.getElementById('pd-unit-admin-laporan');
+    if(elLap) elLap.innerHTML = '<option value="">-- pilih Unit --</option>' + res.units.map(function(u){ return '<option value="'+u.kodeUnit+'">'+esc(u.namaUnit)+'</option>'; }).join('');
+  }).catch(function(){});
 }
 function pdJenisPengajuan(v){
   PD.jenisForm = v;
@@ -5866,6 +5973,114 @@ function pdJenisPengajuan(v){
   document.getElementById('pd-panel-jenis-muka').classList.toggle('d-none', v!=='muka');
   document.getElementById('pd-panel-jenis-sekaligus').classList.toggle('d-none', v!=='sekaligus');
   document.getElementById('pd-panel-jenis-tagihan').classList.toggle('d-none', v!=='tagihan');
+  document.getElementById('pd-panel-jenis-laporan').classList.toggle('d-none', v!=='laporan');
+  pdCekDraftBaru(v);
+}
+
+// ============================================================
+// SIMPAN DRAFT PENGAJUAN & LPJ — berlaku di SEMUA tahap: form pengajuan
+// baru (ketiga jenis) sampai tahap Realisasi & LPJ (termasuk saat diminta
+// revisi). File (surat/bukti LPJ) SENGAJA TIDAK ikut disimpan di draft --
+// harus diunggah ulang saat draft dimuat kembali (lihat catatan di Code.gs).
+// ============================================================
+var PD_DRAFT_DICEK = {}; // supaya tawaran "lanjutkan draft?" cuma muncul SEKALI per kunci per sesi/kunjungan, tidak berulang tiap render
+function pdKumpulkanDraftBaru(jenis){
+  if(jenis==='muka'){
+    return { jenis:'muka', judul:document.getElementById('pd-judul-muka').value, tgl:document.getElementById('pd-tgl-muka').value, rab:PD.rab };
+  }
+  if(jenis==='sekaligus'){
+    return { jenis:'sekaligus', judul:document.getElementById('pd-judul-sekaligus').value, tgl:document.getElementById('pd-tgl-sekaligus').value, realisasi:PD.realisasiSekaligus,
+      metode:document.querySelector('#pd-metode-sekaligus-toggle .pos-tab.active').dataset.metode,
+      noRekening:document.getElementById('pd-no-rek-sekaligus').value, namaRekening:document.getElementById('pd-nama-rek-sekaligus').value, namaBank:document.getElementById('pd-nama-bank-sekaligus').value };
+  }
+  if(jenis==='laporan'){
+    return { jenis:'laporan', bulan:document.getElementById('pd-bulan-laporan').value, pemasukan:PD.laporanPemasukan, pengeluaran:PD.laporanPengeluaran };
+  }
+  return { jenis:'tagihan', judul:document.getElementById('pd-judul-tagihan').value, kepada:document.getElementById('pd-kepada-tagihan').value, nominal:document.getElementById('pd-nominal-tagihan').value,
+    metode:document.querySelector('#pd-metode-tagihan-toggle .pos-tab.active').dataset.metode,
+    noRekening:document.getElementById('pd-no-rek-tagihan').value, namaRekening:document.getElementById('pd-nama-rek-tagihan').value, namaBank:document.getElementById('pd-nama-bank-tagihan').value };
+}
+function pdTerapkanDraftBaru(data){
+  if(!data) return;
+  if(data.jenis==='muka'){
+    document.getElementById('pd-judul-muka').value = data.judul || '';
+    if(data.tgl) document.getElementById('pd-tgl-muka').value = data.tgl;
+    if(data.rab && data.rab.length) PD.rab = data.rab;
+    pdRenderTabelRab();
+  } else if(data.jenis==='sekaligus'){
+    document.getElementById('pd-judul-sekaligus').value = data.judul || '';
+    if(data.tgl) document.getElementById('pd-tgl-sekaligus').value = data.tgl;
+    if(data.realisasi && data.realisasi.length) PD.realisasiSekaligus = data.realisasi;
+    pdRenderTabelRealisasiForm();
+    if(data.metode) pdToggleMetodeBayar('sekaligus', data.metode);
+    document.getElementById('pd-no-rek-sekaligus').value = data.noRekening || '';
+    document.getElementById('pd-nama-rek-sekaligus').value = data.namaRekening || '';
+    document.getElementById('pd-nama-bank-sekaligus').value = data.namaBank || '';
+  } else if(data.jenis==='laporan'){
+    if(data.bulan) { PD.laporanBulan = Number(data.bulan); document.getElementById('pd-bulan-laporan').value = data.bulan; }
+    if(data.pemasukan && data.pemasukan.length) PD.laporanPemasukan = data.pemasukan;
+    if(data.pengeluaran && data.pengeluaran.length) PD.laporanPengeluaran = data.pengeluaran;
+    pdRenderTabelLaporan('laporanPemasukan'); pdRenderTabelLaporan('laporanPengeluaran');
+  } else if(data.jenis==='tagihan'){
+    document.getElementById('pd-judul-tagihan').value = data.judul || '';
+    document.getElementById('pd-kepada-tagihan').value = data.kepada || '';
+    document.getElementById('pd-nominal-tagihan').value = data.nominal || '';
+    if(data.metode) pdToggleMetodeBayar('tagihan', data.metode);
+    document.getElementById('pd-no-rek-tagihan').value = data.noRekening || '';
+    document.getElementById('pd-nama-rek-tagihan').value = data.namaRekening || '';
+    document.getElementById('pd-nama-bank-tagihan').value = data.namaBank || '';
+  }
+}
+function pdSimpanDraftBaru(jenis, btn){
+  var draftKey = 'baru_' + jenis;
+  var data = pdKumpulkanDraftBaru(jenis);
+  btnBusy(btn, true);
+  gasCall('simpanDraftPengajuan', draftKey, data, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res.success){ toast('error', res.message); return; }
+    toast('success','Draft tersimpan');
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal menyimpan draft'); });
+}
+function pdCekDraftBaru(jenis){
+  var draftKey = 'baru_' + jenis;
+  if(PD_DRAFT_DICEK[draftKey]) return;
+  PD_DRAFT_DICEK[draftKey] = true;
+  gasCall('getDraftPengajuan', draftKey, STATE.token).then(function(res){
+    if(!res.success || !res.ada) return;
+    Swal.fire({
+      title:'Draft ditemukan', text:'Ada draft pengajuan yang belum terkirim (tersimpan '+new Date(res.waktuUpdate).toLocaleString('id-ID')+'). Lanjutkan mengedit draft ini?',
+      icon:'question', showCancelButton:true, confirmButtonText:'Lanjutkan Draft', cancelButtonText:'Mulai Baru', confirmButtonColor:'#800000'
+    }).then(function(r){
+      if(r.isConfirmed) pdTerapkanDraftBaru(res.data);
+      else gasCall('hapusDraftPengajuan', draftKey, STATE.token).catch(function(){});
+    });
+  }).catch(function(){});
+}
+// -- Draft utk tahap Realisasi & LPJ (pengajuan yang SUDAH punya idPengajuan) --
+function pdSimpanDraftLpj(idPengajuan, btn){
+  var draftKey = 'lpj_' + idPengajuan;
+  var data = { realisasi:PD.realisasiEdit };
+  btnBusy(btn, true);
+  gasCall('simpanDraftPengajuan', draftKey, data, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res.success){ toast('error', res.message); return; }
+    toast('success','Draft LPJ tersimpan');
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal menyimpan draft'); });
+}
+function pdTawarkanDraftLpj(idPengajuan){
+  var draftKey = 'lpj_' + idPengajuan;
+  if(PD_DRAFT_DICEK[draftKey]) return;
+  PD_DRAFT_DICEK[draftKey] = true;
+  gasCall('getDraftPengajuan', draftKey, STATE.token).then(function(res){
+    if(!res.success || !res.ada || !res.data || !res.data.realisasi || !res.data.realisasi.length) return;
+    Swal.fire({
+      title:'Draft Realisasi/LPJ ditemukan', text:'Ada draft isian Realisasi & LPJ yang belum dikirim (tersimpan '+new Date(res.waktuUpdate).toLocaleString('id-ID')+'). Lanjutkan mengedit draft ini?',
+      icon:'question', showCancelButton:true, confirmButtonText:'Lanjutkan Draft', cancelButtonText:'Mulai Baru', confirmButtonColor:'#800000'
+    }).then(function(r){
+      if(r.isConfirmed){ PD.realisasiEdit = res.data.realisasi; pdRenderTabelRealisasi('realisasiEdit'); }
+      else gasCall('hapusDraftPengajuan', draftKey, STATE.token).catch(function(){});
+    });
+  });
 }
 
 // ============================================================
@@ -5963,6 +6178,69 @@ function pdRenderTabelRealisasi(target){
   body.innerHTML = PD[target].map(function(r,i){ return pdBarisRealisasiHtml(target, r, i); }).join('');
   pdRenderTotalRealisasi(target);
 }
+// ============================================================
+// BARIS PEMASUKAN/PENGELUARAN -- Laporan Usaha Unit (LAPORAN_UNIT). Pola
+// SAMA seperti baris RAB/Realisasi di atas (array of object di PD, render
+// ulang tiap ada perubahan) tapi lebih sederhana: cuma Tanggal, Keterangan,
+// Nominal (tidak ada Komponen/PPh/NoBukti -- tidak relevan utk laporan
+// bulanan sederhana ini).
+// ============================================================
+function pdTambahBarisLaporan(target){
+  PD[target].push({tanggal:'',keterangan:'',nominal:0});
+  pdRenderTabelLaporan(target);
+}
+function pdHapusBarisLaporan(target, i){
+  PD[target].splice(i,1);
+  if(!PD[target].length) PD[target].push({tanggal:'',keterangan:'',nominal:0});
+  pdRenderTabelLaporan(target);
+}
+function pdUbahLaporan(target, i, field, val){
+  PD[target][i][field] = (field==='nominal') ? angkaKeAngka(val) : val;
+  pdRenderTotalLaporan(target);
+}
+function pdRenderTotalLaporan(target){
+  var el = document.getElementById('pd-total-'+target);
+  if(!el) return;
+  var rows = PD[target];
+  var total = rows.reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
+  el.textContent = 'Rp ' + fmtRp(total);
+}
+function pdRentangTanggalLaporan(){
+  // Batas tanggal input per baris -- HARUS di dalam Bulan+Tahun laporan yang
+  // sedang dipilih di form (validasi ganda: browser via min/max, & backend
+  // via _validasiTanggalDalamBulan) -- konsisten dgn cara Input Rekap Bulanan.
+  // PERBAIKAN BUG: pakai STATE.tahunSistemAktif (BUKAN STATE.tahunAktif --
+  // itu variabel global selector tahun yg bisa di-switch user di menu lain,
+  // lihat catatan di afterLogin) supaya rentang tanggal yg valid selalu
+  // sesuai tahun anggaran aktif SISTEM, bukan tahun yg kebetulan lagi
+  // di-browse user di menu lain.
+  var bulan = Number(PD.laporanBulan)||(new Date().getMonth()+1);
+  var tahun = Number(STATE.tahunSistemAktif)||new Date().getFullYear();
+  var akhir = new Date(tahun, bulan, 0).getDate();
+  return { min: tahun+'-'+('0'+bulan).slice(-2)+'-01', max: tahun+'-'+('0'+bulan).slice(-2)+'-'+('0'+akhir).slice(-2) };
+}
+function pdBarisLaporanHtml(target, r, i){
+  var rentang = pdRentangTanggalLaporan();
+  return '<tr><td><input type="date" class="form-control form-control-sm" value="'+(r.tanggal||'')+'" min="'+rentang.min+'" max="'+rentang.max+'" onchange="pdUbahLaporan(\''+target+'\','+i+',\'tanggal\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm" value="'+esc(r.keterangan)+'" placeholder="Keterangan" oninput="pdUbahLaporan(\''+target+'\','+i+',\'keterangan\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahLaporan(\''+target+'\','+i+',\'nominal\',this.value)"></td>'
+    + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisLaporan(\''+target+'\','+i+')"><i class="fas fa-trash"></i></button></td></tr>';
+}
+function pdRenderTabelLaporan(target){
+  var idMap = { laporanPemasukan:'pd-tbody-laporan-masuk', laporanPengeluaran:'pd-tbody-laporan-keluar', laporanEditMasuk:'pd-tbody-laporan-edit-masuk', laporanEditKeluar:'pd-tbody-laporan-edit-keluar' };
+  var body = document.getElementById(idMap[target]);
+  if(!body) return;
+  body.innerHTML = PD[target].map(function(r,i){ return pdBarisLaporanHtml(target, r, i); }).join('');
+  pdRenderTotalLaporan(target);
+}
+function pdTabelLaporanReadonly(rows, tipe){
+  var filtered = rows.filter(function(r){ return r.tipe===tipe; });
+  var total = filtered.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
+  return '<div class="table-responsive mb-2"><table class="table tbl mb-0">'
+    + '<thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:20%">Nominal</th></tr></thead><tbody>'
+    + filtered.map(function(r){ return '<tr><td>'+(r.tanggal?new Date(r.tanggal).toLocaleDateString('id-ID'):'-')+'</td><td>'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td></tr>'; }).join('')
+    + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(total)+'</td></tr></tfoot></table></div>';
+}
 function pdTabelRealisasiReadonly(rows){
   var totalNominal=0, totalPph21=0, totalPph23=0;
   rows.forEach(function(r){ totalNominal+=Number(r.nominal)||0; totalPph21+=Number(r.pph21)||0; totalPph23+=Number(r.pph23)||0; });
@@ -6048,6 +6326,15 @@ function pdCekSerupaLaluLanjut(judul, jenis, lanjutFn){
     }
   }).catch(function(){ lanjutFn(); });
 }
+// Ambil Unit yang dipilih Admin di dropdown "Ajukan atas nama Unit" (kalau
+// diisi) -- dipakai supaya Admin bisa bantu upload pengajuan/tagihan yang
+// masuk LANGSUNG ke LPPM (bukan lewat Unit), tanpa perlu akun Unit ybs.
+// Kosong/bukan Admin -> undefined (backend otomatis pakai Unit akun sendiri).
+function pdKodeUnitAdminTerpilih(prefix){
+  if(STATE.role!=='ADMIN') return undefined;
+  var el = document.getElementById('pd-unit-admin-'+prefix);
+  return (el && el.value) ? el.value : undefined;
+}
 function pdSubmitPermohonanDana(btn){
   var judul = document.getElementById('pd-judul-muka').value.trim();
   var tgl = document.getElementById('pd-tgl-muka').value;
@@ -6055,13 +6342,15 @@ function pdSubmitPermohonanDana(btn){
   if(!judul){ toast('error','Nama kegiatan wajib diisi'); return; }
   if(!rab.length){ toast('error','RAB minimal 1 komponen dengan nominal > 0'); return; }
   if(!PD.suratFile){ toast('error','Surat pengajuan (PDF) wajib diunggah'); return; }
+  var kodeUnitAdmin = pdKodeUnitAdminTerpilih('muka');
   pdCekSerupaLaluLanjut(judul, 'MUKA', function(){
     btnBusy(btn, true);
-    var idKey = _idemKey('ajukan_muka', {judul:judul,tgl:tgl,rab:rab});
-    gasCall('ajukanPermohonanDanaKegiatan', {judul:judul, tglPengajuan:tgl, rab:rab, suratFile:PD.suratFile}, STATE.token, idKey).then(function(res){
+    var idKey = _idemKey('ajukan_muka', {judul:judul,tgl:tgl,rab:rab,kodeUnit:kodeUnitAdmin});
+    gasCall('ajukanPermohonanDanaKegiatan', {judul:judul, tglPengajuan:tgl, rab:rab, suratFile:PD.suratFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey).then(function(res){
       btnBusy(btn, false);
       if(!res || !res.success){ toast('error', res.message); return; }
       toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
+      gasCall('hapusDraftPengajuan', 'baru_muka', STATE.token).catch(function(){});
       pdMuatRingkasanDanDaftar(); pdSub('daftar');
     }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
   });
@@ -6084,13 +6373,15 @@ function pdSubmitPenggantianBiaya(btn){
   var namaRekening = document.getElementById('pd-nama-rek-sekaligus').value.trim();
   var namaBank = document.getElementById('pd-nama-bank-sekaligus').value.trim();
   if(metode==='TRANSFER' && (!noRekening || !namaRekening || !namaBank)){ toast('error','No. Rekening, Nama Pemilik Rekening, dan Nama Bank wajib diisi kalau metode Transfer'); return; }
+  var kodeUnitAdminSk = pdKodeUnitAdminTerpilih('sekaligus');
   pdCekSerupaLaluLanjut(judul, 'SEKALIGUS', function(){
     btnBusy(btn, true);
-    var idKey = _idemKey('ajukan_sekaligus', {judul:judul,tgl:tgl,realisasi:realisasi});
-    gasCall('ajukanPenggantianBiaya', {judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank}, STATE.token, idKey).then(function(res){
+    var idKey = _idemKey('ajukan_sekaligus', {judul:judul,tgl:tgl,realisasi:realisasi,kodeUnit:kodeUnitAdminSk});
+    gasCall('ajukanPenggantianBiaya', {judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminSk}, STATE.token, idKey).then(function(res){
       btnBusy(btn, false);
       if(!res || !res.success){ toast('error', res.message); return; }
       toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
+      gasCall('hapusDraftPengajuan', 'baru_sekaligus', STATE.token).catch(function(){});
       pdMuatRingkasanDanDaftar(); pdSub('daftar');
     }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
   });
@@ -6108,16 +6399,37 @@ function pdSubmitTagihan(btn){
   var namaRekening = document.getElementById('pd-nama-rek-tagihan').value.trim();
   var namaBank = document.getElementById('pd-nama-bank-tagihan').value.trim();
   if(metode==='TRANSFER' && (!noRekening || !namaRekening || !namaBank)){ toast('error','No. Rekening, Nama Pemilik Rekening, dan Nama Bank wajib diisi kalau metode Transfer'); return; }
+  var kodeUnitAdminTg = pdKodeUnitAdminTerpilih('tagihan');
   pdCekSerupaLaluLanjut(judul, 'TAGIHAN', function(){
     btnBusy(btn, true);
-    var idKey = _idemKey('ajukan_tagihan', {judul:judul,kepada:kepada,nominal:nominal});
-    gasCall('ajukanTagihan', {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank}, STATE.token, idKey).then(function(res){
+    var idKey = _idemKey('ajukan_tagihan', {judul:judul,kepada:kepada,nominal:nominal,kodeUnit:kodeUnitAdminTg});
+    gasCall('ajukanTagihan', {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminTg}, STATE.token, idKey).then(function(res){
       btnBusy(btn, false);
       if(!res || !res.success){ toast('error', res.message); return; }
       toast('success','Tagihan '+res.idPengajuan+' berhasil diajukan');
+      gasCall('hapusDraftPengajuan', 'baru_tagihan', STATE.token).catch(function(){});
       pdMuatRingkasanDanDaftar(); pdSub('daftar');
     }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengajukan tagihan'); });
   });
+}
+function pdSubmitLaporanUnit(btn){
+  var bulan = document.getElementById('pd-bulan-laporan').value;
+  var tahun = STATE.tahunSistemAktif; // BUKAN STATE.tahunAktif -- lihat catatan di pdRentangTanggalLaporan. Backend tetap jadi penentu akhir (mengabaikan nilai ini), dikirim cuma utk konsistensi idKey.
+  var pemasukan = PD.laporanPemasukan.filter(function(r){ return r.keterangan && r.tanggal && Number(r.nominal)>0; });
+  var pengeluaran = PD.laporanPengeluaran.filter(function(r){ return r.keterangan && r.tanggal && Number(r.nominal)>0; });
+  if(!pemasukan.length && !pengeluaran.length){ toast('error','Isi minimal 1 baris Pemasukan atau Pengeluaran (tanggal, keterangan & nominal wajib diisi tiap baris)'); return; }
+  if(!PD.laporanBuktiFile){ toast('error','Bukti pendukung (PDF) wajib diunggah'); return; }
+  var kodeUnitAdmin = pdKodeUnitAdminTerpilih('laporan');
+  if(STATE.role==='ADMIN' && !kodeUnitAdmin){ toast('error','Pilih Unit yang laporannya mau diajukan'); return; }
+  btnBusy(btn, true);
+  var idKey = _idemKey('ajukan_laporan', {bulan:bulan,tahun:tahun,pemasukan:pemasukan,pengeluaran:pengeluaran,kodeUnit:kodeUnitAdmin});
+  gasCall('ajukanLaporanUnit', {bulan:bulan, tahun:tahun, pemasukan:pemasukan, pengeluaran:pengeluaran, buktiFile:PD.laporanBuktiFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Laporan '+res.idPengajuan+' berhasil dikirim');
+    gasCall('hapusDraftPengajuan', 'baru_laporan', STATE.token).catch(function(){});
+    pdMuatRingkasanDanDaftar(); pdSub('daftar');
+  }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim laporan'); });
 }
 
 // ============================================================
@@ -6198,6 +6510,7 @@ function pdRenderDetail(res){
   badge.className = 'badge-pd d-inline-block mt-1 ' + bs[0]; badge.textContent = bs[1];
 
   if(h.jenis === 'MUKA') pdRenderDetailMuka(res);
+  else if(h.jenis === 'LAPORAN_UNIT') pdRenderDetailLaporanUnit(res);
   else pdRenderDetailSingkat(res); // SEKALIGUS & TAGIHAN sama-sama 3 tahap
 }
 
@@ -6291,13 +6604,13 @@ function pdRenderDetailMuka(res){
       (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
       + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki realisasi &amp; bukti LPJ, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
-          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:22%">Komponen</th><th style="width:28%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-info mb-3 text-white" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH ULANG BUKTI LPJ</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ revisi (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-lpj-'+h.idPengajuan+'" onclick="pdAksiKirimLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang LPJ</button>')));
-    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); }); }, 0);
+    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
   } else if(st(4)==='active'){
     PD.realisasiEdit = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.lpjFileEdit = null;
@@ -6305,13 +6618,13 @@ function pdRenderDetailMuka(res){
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','active', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
       isAdmin ? pdCatatanTunggu('Dana sudah dicairkan. Menunggu Unit mengisi realisasi & mengunggah LPJ.')
         : ('<p class="text-muted small mb-2">Pilihan komponen dibatasi hanya yang sudah dianggarkan di RAB (akuntabel) -- isi keterangan &amp; nominal sesuai bukti riil di lapangan.</p>'
-          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:22%">Komponen</th><th style="width:28%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-info mb-3 text-white" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI LPJ (1 PDF gabungan)</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-lpj-'+h.idPengajuan+'" onclick="pdAksiKirimLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim LPJ</button>'));
-    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); }); }, 0);
+    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
   } else if(st(4)==='done'){
     var totalP21_ = res.realisasi.reduce(function(s,r){return s+(Number(r.pph21)||0);},0);
     var totalP23_ = res.realisasi.reduce(function(s,r){return s+(Number(r.pph23)||0);},0);
@@ -6383,12 +6696,12 @@ function pdRenderDetailSingkat(res){
       (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
       + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki rincian, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
-          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:22%">Komponen</th><th style="width:28%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-info mb-3 text-white" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ revisi (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-revisi-'+h.idPengajuan+'" onclick="pdAksiKirimRevisiSekaligus(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang</button>')));
-    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); }); }, 0);
+    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
   } else {
     var bodyTahap1;
     var infoMetode = '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">METODE PEMBAYARAN</div>'
@@ -6553,7 +6866,7 @@ function pdAksiKirimLpj(id, btn){
   gasCall('kirimLpjPengajuan', id, realisasi, PD.lpjFileEdit, '', STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','LPJ terkirim'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','LPJ terkirim'); gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim LPJ'); });
 }
 function pdAksiVerifikasiLpj(id, keputusan, btn){
@@ -6576,7 +6889,7 @@ function pdAksiKirimRevisiSekaligus(id, btn){
   gasCall('kirimPenggantianBiayaRevisi', id, realisasi, PD.lpjFileEdit, '', STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Terkirim ulang'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Terkirim ulang'); gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim'); });
 }
 function pdAksiVerifikasiSekaligus(id, keputusan, btn){
@@ -6612,6 +6925,153 @@ function pdAksiVerifikasiTagihan(id, keputusan, btn){
   if(keputusan==='DITOLAK' && !catatan){ toast('error','Catatan alasan penolakan wajib diisi'); return; }
   btnBusy(btn, true);
   gasCall('verifikasiTagihan', id, keputusan, catatan, PD.buktiBayarFile, noBukti, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Tersimpan'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+}
+
+// ============================================================
+// -- JENIS 4: LAPORAN USAHA UNIT (3 tahap, dual Pemasukan/Pengeluaran) -----
+// ============================================================
+// Draft utk tahap revisi (mengedit ulang setelah diminta revisi) -- pola
+// SAMA seperti pdSimpanDraftLpj/pdTawarkanDraftLpj (kunci berbeda supaya
+// tidak tabrakan dgn draft LPJ jenis lain utk idPengajuan yg sama).
+function pdSimpanDraftLaporanEdit(idPengajuan, btn){
+  var draftKey = 'lapedit_' + idPengajuan;
+  var data = { pemasukan:PD.laporanEditMasuk, pengeluaran:PD.laporanEditKeluar };
+  btnBusy(btn, true);
+  gasCall('simpanDraftPengajuan', draftKey, data, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res.success){ toast('error', res.message); return; }
+    toast('success','Draft tersimpan');
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal menyimpan draft'); });
+}
+function pdTawarkanDraftLaporanEdit(idPengajuan){
+  var draftKey = 'lapedit_' + idPengajuan;
+  if(PD_DRAFT_DICEK[draftKey]) return;
+  PD_DRAFT_DICEK[draftKey] = true;
+  gasCall('getDraftPengajuan', draftKey, STATE.token).then(function(res){
+    if(!res.success || !res.ada || !res.data) return;
+    var adaIsi = (res.data.pemasukan && res.data.pemasukan.length) || (res.data.pengeluaran && res.data.pengeluaran.length);
+    if(!adaIsi) return;
+    Swal.fire({
+      title:'Draft ditemukan', text:'Ada draft revisi laporan yang belum dikirim (tersimpan '+new Date(res.waktuUpdate).toLocaleString('id-ID')+'). Lanjutkan mengedit draft ini?',
+      icon:'question', showCancelButton:true, confirmButtonText:'Lanjutkan Draft', cancelButtonText:'Mulai Baru', confirmButtonColor:'#800000'
+    }).then(function(r){
+      if(r.isConfirmed){
+        if(res.data.pemasukan && res.data.pemasukan.length) PD.laporanEditMasuk = res.data.pemasukan;
+        if(res.data.pengeluaran && res.data.pengeluaran.length) PD.laporanEditKeluar = res.data.pengeluaran;
+        pdRenderTabelLaporan('laporanEditMasuk'); pdRenderTabelLaporan('laporanEditKeluar');
+      } else gasCall('hapusDraftPengajuan', draftKey, STATE.token).catch(function(){});
+    });
+  }).catch(function(){});
+}
+function pdRenderDetailLaporanUnit(res){
+  var h = res.header; var isAdmin = STATE.role==='ADMIN';
+  var map = { MENUNGGU_VERIFIKASI:{t:2}, PERLU_REVISI:{t:1, revisi:2}, SELESAI:{t:4}, DITOLAK:{ditolak:2} }[h.status] || {t:1};
+  document.getElementById('pd-ministep').innerHTML = pdRenderMinistep(PD_TAHAP_LABEL_LAPORAN, map.t||1, map.revisi, map.ditolak);
+  var st = function(tahap){ if(map.ditolak) return tahap<map.ditolak?'done':(tahap===map.ditolak?'ditolak':'locked'); return tahap<map.t?'done':(tahap===map.t?'active':'locked'); };
+  var fileUtama = pdFileVersiTerakhir(res.file, 'LAPORAN');
+  var labelBulan = (BULAN_NAMA[Number(h.bulanLaporan)-1] || h.bulanLaporan) + ' ' + h.tahunAnggaran;
+  var html = '';
+
+  // Tahap 1 -- Laporan Bulanan
+  if(h.status==='PERLU_REVISI'){
+    var catatanRevisi = res.komentar.length ? res.komentar[res.komentar.length-1] : null;
+    // PERBAIKAN BUG: pdBarisLaporanHtml (dipakai bersama form baru & form
+    // revisi ini) menentukan batas tanggal min/max lewat pdRentangTanggalLaporan(),
+    // yang membaca PD.laporanBulan -- kalau tidak disamakan ke bulan laporan
+    // yang SEDANG direvisi ini, batasnya bisa salah (ikut bulan yang
+    // kebetulan terakhir dipilih di form "Ajukan Baru"), bikin tanggal yang
+    // sudah benar tampak "di luar rentang" atau tanggal baru salah divalidasi.
+    PD.laporanBulan = Number(h.bulanLaporan);
+    PD.laporanEditMasuk = res.realisasi.filter(function(r){return r.tipe==='MASUK';}).map(function(r){ return {tanggal:r.tanggal,keterangan:r.keterangan,nominal:r.nominal}; });
+    PD.laporanEditKeluar = res.realisasi.filter(function(r){return r.tipe==='KELUAR';}).map(function(r){ return {tanggal:r.tanggal,keterangan:r.keterangan,nominal:r.nominal}; });
+    if(!PD.laporanEditMasuk.length) PD.laporanEditMasuk = [{tanggal:'',keterangan:'',nominal:0}];
+    if(!PD.laporanEditKeluar.length) PD.laporanEditKeluar = [{tanggal:'',keterangan:'',nominal:0}];
+    PD.laporanEditBuktiFile = null;
+    html += pdBlock('fa-store', '1. Laporan '+labelBulan, 'revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
+      (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
+      + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
+        : ('<p class="text-muted small mb-2">Perbaiki rincian Pemasukan/Pengeluaran & bukti, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
+          + '<div class="fw-bold small text-success mb-1"><i class="fas fa-arrow-down-to-bracket me-1"></i>Pemasukan</div>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-laporan-edit-masuk"></tbody></table></div>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisLaporan(\'laporanEditMasuk\')"><i class="fas fa-plus me-1"></i>Baris</button>'
+          + '<div class="mb-2"><b>Total Pemasukan: </b><span id="pd-total-laporanEditMasuk"></span></div>'
+          + '<div class="fw-bold small text-danger mb-1"><i class="fas fa-arrow-up-from-bracket me-1"></i>Pengeluaran</div>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-laporan-edit-keluar"></tbody></table></div>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisLaporan(\'laporanEditKeluar\')"><i class="fas fa-plus me-1"></i>Baris</button>'
+          + ' <button type="button" class="btn btn-sm btn-outline-info mb-3 text-white" onclick="pdSimpanDraftLaporanEdit(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
+          + '<div class="mb-2"><b>Total Pengeluaran: </b><span id="pd-total-laporanEditKeluar"></span></div>'
+          + '<div class="small fw-bold mb-1 text-muted">UNGGAH ULANG BUKTI PENDUKUNG</div>'
+          + '<div class="pd-drop mb-2" id="pd-drop-laporan-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-laporan-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file bukti revisi (PDF) ke sini</div><input type="file" id="pd-file-laporan-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-laporan-edit" onchange="pdPilihFile(this,\'laporanEditBuktiFile\')"></div>'
+          + '<button class="btn btn-sm" id="btn-kirim-laporan-'+h.idPengajuan+'" onclick="pdAksiKirimUlangLaporanUnit(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang</button>')));
+    if(!isAdmin) setTimeout(function(){ pdRenderTabelLaporan('laporanEditMasuk'); pdRenderTabelLaporan('laporanEditKeluar'); pdTawarkanDraftLaporanEdit(h.idPengajuan); }, 0);
+  } else {
+    html += pdBlock('fa-store', '1. Laporan '+labelBulan, 'done', '',
+      pdTabelLaporanReadonly(res.realisasi, 'MASUK') + pdTabelLaporanReadonly(res.realisasi, 'KELUAR')
+      + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI PENDUKUNG</div>'+pdFileChip(fileUtama)+'</div>'
+      + pdKomentarThreadHtml(h.idPengajuan, res.komentar));
+  }
+
+  // Tahap 2 -- Verifikasi & Pencatatan BKM/BKK
+  if(map.ditolak===2){
+    html += pdBlock('fa-gavel', '2. Verifikasi & Pencatatan BKM/BKK', 'done', '<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
+      '<div class="fw-bold small" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
+    document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
+  }
+  if(st(2)==='active'){
+    var inputBuktiMasuk = h.totalDiajukan>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk (Pemasukan Rp '+fmtRp(h.totalDiajukan)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-masuk-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>') : '';
+    var inputBuktiKeluar = h.totalRealisasi>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar (Pengeluaran Rp '+fmtRp(h.totalRealisasi)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-keluar-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>') : '';
+    html += pdBlock('fa-gavel', '2. Verifikasi & Pencatatan BKM/BKK', 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+      isAdmin ? (inputBuktiMasuk + inputBuktiKeluar
+        + '<textarea class="form-control form-control-sm mb-2" id="pd-catatan-verif-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi/Tolak)"></textarea>'
+        + '<button class="btn btn-sm" id="btn-lap-selesai-'+h.idPengajuan+'" onclick="pdAksiVerifikasiLaporanUnit(\''+h.idPengajuan+'\',\'SELESAI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Setujui & Catat</button> '
+        + '<button class="btn btn-sm btn-outline-danger" id="btn-lap-revisi-'+h.idPengajuan+'" onclick="pdAksiVerifikasiLaporanUnit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
+        + '<button class="btn btn-sm btn-outline-secondary" id="btn-lap-tolak-'+h.idPengajuan+'" onclick="pdAksiVerifikasiLaporanUnit(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
+        : pdCatatanTunggu('Menunggu diverifikasi & dicatat (BKM/BKK) oleh Admin Pusat.'));
+  } else if(st(2)==='done'){
+    html += pdBlock('fa-gavel', '2. Verifikasi & Pencatatan BKM/BKK', 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
+      '<div class="fw-bold small" style="color:#166534;">Dicatat oleh '+esc(h.disetujuiOleh)+'</div>');
+  } else {
+    html += pdBlock('fa-gavel', '2. Verifikasi & Pencatatan BKM/BKK', 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
+  }
+
+  // Tahap 3 -- Selesai
+  if(st(3)==='done'){
+    var selisihLap = h.totalDiajukan - h.totalRealisasi;
+    html += pdBlock('fa-flag-checkered', '3. Selesai — Sudah Dicatat', 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
+      '<div class="row g-2 mb-2"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Pemasukan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
+      + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Pengeluaran</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
+      + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisihLap>=0?'ok':'warn')+'"><div class="small text-muted">Selisih (Laba/Rugi Bulan Ini)</div><div class="fw-bold">Rp '+fmtRp(Math.abs(selisihLap))+'</div></div></div></div>'
+      + (h.noBuktiKasMasuk ? '<div class="small text-muted mt-1">No. Bukti Kas Masuk: <b>'+esc(h.noBuktiKasMasuk)+'</b></div>' : '')
+      + (h.noBuktiKasKeluar ? '<div class="small text-muted mt-1">No. Bukti Kas Keluar: <b>'+esc(h.noBuktiKasKeluar)+'</b></div>' : ''));
+  } else {
+    html += pdBlock('fa-flag-checkered', '3. Selesai', 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
+  }
+
+  document.getElementById('pd-blocks').innerHTML = html;
+  pdRenderTombolCetak(h, false);
+}
+function pdAksiKirimUlangLaporanUnit(id, btn){
+  var pemasukan = PD.laporanEditMasuk.filter(function(r){ return r.keterangan && r.tanggal && Number(r.nominal)>0; });
+  var pengeluaran = PD.laporanEditKeluar.filter(function(r){ return r.keterangan && r.tanggal && Number(r.nominal)>0; });
+  if(!pemasukan.length && !pengeluaran.length){ toast('error','Isi minimal 1 baris Pemasukan atau Pengeluaran'); return; }
+  btnBusy(btn, true);
+  gasCall('kirimUlangLaporanUnit', id, pemasukan, pengeluaran, PD.laporanEditBuktiFile, '', STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res.message); return; }
+    toast('success','Laporan terkirim ulang'); gasCall('hapusDraftPengajuan', 'lapedit_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim ulang'); });
+}
+function pdAksiVerifikasiLaporanUnit(id, keputusan, btn){
+  var catatan = (document.getElementById('pd-catatan-verif-'+id)||{}).value || '';
+  if(keputusan!=='SELESAI' && !catatan){ toast('error','Catatan wajib diisi kalau Minta Revisi/Tolak'); return; }
+  var noBuktiMasuk = (document.getElementById('pd-bukti-masuk-'+id)||{}).value || '';
+  var noBuktiKeluar = (document.getElementById('pd-bukti-keluar-'+id)||{}).value || '';
+  btnBusy(btn, true);
+  gasCall('verifikasiLaporanUnit', id, keputusan, catatan, noBuktiMasuk, noBuktiKeluar, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
     toast('success','Tersimpan'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
