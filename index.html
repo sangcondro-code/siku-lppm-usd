@@ -22,6 +22,9 @@
   .input-wrap .icon-eye { position:absolute; right:.85rem; top:50%; transform:translateY(-50%); color:#9ca3af; cursor:pointer; font-size:.85rem; transition:color .15s; z-index:2; }
   .input-wrap .icon-eye:hover { color:var(--maroon); }
   .btn-login { width:100%; background:var(--maroon); color:white; border:none; padding:.8rem; border-radius:.5rem; font-weight:700; font-size:.95rem; cursor:pointer; transition:.2s; }
+  .btn-draft { background:#fff; color:var(--maroon); border:1.5px solid var(--maroon); font-weight:700; transition:.15s; }
+  .btn-draft:hover, .btn-draft:focus { background:var(--maroon); color:#fff; border-color:var(--maroon); }
+  .btn-draft:disabled { opacity:.6; }
   .btn-login:hover { background:#600000; color:white; }
   .navbar-top { position:fixed; top:0; left:0; right:0; height:var(--navbar); background:white; border-bottom:1px solid #e5e7eb; z-index:1030; display:flex; align-items:center; padding:0 1.5rem; justify-content:space-between; }
   .sidebar { position:fixed; top:var(--navbar); left:0; width:var(--sidebar); height:calc(100vh - var(--navbar)); background:white; border-right:1px solid #e5e7eb; overflow-y:auto; z-index:1020; transition:transform .3s; padding:1rem 0; }
@@ -803,6 +806,7 @@
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <div class="section-title mb-0"><i class="fas fa-list"></i>Daftar Pengajuan</div>
             <div class="d-flex gap-2 flex-wrap">
+              <input type="text" id="pd-cari" class="form-control form-control-sm" style="width:220px;" placeholder="Cari ID, judul, atau nama pengaju..." oninput="pdCariUbah()">
               <select id="pd-filter-status" class="form-select form-select-sm" style="width:170px;" onchange="pdFilterUbah()">
                 <option value="SEMUA">Semua Status</option>
                 <option value="DIAJUKAN">Menunggu ACC</option>
@@ -875,7 +879,7 @@
               <div class="col-md-4"><label class="form-label small mb-1">Tanggal Pengajuan</label>
                 <input type="date" class="form-control form-control-sm" id="pd-tgl-muka"></div>
             </div>
-            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Ajukan atas nama Unit (khusus Admin -- mis. bantu upload tagihan yang masuk ke LPPM)</label>
+            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Ajukan atas nama Unit</label>
               <select class="form-select form-select-sm" id="pd-unit-admin-muka"><option value="">-- pilih Unit (kosongkan kalau untuk diri sendiri) --</option></select></div></div>
           </div></div>
 
@@ -901,7 +905,7 @@
           </div></div>
 
           <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitPermohonanDana(this)"><i class="fas fa-paper-plane me-1"></i>Ajukan Sekarang</button>
-          <button class="btn btn-outline-info text-white" onclick="pdSimpanDraftBaru('muka', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
+          <button class="btn btn-draft" onclick="pdSimpanDraftBaru('muka', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
           <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
         </div>
 
@@ -915,7 +919,7 @@
               <div class="col-md-4"><label class="form-label small mb-1">Tanggal Pengeluaran</label>
                 <input type="date" class="form-control form-control-sm" id="pd-tgl-sekaligus"></div>
             </div>
-            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Ajukan atas nama Unit (khusus Admin -- mis. bantu upload tagihan yang masuk ke LPPM)</label>
+            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Ajukan atas nama Unit</label>
               <select class="form-select form-select-sm" id="pd-unit-admin-sekaligus"><option value="">-- pilih Unit (kosongkan kalau untuk diri sendiri) --</option></select></div></div>
           </div></div>
 
@@ -958,7 +962,7 @@
           </div></div>
 
           <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitPenggantianBiaya(this)"><i class="fas fa-paper-plane me-1"></i>Ajukan Penggantian Biaya</button>
-          <button class="btn btn-outline-info text-white" onclick="pdSimpanDraftBaru('sekaligus', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
+          <button class="btn btn-draft" onclick="pdSimpanDraftBaru('sekaligus', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
           <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
         </div>
 
@@ -974,7 +978,7 @@
               <div class="col-md-3"><label class="form-label small mb-1">Nominal Tagihan</label>
                 <input class="form-control form-control-sm text-end" id="pd-nominal-tagihan" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)"></div>
             </div>
-            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Ajukan atas nama Unit (khusus Admin -- mis. bantu upload tagihan yang masuk ke LPPM)</label>
+            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Ajukan atas nama Unit</label>
               <select class="form-select form-select-sm" id="pd-unit-admin-tagihan"><option value="">-- pilih Unit (kosongkan kalau untuk diri sendiri) --</option></select></div></div>
           </div></div>
 
@@ -1008,7 +1012,7 @@
           </div>
 
           <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitTagihan(this)"><i class="fas fa-paper-plane me-1"></i>Ajukan Tagihan</button>
-          <button class="btn btn-outline-info text-white" onclick="pdSimpanDraftBaru('tagihan', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
+          <button class="btn btn-draft" onclick="pdSimpanDraftBaru('tagihan', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
           <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
         </div>
 
@@ -1016,20 +1020,19 @@
         <div id="pd-panel-jenis-laporan" class="d-none">
           <div class="card mb-3"><div class="card-body">
             <div class="section-title"><i class="fas fa-store"></i>Periode Laporan</div>
-            <p class="text-muted small mb-2">Untuk Unit yang berjualan barang/buku &mdash; laporkan pemasukan (penjualan, akan disetor utuh ke LPPM) &amp; pengeluaran (operasional, mis. beli stok) bulan ini. LPPM akan mencatat BKM &amp; BKK atas laporan ini.</p>
             <div class="row g-2">
               <div class="col-md-4"><label class="form-label small mb-1">Bulan</label>
                 <select class="form-select form-select-sm" id="pd-bulan-laporan"></select></div>
               <div class="col-md-4"><label class="form-label small mb-1">Tahun</label>
                 <input class="form-control form-control-sm" id="pd-tahun-laporan" disabled></div>
             </div>
-            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Laporan atas nama Unit (khusus Admin)</label>
+            <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Laporan atas nama Unit</label>
               <select class="form-select form-select-sm" id="pd-unit-admin-laporan"><option value="">-- pilih Unit --</option></select></div></div>
           </div></div>
 
           <div class="card mb-3"><div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <div class="section-title mb-0 text-success"><i class="fas fa-arrow-down-to-bracket"></i>Pemasukan (Penjualan)</div>
+              <div class="section-title mb-0 text-success"><i class="fas fa-circle-plus"></i>Pemasukan (Penjualan)</div>
               <button type="button" class="btn btn-sm btn-outline-secondary" onclick="pdTambahBarisLaporan('laporanPemasukan')"><i class="fas fa-plus me-1"></i>Baris</button>
             </div>
             <div class="table-responsive"><table class="table tbl mb-0">
@@ -1041,7 +1044,7 @@
 
           <div class="card mb-3"><div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <div class="section-title mb-0 text-danger"><i class="fas fa-arrow-up-from-bracket"></i>Pengeluaran (Operasional)</div>
+              <div class="section-title mb-0 text-danger"><i class="fas fa-circle-minus"></i>Pengeluaran (Operasional)</div>
               <button type="button" class="btn btn-sm btn-outline-secondary" onclick="pdTambahBarisLaporan('laporanPengeluaran')"><i class="fas fa-plus me-1"></i>Baris</button>
             </div>
             <div class="table-responsive"><table class="table tbl mb-0">
@@ -1050,6 +1053,11 @@
             </table></div>
             <div class="text-end mt-2"><b>Total Pengeluaran: </b><span id="pd-total-laporanPengeluaran">Rp 0</span></div>
           </div></div>
+
+          <div class="pd-total-box ok mb-3" id="pd-laporan-selisih-baru-box">
+            <div class="small text-muted">Surplus / Defisit (Pemasukan &minus; Pengeluaran)</div>
+            <div class="fw-bold" id="pd-laporan-selisih-baru">Rp 0</div>
+          </div>
 
           <div class="card mb-3"><div class="card-body">
             <div class="section-title"><i class="fas fa-paperclip"></i>Bukti Pendukung (Nota/Kwitansi, 1 PDF gabungan)</div>
@@ -1061,7 +1069,7 @@
           </div></div>
 
           <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitLaporanUnit(this)"><i class="fas fa-paper-plane me-1"></i>Kirim Laporan</button>
-          <button class="btn btn-outline-info text-white" onclick="pdSimpanDraftBaru('laporan', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
+          <button class="btn btn-draft" onclick="pdSimpanDraftBaru('laporan', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>
           <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
         </div>
       </div>
@@ -1615,7 +1623,7 @@ function gotoView(name){
   if(namaKonten==='setup') loadSetupView();
   if(namaKonten==='log') loadLogView();
   if(namaKonten==='pengajuan'){
-    if(!sudahDiPengajuan){ PD.kategori = 'SEMUA'; PD.halaman = 1; } // reset ke Semua CUMA kalau navigasi baru dari menu lain, bukan sekadar refresh (mis. ganti tahun)
+    if(!sudahDiPengajuan){ PD.kategori = 'SEMUA'; PD.halaman = 1; PD.cariTeks = ''; var elCari = document.getElementById('pd-cari'); if(elCari) elCari.value = ''; } // reset ke Semua CUMA kalau navigasi baru dari menu lain, bukan sekadar refresh (mis. ganti tahun)
     loadPengajuanDana();
     // PERBAIKAN BUG: dropdown "Ajukan atas nama Unit" (khusus Admin) tadinya
     // CUMA diisi lewat pdBukaFormBaru() -- kalau sesi di-restore LANGSUNG ke
@@ -5675,7 +5683,7 @@ function loadLogView(){
 // bagian "MODUL: PENGAJUAN DANA & LPJ" untuk penjelasan skema & status.
 // ============================================================
 var PD = {
-  daftar:[], ringkasan:null, filterStatus:'SEMUA', filterUnit:'SEMUA',
+  daftar:[], ringkasan:null, filterStatus:'SEMUA', filterUnit:'SEMUA', cariTeks:'',
   kategori:'SEMUA', halaman:1, ukuranHalaman:25,
   jenisForm:'MUKA',
   rab:[{namaKomponen:'',keterangan:'',nominal:0}],
@@ -5748,9 +5756,32 @@ var PD_KATEGORI_STATUS = {
   SELESAI:['SELESAI','DITOLAK']
 };
 function pdDaftarTersaring(){
-  if(PD.kategori==='SEMUA') return PD.daftar;
-  var daftarStatus = PD_KATEGORI_STATUS[PD.kategori] || [];
-  return PD.daftar.filter(function(p){ return daftarStatus.indexOf(p.status)!==-1; });
+  var hasil = PD.daftar;
+  if(PD.kategori!=='SEMUA'){
+    var daftarStatus = PD_KATEGORI_STATUS[PD.kategori] || [];
+    hasil = hasil.filter(function(p){ return daftarStatus.indexOf(p.status)!==-1; });
+  }
+  var kataKunci = (PD.cariTeks||'').trim().toLowerCase();
+  if(kataKunci){
+    hasil = hasil.filter(function(p){
+      return (p.idPengajuan||'').toLowerCase().indexOf(kataKunci)!==-1
+        || (p.judul||'').toLowerCase().indexOf(kataKunci)!==-1
+        || (p.diajukanOlehNama||p.diajukanOleh||'').toLowerCase().indexOf(kataKunci)!==-1
+        || (p.kodeUnit||'').toLowerCase().indexOf(kataKunci)!==-1
+        || (p.dibayarkanKepada||'').toLowerCase().indexOf(kataKunci)!==-1;
+    });
+  }
+  return hasil;
+}
+// Pencarian teks (ID/judul/nama pengaju/Unit/dibayarkan-kepada) SENGAJA
+// murni client-side & instan (bukan lewat pdFilterUbah -> pdMuatDaftar()
+// yang panggil server) -- daftar yang sedang tampil (PD.daftar) sudah ada
+// di memori, jadi mengetik tiap huruf tidak perlu round-trip ke server sama
+// sekali, konsisten dgn pola pencarian lain di sistem ini (mis. cari-rekkoran).
+function pdCariUbah(){
+  PD.cariTeks = document.getElementById('pd-cari').value;
+  PD.halaman = 1;
+  pdRenderDaftarTable();
 }
 function pdGantiHalaman(delta){
   PD.halaman += delta;
@@ -5893,7 +5924,11 @@ function pdRenderDaftarTable(){
     document.getElementById('pd-btn-next').disabled = PD.halaman>=totalHalaman;
 
     var tbody = document.getElementById('pd-tbody');
-    if(!potongan.length){ tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">'+(PD.kategori==='SEMUA'?'Belum ada pengajuan.':'Tidak ada pengajuan pada kategori "'+PD_KATEGORI_LABEL[PD.kategori]+'".')+'</td></tr>'; return; }
+    if(!potongan.length){
+      var pesanKosong = PD.cariTeks.trim() ? ('Tidak ada pengajuan yang cocok dengan pencarian "'+esc(PD.cariTeks.trim())+'".')
+        : (PD.kategori==='SEMUA' ? 'Belum ada pengajuan.' : 'Tidak ada pengajuan pada kategori "'+PD_KATEGORI_LABEL[PD.kategori]+'".');
+      tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">'+pesanKosong+'</td></tr>'; return;
+    }
     tbody.innerHTML = potongan.map(function(p){
     var bj = PD_BADGE_JENIS[p.jenis] || ['#eee','#333',p.jenis];
     var bs = PD_BADGE_STATUS[p.status] || ['badge-pd', p.status];
@@ -6200,10 +6235,33 @@ function pdUbahLaporan(target, i, field, val){
 }
 function pdRenderTotalLaporan(target){
   var el = document.getElementById('pd-total-'+target);
-  if(!el) return;
-  var rows = PD[target];
-  var total = rows.reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
-  el.textContent = 'Rp ' + fmtRp(total);
+  if(el){
+    var rows = PD[target];
+    var total = rows.reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
+    el.textContent = 'Rp ' + fmtRp(total);
+  }
+  var info = PD_LAPORAN_SELISIH_MAP[target];
+  if(info) pdRenderSelisihLaporan(info.masuk, info.keluar, info.elId);
+}
+// Peta pasangan Pemasukan<->Pengeluaran & id elemen selisih -- 1 pasangan
+// utk form "Ajukan Baru", 1 pasangan lagi utk tabel edit di halaman Detail
+// (saat diminta revisi) -- supaya Surplus/Defisit langsung kelihatan real-time
+// begitu ada baris ditambah/dihapus/diubah, tidak perlu tombol "Hitung".
+var PD_LAPORAN_SELISIH_MAP = {
+  laporanPemasukan: { masuk:'laporanPemasukan', keluar:'laporanPengeluaran', elId:'pd-laporan-selisih-baru' },
+  laporanPengeluaran: { masuk:'laporanPemasukan', keluar:'laporanPengeluaran', elId:'pd-laporan-selisih-baru' },
+  laporanEditMasuk: { masuk:'laporanEditMasuk', keluar:'laporanEditKeluar', elId:'pd-laporan-selisih-edit' },
+  laporanEditKeluar: { masuk:'laporanEditMasuk', keluar:'laporanEditKeluar', elId:'pd-laporan-selisih-edit' }
+};
+function pdRenderSelisihLaporan(targetMasuk, targetKeluar, elId){
+  var elVal = document.getElementById(elId);
+  if(!elVal) return;
+  var totalMasuk = (PD[targetMasuk]||[]).reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
+  var totalKeluar = (PD[targetKeluar]||[]).reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
+  var selisih = totalMasuk - totalKeluar;
+  elVal.textContent = (selisih>=0 ? 'Surplus ' : 'Defisit ') + 'Rp ' + fmtRp(Math.abs(selisih));
+  var box = document.getElementById(elId+'-box');
+  if(box){ box.classList.remove('ok','warn'); box.classList.add(selisih>=0?'ok':'warn'); }
 }
 function pdRentangTanggalLaporan(){
   // Batas tanggal input per baris -- HARUS di dalam Bulan+Tahun laporan yang
@@ -6605,7 +6663,7 @@ function pdRenderDetailMuka(res){
       + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki realisasi &amp; bukti LPJ, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-info mb-3 text-white" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH ULANG BUKTI LPJ</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ revisi (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
@@ -6619,7 +6677,7 @@ function pdRenderDetailMuka(res){
       isAdmin ? pdCatatanTunggu('Dana sudah dicairkan. Menunggu Unit mengisi realisasi & mengunggah LPJ.')
         : ('<p class="text-muted small mb-2">Pilihan komponen dibatasi hanya yang sudah dianggarkan di RAB (akuntabel) -- isi keterangan &amp; nominal sesuai bukti riil di lapangan.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-info mb-3 text-white" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI LPJ (1 PDF gabungan)</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
@@ -6697,7 +6755,7 @@ function pdRenderDetailSingkat(res){
       + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki rincian, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-info mb-3 text-white" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ revisi (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-revisi-'+h.idPengajuan+'" onclick="pdAksiKirimRevisiSekaligus(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang</button>')));
@@ -6995,15 +7053,16 @@ function pdRenderDetailLaporanUnit(res){
       (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
       + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki rincian Pemasukan/Pengeluaran & bukti, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
-          + '<div class="fw-bold small text-success mb-1"><i class="fas fa-arrow-down-to-bracket me-1"></i>Pemasukan</div>'
+          + '<div class="fw-bold small text-success mb-1"><i class="fas fa-circle-plus me-1"></i>Pemasukan</div>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-laporan-edit-masuk"></tbody></table></div>'
           + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisLaporan(\'laporanEditMasuk\')"><i class="fas fa-plus me-1"></i>Baris</button>'
           + '<div class="mb-2"><b>Total Pemasukan: </b><span id="pd-total-laporanEditMasuk"></span></div>'
-          + '<div class="fw-bold small text-danger mb-1"><i class="fas fa-arrow-up-from-bracket me-1"></i>Pengeluaran</div>'
+          + '<div class="fw-bold small text-danger mb-1"><i class="fas fa-circle-minus me-1"></i>Pengeluaran</div>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-laporan-edit-keluar"></tbody></table></div>'
           + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisLaporan(\'laporanEditKeluar\')"><i class="fas fa-plus me-1"></i>Baris</button>'
-          + ' <button type="button" class="btn btn-sm btn-outline-info mb-3 text-white" onclick="pdSimpanDraftLaporanEdit(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
+          + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLaporanEdit(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total Pengeluaran: </b><span id="pd-total-laporanEditKeluar"></span></div>'
+          + '<div class="pd-total-box ok mb-3" id="pd-laporan-selisih-edit-box"><div class="small text-muted">Surplus / Defisit (Pemasukan &minus; Pengeluaran)</div><div class="fw-bold" id="pd-laporan-selisih-edit">Rp 0</div></div>'
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH ULANG BUKTI PENDUKUNG</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-laporan-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-laporan-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file bukti revisi (PDF) ke sini</div><input type="file" id="pd-file-laporan-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-laporan-edit" onchange="pdPilihFile(this,\'laporanEditBuktiFile\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-laporan-'+h.idPengajuan+'" onclick="pdAksiKirimUlangLaporanUnit(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang</button>')));
