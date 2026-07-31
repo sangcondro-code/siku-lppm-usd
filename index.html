@@ -326,6 +326,8 @@
         <select id="sel-bulan-input" class="form-select form-select-sm" style="width:auto;"></select>
       </div>
 
+      <div id="input-lock-banner"></div>
+
       <div class="d-flex gap-2 mb-3 no-print admin-only" id="input-mode-toggle">
         <div class="pos-tab active" data-mode="unit" onclick="switchInputMode('unit')"><i class="fas fa-building"></i>Input Unit</div>
         <div class="pos-tab" data-mode="nonunit" onclick="switchInputMode('nonunit')"><i class="fas fa-receipt"></i>Input Non Unit</div>
@@ -412,6 +414,8 @@
         <h5 class="page-title">Verifikasi Transaksi</h5>
         <select id="sel-bulan-verifikasi" class="form-select form-select-sm" style="width:auto;"></select>
       </div>
+
+      <div id="vf-lock-banner"></div>
 
       <div class="card mb-3"><div class="card-body">
         <div class="section-title mb-2"><i class="fas fa-question-circle"></i>Perlu Diverifikasi — Transaksi Belum Jelas Milik Pos Mana</div>
@@ -1176,6 +1180,27 @@ function hideLoading(){ document.getElementById('loading').classList.remove('sho
 // tahun (bikin spreadsheet+folder baru).
 function showBar(){}
 function hideBar(){}
+// PERBAIKAN PERFORMA: sebelumnya menu2 dgn cache (Dashboard/Pengajuan Dana/
+// Kelola Unit & Pos/Verifikasi Transaksi) memang sudah menampilkan versi
+// lama SEKETIKA, TAPI tetap langsung menembak 1 permintaan baru ke server
+// di belakang layar SETIAP KALI menu itu dibuka -- kalau user pindah2 menu
+// dgn cepat (mis. Dashboard -> Pengajuan -> Dashboard lagi dlm hitungan
+// detik), tiap kunjungan tetap memicu request baru walau datanya belum
+// mungkin berubah secepat itu. Helper ini menambah "jendela tenang" -- kalau
+// menu yg SAMA baru saja disegarkan dlm N detik terakhir, LEWATI permintaan
+// baru sama sekali (bukan cuma disembunyikan di baliknya cache render),
+// cukup pakai yg sudah ada. Auto-refresh diam-diam tiap 60 detik (lihat
+// setInterval _srgAutoRefresh) TIDAK lewat sini -- itu memang harus selalu
+// jalan tiap 60 detik apa pun yg terjadi.
+var _lastFetchAt = {}; // key -> timestamp ms
+var VIEW_REFRESH_DEBOUNCE_MS = 20000; // 20 detik
+function _bolehSegarkan(key){
+  var now = Date.now();
+  var last = _lastFetchAt[key] || 0;
+  if(now - last < VIEW_REFRESH_DEBOUNCE_MS) return false;
+  _lastFetchAt[key] = now;
+  return true;
+}
 // Spinner KECIL di tombol itu sendiri — dipakai untuk aksi yang MEMANG masih
 // perlu menunggu server (belum/tidak bisa dibuat optimistic, mis. Unit/Pos/
 // Kategori/User/Rekonsiliasi), supaya jelas ada proses jalan tanpa mengunci
@@ -1665,7 +1690,7 @@ function gotoView(name){
   if(namaKonten==='log') loadLogView();
   if(namaKonten==='logunit') loadLogUnitView();
   if(namaKonten==='pengajuan'){
-    if(!sudahDiPengajuan){ PD.kategori = 'BARU'; PD.halaman = 1; PD.cariTeks = ''; PD.filterBulan = 'SEMUA'; PD.filterJenis = 'SEMUA'; var elCari = document.getElementById('pd-cari'); if(elCari) elCari.value = ''; var elFB = document.getElementById('pd-filter-bulan'); if(elFB) elFB.value = 'SEMUA'; var elFJ = document.getElementById('pd-filter-jenis'); if(elFJ) elFJ.value = 'SEMUA'; } // reset ke Pengajuan Baru CUMA kalau navigasi baru dari menu lain, bukan sekadar refresh (mis. ganti tahun)
+    if(!sudahDiPengajuan){ PD.kategori = 'BARU'; PD.halaman = 1; PD.cariTeks = ''; PD.filterBulan = 'SEMUA'; PD.filterJenis = 'SEMUA'; var elCari = document.getElementById('pd-cari'); if(elCari) elCari.value = ''; var elFB = document.getElementById('pd-filter-bulan'); if(elFB) elFB.value = 'SEMUA'; var elFJ = document.getElementById('pd-filter-jenis'); if(elFJ) elFJ.value = 'SEMUA'; document.querySelectorAll('#pd-kategori-tabs .pos-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.kat==='BARU'); }); } // reset ke Pengajuan Baru CUMA kalau navigasi baru dari menu lain, bukan sekadar refresh (mis. ganti tahun) -- PERBAIKAN BUG: sebelumnya cuma PD.kategori yg direset, tab yg tersorot di layar TIDAK ikut disinkronkan (itu cuma diurus pdSetKategori(), bukan di sini), jadi kelihatan masih di tab lama walau isinya sebenarnya sudah Pengajuan Baru
     loadPengajuanDana();
     // PERBAIKAN BUG: dropdown "Ajukan atas nama Unit" (khusus Admin) tadinya
     // CUMA diisi lewat pdBukaFormBaru() -- kalau sesi di-restore LANGSUNG ke
@@ -1700,6 +1725,11 @@ function loadDashboard(){
   document.getElementById('db-tahun-label').textContent = STATE.tahunAktif || '-';
   var cached = _dashboardCache[STATE.tahunAktif];
   if(cached){ _dashboardDataTahun = cached; _renderKartuDashboard(); _renderGrafikDashboard(cached); } else { showBar(); }
+  // Kalau tahun yang sama baru saja disegarkan dlm 20 detik terakhir, cukup
+  // pakai versi yg sudah ada -- lewati permintaan baru sama sekali (bukan
+  // cuma disembunyikan di balik cache render), supaya pindah2 menu dgn
+  // cepat tidak memicu request berulang-ulang ke server.
+  if(cached && !_bolehSegarkan('dashboard_'+STATE.tahunAktif)) return;
   gasCall('getRingkasanTahun', STATE.tahunAktif, STATE.token).then(function(res){
     if(!cached) hideBar();
     if(!res.success){ if(!cached) toast('error', res.message); return; }
@@ -1714,31 +1744,36 @@ function loadDashboard(){
   // daftar kartu LENGKAP dari kedua sumber (bukan menambah/menimpa
   // sebagian) -- jadi urutan mana yang selesai duluan tidak masalah, tidak
   // ada kartu yang hilang tertimpa gara-gara race condition.
+  // PERBAIKAN PERFORMA: dulu di sini ADA 2 panggilan terpisah ke
+  // 'getRingkasanPengajuan' yang PERSIS SAMA (1 utk kartu dashboard lewat
+  // sini, 1 lagi di dalam _muatBannerPengajuanDashboard() di bawah) --
+  // dipanggil balik-balikan tiap Dashboard dibuka, padahal datanya identik.
+  // Sekarang cukup 1 panggilan, hasilnya dipakai bersama oleh keduanya.
   gasCall('getRingkasanPengajuan', STATE.token).then(function(res){
     if(res && res.success) _dashboardDataPengajuan = res;
     _renderKartuDashboard();
-  }).catch(function(){});
-  _muatBannerPengajuanDashboard();
+    _renderBannerPengajuanDashboard(res);
+  }).catch(function(){ _renderBannerPengajuanDashboard(null); });
 }
 // Highlight modul Pengajuan Dana di Dashboard utama -- CUMA muncul kalau
 // ada sesuatu yg perlu perhatian (perlu revisi / menunggu diproses), biar
 // tidak jadi banner kosong yang tidak penting kalau memang tidak ada apa-apa.
-function _muatBannerPengajuanDashboard(){
-  gasCall('getRingkasanPengajuan', STATE.token).then(function(res){
-    var el = document.getElementById('db-pengajuan-banner');
-    if(!el) return;
-    if(!res || !res.success){ el.innerHTML = ''; return; }
-    var bagian = [];
-    if(res.jumlahPerluRevisi > 0) bagian.push('<div class="d-flex align-items-center gap-2"><i class="fas fa-rotate-left" style="color:#d97706;"></i><b>'+res.jumlahPerluRevisi+'</b>&nbsp;perlu direvisi</div>');
-    if(res.jumlahBaru > 0) bagian.push('<div class="d-flex align-items-center gap-2"><i class="fas fa-hourglass-half" style="color:#800000;"></i><b>'+res.jumlahBaru+'</b>&nbsp;menunggu diproses</div>');
-    if(!bagian.length){ el.innerHTML = ''; return; }
-    el.innerHTML = '<div class="card mb-3" style="border-left:4px solid #800000;cursor:pointer;" onclick="gotoView(\'pengajuan\')">'
-      + '<div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">'
-      + '<div><div class="fw-bold mb-1"><i class="fas fa-hand-holding-dollar me-2" style="color:#800000;"></i>Pengajuan Dana</div>'
-      + '<div class="d-flex gap-4 flex-wrap small">'+bagian.join('')+'</div></div>'
-      + '<span class="btn btn-sm" style="background:var(--maroon);color:#fff;">Lihat Selengkapnya <i class="fas fa-arrow-right ms-1"></i></span>'
-      + '</div></div>';
-  }).catch(function(){ var el = document.getElementById('db-pengajuan-banner'); if(el) el.innerHTML = ''; });
+// Menerima `res` yang SUDAH diambil oleh loadDashboard() (lihat catatan
+// performa di atas) -- fungsi ini SENGAJA TIDAK memanggil server sendiri lagi.
+function _renderBannerPengajuanDashboard(res){
+  var el = document.getElementById('db-pengajuan-banner');
+  if(!el) return;
+  if(!res || !res.success){ el.innerHTML = ''; return; }
+  var bagian = [];
+  if(res.jumlahPerluRevisi > 0) bagian.push('<div class="d-flex align-items-center gap-2"><i class="fas fa-rotate-left" style="color:#d97706;"></i><b>'+res.jumlahPerluRevisi+'</b>&nbsp;perlu direvisi</div>');
+  if(res.jumlahBaru > 0) bagian.push('<div class="d-flex align-items-center gap-2"><i class="fas fa-hourglass-half" style="color:#800000;"></i><b>'+res.jumlahBaru+'</b>&nbsp;menunggu diproses</div>');
+  if(!bagian.length){ el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="card mb-3" style="border-left:4px solid #800000;cursor:pointer;" onclick="gotoView(\'pengajuan\')">'
+    + '<div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">'
+    + '<div><div class="fw-bold mb-1"><i class="fas fa-hand-holding-dollar me-2" style="color:#800000;"></i>Pengajuan Dana</div>'
+    + '<div class="d-flex gap-4 flex-wrap small">'+bagian.join('')+'</div></div>'
+    + '<span class="btn btn-sm" style="background:var(--maroon);color:#fff;">Lihat Selengkapnya <i class="fas fa-arrow-right ms-1"></i></span>'
+    + '</div></div>';
 }
 // Membangun ULANG daftar kartu LENGKAP dari data yang SUDAH ADA saat ini
 // (transaksi + pengajuan, kalau sudah tiba masing2) -- dipanggil dari 2
@@ -1873,6 +1908,14 @@ function _urutkanKodeUnit(daftarKode, sumberUrutan){
     return String(a).localeCompare(String(b));
   });
 }
+var _inputLocked = false; // status kunci Jurnal Memorial bulan yg sedang dibuka di Input Rekap Bulanan
+function renderInputLockBanner(){
+  var el = document.getElementById('input-lock-banner');
+  if(!el) return;
+  el.innerHTML = _inputLocked
+    ? '<div class="alert alert-warning d-flex align-items-center gap-2 mb-3 no-print"><i class="fas fa-lock"></i><span class="small">Jurnal Memorial bulan ini sudah <b>terkunci</b> — transaksi bulan ini sudah final dan tidak bisa ditambah/diubah/dihapus lagi. Buka kunci dulu di menu Jurnal Memorial kalau memang perlu koreksi.</span></div>'
+    : '';
+}
 function loadRekapBulan(){
   var bulan = document.getElementById('sel-bulan-input').value;
   if(!bulan) return;
@@ -1886,6 +1929,12 @@ function loadRekapBulan(){
     CACHE.rekap[key] = res.data;
     if(key === _rekapCacheKey()) renderTransaksiTable();
   }).catch(function(){ hideBar(); if(!CACHE.rekap[key]) toast('error','Gagal memuat rekap'); });
+  // Status kunci Jurnal Memorial -- murni utk banner peringatan di sini,
+  // backend (lihat _jurnalMemorialTerkunci di Code.gs) tetap jadi penjaga
+  // sebenarnya di semua endpoint tulis, terlepas dari banner ini muncul atau tidak.
+  gasCall('getStatusKunciBulan', STATE.tahunAktif, bulan, STATE.token).then(function(res){
+    if(res && res.success && key === _rekapCacheKey()){ _inputLocked = !!res.locked; renderInputLockBanner(); }
+  }).catch(function(){});
   loadPerluVerifikasi();
 }
 function renderTransaksiTable(){
@@ -3002,8 +3051,16 @@ function loadPerluVerifikasi(){
 var _vfPerlu = []; // cache di memori: daftar transaksi perlu diverifikasi (bulan terpilih)
 var _vfRiwayat = []; // cache di memori: transaksi yang sudah SAYA verifikasi (bulan terpilih)
 var _vfCache = {}; // cache per tahun_bulan -- {perlu, riwayat} -- supaya balik ke bulan yg SUDAH pernah dibuka di sesi ini instan, tidak "memuat" ulang dari server
+var _vfLocked = false; // status kunci Jurnal Memorial bulan yg sedang dibuka -- kalau true, tombol "Verifikasi" disembunyikan (backend TETAP jadi penjaga sebenarnya, ini murni supaya user tidak kaget baru tahu setelah klik gagal)
 function loadViewVerifikasi(){
   initBulanSelect('sel-bulan-verifikasi', loadViewVerifikasiData);
+}
+function renderVfLockBanner(){
+  var el = document.getElementById('vf-lock-banner');
+  if(!el) return;
+  el.innerHTML = _vfLocked
+    ? '<div class="alert alert-warning d-flex align-items-center gap-2 mb-3"><i class="fas fa-lock"></i><span class="small">Jurnal Memorial bulan ini sudah <b>terkunci</b> oleh Admin — transaksi bulan ini sudah final dan tidak bisa diverifikasi/diubah lagi. Hubungi Admin kalau memang perlu koreksi.</span></div>'
+    : '';
 }
 function loadViewVerifikasiData(){
   var bulan = document.getElementById('sel-bulan-verifikasi').value;
@@ -3011,18 +3068,24 @@ function loadViewVerifikasiData(){
   var key = STATE.tahunAktif + '_' + bulan;
   var cached = _vfCache[key];
   // 1) Tampilkan cache instan kalau ada (bulan ini sudah pernah dibuka)
-  if(cached){ _vfPerlu = cached.perlu; _vfRiwayat = cached.riwayat; renderVfPerlu(); renderVfRiwayat(); }
+  if(cached){ _vfPerlu = cached.perlu; _vfRiwayat = cached.riwayat; _vfLocked = !!cached.locked; renderVfLockBanner(); renderVfPerlu(); renderVfRiwayat(); }
   else showBar();
+  // Kalau bulan ini sudah disegarkan dlm 20 detik terakhir, cukup pakai yg
+  // ada -- lewati request baru sama sekali.
+  if(cached && !_bolehSegarkan('verifikasi_'+key)) return;
   // 2) Refresh dari server di belakang layar
   Promise.all([
     gasCall('getTransaksiBelumVerifikasi', STATE.tahunAktif, bulan, STATE.token),
-    gasCall('getRiwayatVerifikasiSaya', STATE.tahunAktif, bulan, STATE.token)
+    gasCall('getRiwayatVerifikasiSaya', STATE.tahunAktif, bulan, STATE.token),
+    gasCall('getStatusKunciBulan', STATE.tahunAktif, bulan, STATE.token)
   ]).then(function(res){
     hideBar();
-    var perlu = res[0], riwayat = res[1];
-    if(perlu.success){ _vfPerlu = perlu.data; if(key===STATE.tahunAktif+'_'+document.getElementById('sel-bulan-verifikasi').value) renderVfPerlu(); }
-    if(riwayat.success){ _vfRiwayat = riwayat.data; if(key===STATE.tahunAktif+'_'+document.getElementById('sel-bulan-verifikasi').value) renderVfRiwayat(); }
-    if(perlu.success && riwayat.success) _vfCache[key] = { perlu:_vfPerlu, riwayat:_vfRiwayat };
+    var perlu = res[0], riwayat = res[1], statusKunci = res[2];
+    var masihBulanSama = key===STATE.tahunAktif+'_'+document.getElementById('sel-bulan-verifikasi').value;
+    if(perlu.success){ _vfPerlu = perlu.data; if(masihBulanSama) renderVfPerlu(); }
+    if(riwayat.success){ _vfRiwayat = riwayat.data; if(masihBulanSama) renderVfRiwayat(); }
+    if(statusKunci && statusKunci.success){ _vfLocked = !!statusKunci.locked; if(masihBulanSama){ renderVfLockBanner(); renderVfPerlu(); } }
+    if(perlu.success && riwayat.success) _vfCache[key] = { perlu:_vfPerlu, riwayat:_vfRiwayat, locked:_vfLocked };
   }).catch(function(){ hideBar(); if(!cached) toast('error','Gagal memuat data verifikasi'); });
 }
 function renderVfPerlu(){
@@ -3034,7 +3097,7 @@ function renderVfPerlu(){
       + '<span class="small">'+(r.debet?('Debet Rp '+fmtRp(r.debet)):'')+(r.kredit?('Kredit Rp '+fmtRp(r.kredit)):'')+'</span></div>'
       + '<div class="d-flex gap-1">'
       + (STATE.role!=='ADMIN' ? '<button class="btn btn-sm btn-outline-secondary" title="Tanya Admin soal transaksi ini" onclick="tanyaAdminTentangTransaksiVf('+i+')"><i class="fas fa-comment-dots"></i></button>' : '')
-      + '<button class="btn btn-sm" style="background:var(--maroon);color:white;" onclick="bukaVerifikasiTransaksi(\''+r.id+'\')"><i class="fas fa-check-circle me-1"></i>Verifikasi</button>'
+      + (_vfLocked ? '<span class="text-muted small"><i class="fas fa-lock me-1"></i>Terkunci</span>' : '<button class="btn btn-sm" style="background:var(--maroon);color:white;" onclick="bukaVerifikasiTransaksi(\''+r.id+'\')"><i class="fas fa-check-circle me-1"></i>Verifikasi</button>')
       + '</div></div>';
   }).join('');
 }
@@ -4277,8 +4340,12 @@ function loadUnitPos(){
   // sebelumnya di sesi ini) -- instan, tanpa nunggu jawaban server --
   // baru disegarkan diam-diam di belakang layar. Pola sama dgn
   // Dashboard/Rekap Bulanan/Konsolidasi/Pengajuan Dana.
-  if(_unitPosData && _unitPosData.units){ renderUnitTable(); renderPosGroups(); }
+  var punyaCache = _unitPosData && _unitPosData.units;
+  if(punyaCache){ renderUnitTable(); renderPosGroups(); }
   else showBar();
+  // Kalau sudah disegarkan dlm 20 detik terakhir, cukup pakai yg ada --
+  // lewati request baru sama sekali.
+  if(punyaCache && !_bolehSegarkan('unitpos')) return;
   Promise.all([
     gasCall('getUnitPosList', STATE.token),
     gasCall('getKategoriTambahanList', STATE.token)
@@ -5842,7 +5909,6 @@ function loadPengajuanDana(){
   // CACHE.rekap/_konsolidasiRawCache) -- supaya pindah-pindah menu tidak
   // selalu terasa "memuat ulang dari nol".
   if(PD.daftar && PD.daftar.length) pdRenderDaftarTable();
-  pdMuatRingkasanDanDaftar(); // 1 round-trip gabungan (ringkasan+badge+daftar), gantikan pdMuatRingkasan()+pdMuatDaftar() terpisah
   pdSub('daftar');
   pdPastikanKomponenList(function(){ pdRenderTabelRab(); pdRenderTabelRealisasiForm(); });
   if(STATE.role==='ADMIN'){
@@ -5853,6 +5919,13 @@ function loadPengajuanDana(){
       }).catch(function(){});
     }
   }
+  // Kalau daftar sudah pernah disegarkan dlm 20 detik terakhir, cukup pakai
+  // versi yg sudah ada -- LEWATI permintaan baru ke server sama sekali
+  // (termasuk pemanasan cache di bawah), supaya pindah2 menu dgn cepat
+  // tidak memicu request berulang-ulang. Kalau memang belum pernah dimuat
+  // sama sekali (PD.daftar masih kosong), tetap SELALU muat spt biasa.
+  if(PD.daftar.length && !_bolehSegarkan('pengajuan_daftar')) return;
+  pdMuatRingkasanDanDaftar(); // 1 round-trip gabungan (ringkasan+badge+daftar), gantikan pdMuatRingkasan()+pdMuatDaftar() terpisah
   // Pemanasan cache sheet anak Pengajuan (Detail/Realisasi/File/Komentar)
   // DIAM-DIAM di latar belakang (fire-and-forget, hasilnya tidak
   // dipedulikan) -- supaya begitu user benar-benar klik tombol Detail
