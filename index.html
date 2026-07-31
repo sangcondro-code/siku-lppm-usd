@@ -187,6 +187,14 @@
 .pd-ms-item.active .pd-ms-dot{ background:#fef3c7; color:#92400e; border-color:#fbbf24; }
 .pd-ms-item.revisi .pd-ms-dot{ background:#fed7aa; color:#9a3412; border-color:#f97316; }
 .pd-ms-label{ font-size:.66rem; text-align:center; margin-top:6px; color:#9ca3af; font-weight:600; line-height:1.2; }
+/* Dipakai di SEMUA tombol Edit/Hapus/kontrol lain yg berhubungan dgn
+   transaksi di bulan yg Jurnal Memorial-nya sudah dikunci -- dibuat
+   tampak "mati" (abu-abu, tidak bisa diklik) SUPAYA JELAS SEKILAS mana
+   yg sudah tidak bisa diapa-apakan lagi, tanpa perlu coba klik dulu baru
+   tahu gagal. Backend (_jurnalMemorialTerkunci di Code.gs) tetap jadi
+   penjaga SEBENARNYA -- class ini murni tampilan. */
+.locked-ui, .locked-ui *{ pointer-events:none !important; }
+.locked-ui{ opacity:.35; filter:grayscale(100%); cursor:not-allowed; }
 .pd-ms-item.done .pd-ms-label, .pd-ms-item.active .pd-ms-label, .pd-ms-item.revisi .pd-ms-label{ color:#374151; }
 
 .pd-block{ margin-bottom:1rem; }
@@ -477,6 +485,7 @@
           <input type="text" id="cari-rekkoran" class="form-control form-control-sm" style="width:260px;" placeholder="Cari keterangan, tanggal, atau nominal..." oninput="renderRekeningKoranTable()">
         </div>
       </div>
+      <div id="rk-lock-banner"></div>
       <p class="text-muted small mb-2">Tabel gabungan semua Unit &amp; Pos, urut tanggal — geser baris (ikon &#10021;) untuk menyamakan urutan persis dengan rekening koran/e-statement fisik dari bank. Perubahan tersimpan otomatis.</p>
       <div class="card"><div class="card-body">
         <div class="table-responsive"><table class="table tbl tbl-tx mb-0">
@@ -1866,18 +1875,25 @@ var TX_THEAD = '<th class="no-print tx-col-icon"><input type="checkbox" onclick=
 // belum ada "urutan per Pos" yang berlaku).
 function _renderTxRow(r, i, kodePosDrag){
   var cls = r._optimistic ? ' row-optimistic' : '';
-  var dragAttr = kodePosDrag ? ' ondragover="txDragOver(event,\''+kodePosDrag+'\')" ondragleave="txDragLeave(event)" ondrop="txDrop(event,\''+kodePosDrag+'\',\''+r.id+'\')" ondragend="txDragEnd(event)"' : '';
-  var handle = kodePosDrag
+  // Bulan terkunci -- SEMUA kontrol interaktif baris ini (checkbox pilih,
+  // geser urutan, Edit, Hapus) dibuat tampak MATI (abu-abu, tidak bisa
+  // diklik) lewat class CSS "locked-ui" (lihat definisinya di <style>).
+  // Backend (_jurnalMemorialTerkunci) tetap jadi penjaga SEBENARNYA --
+  // ini murni supaya user langsung lihat sekilas mana yang sudah tidak
+  // bisa diapa-apakan lagi, tanpa perlu coba klik dulu baru tahu gagal.
+  var locked = !!_inputLocked;
+  var dragAttr = (kodePosDrag && !locked) ? ' ondragover="txDragOver(event,\''+kodePosDrag+'\')" ondragleave="txDragLeave(event)" ondrop="txDrop(event,\''+kodePosDrag+'\',\''+r.id+'\')" ondragend="txDragEnd(event)"' : '';
+  var handle = (kodePosDrag && !locked)
     ? '<td class="no-print tx-drag-handle tx-col-icon" draggable="true" ondragstart="txDragStart(event,\''+kodePosDrag+'\',\''+r.id+'\')" title="Tahan &amp; geser untuk urutkan"><i class="fas fa-grip-vertical"></i></td>'
-    : '<td class="no-print tx-col-icon"></td>';
+    : '<td class="no-print tx-col-icon'+(kodePosDrag&&locked?' locked-ui':'')+'">'+(kodePosDrag?'<i class="fas fa-grip-vertical"></i>':'')+'</td>';
   return '<tr class="'+cls.trim()+'"'+dragAttr+'>'
-    + '<td class="no-print tx-col-icon"><input type="checkbox" class="chk-tx" value="'+r.id+'" onclick="updateJumlahTerpilih()"></td>'
+    + '<td class="no-print tx-col-icon'+(locked?' locked-ui':'')+'"><input type="checkbox" class="chk-tx" value="'+r.id+'" onclick="updateJumlahTerpilih()"'+(locked?' disabled':'')+'></td>'
     + handle
     + '<td class="tx-col-icon">'+(i+1)+'</td><td>'+r.tanggal+'</td><td class="tx-col-clip" title="'+_gcEsc(r.keterangan||'')+'">'+_gcEsc(r.keterangan||'')+'</td>'
     + '<td class="text-end">'+fmtRp(r.debet)+'</td><td class="text-end">'+fmtRp(r.kredit)+'</td>'
     + '<td class="tx-col-clip" title="'+(r.inputOleh||'').replace(/"/g,'&quot;')+'">'+(r.inputOleh||'')+'</td>'
-    + '<td class="no-print tx-aksi"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksi(\''+r.id+'\', this)"><i class="fas fa-edit"></i></button>'
-    + '<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksi(\''+r.id+'\', this)"><i class="fas fa-trash"></i></button></td></tr>';
+    + '<td class="no-print tx-aksi'+(locked?' locked-ui':'')+'"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksi(\''+r.id+'\', this)"'+(locked?' disabled':'')+'><i class="fas fa-edit"></i></button>'
+    + '<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksi(\''+r.id+'\', this)"'+(locked?' disabled':'')+'><i class="fas fa-trash"></i></button></td></tr>';
 }
 // Urutkan array transaksi: pakai urutan MANUAL (kolom Urutan) kalau ada,
 // baru fallback ke tanggal — supaya baris yang belum pernah digeser tetap
@@ -2232,6 +2248,14 @@ function hapusTransaksi(id){
 // ============================================================
 var _rekKoranRows = [];
 var _rekKoranUnitNama = {};
+var _rkLocked = false;
+function renderRkLockBanner(){
+  var el = document.getElementById('rk-lock-banner');
+  if(!el) return;
+  el.innerHTML = _rkLocked
+    ? '<div class="alert alert-warning d-flex align-items-center gap-2 mb-3 no-print"><i class="fas fa-lock"></i><span class="small">Jurnal Memorial bulan ini sudah <b>terkunci</b> — urutan/isi transaksi bulan ini sudah final dan tidak bisa diubah lagi. Buka kunci dulu di menu Jurnal Memorial kalau memang perlu koreksi.</span></div>'
+    : '';
+}
 function loadRekapRekeningKoran(){
   var bulan = document.getElementById('sel-bulan-rekkoran').value;
   var kodeUnit = document.getElementById('sel-unit-rekkoran').value;
@@ -2250,6 +2274,9 @@ function loadRekapRekeningKoran(){
     }
     renderRekeningKoranTable();
   }).catch(function(){ hideBar(); toast('error','Gagal memuat data'); });
+  gasCall('getStatusKunciBulan', STATE.tahunAktif, bulan, STATE.token).then(function(res){
+    if(res && res.success && bulan === document.getElementById('sel-bulan-rekkoran').value){ _rkLocked = !!res.locked; renderRkLockBanner(); renderRekeningKoranTable(); }
+  }).catch(function(){});
 }
 function renderRekeningKoranTable(){
   var tb = document.getElementById('tbody-rekkoran');
@@ -2277,16 +2304,20 @@ function renderRekeningKoranTable(){
     if(r.sumber==='tambahan') labelUnit = '<span class="badge bg-secondary" title="Item Non-Unit — bukan milik 1 Unit tertentu">Non-Unit</span>';
     else if(belumVerifikasi) labelUnit = '<span class="text-muted" title="Belum diverifikasi/ditentukan Pos-nya — lihat menu Input Rekap Bulanan &rarr; Perlu Verifikasi">&mdash;</span>';
     else labelUnit = _gcEsc(r.kodeUnit||'');
-    return '<tr class="'+(belumVerifikasi?'table-warning':'')+'" ondragover="rkDragOver(event)" ondragleave="rkDragLeave(event)" ondrop="rkDrop(event,\''+r.id+'\')" ondragend="rkDragEnd(event)">'
+    var dragAttr = _rkLocked ? '' : ' ondragover="rkDragOver(event)" ondragleave="rkDragLeave(event)" ondrop="rkDrop(event,\''+r.id+'\')" ondragend="rkDragEnd(event)"';
+    var handle = _rkLocked
+      ? '<td class="no-print tx-drag-handle tx-col-icon locked-ui"><i class="fas fa-grip-vertical"></i></td>'
+      : '<td class="no-print tx-drag-handle tx-col-icon" draggable="true" ondragstart="rkDragStart(event,\''+r.id+'\')" title="Tahan &amp; geser untuk urutkan"><i class="fas fa-grip-vertical"></i></td>';
+    return '<tr class="'+(belumVerifikasi?'table-warning':'')+'"'+dragAttr+'>'
       + '<td class="tx-col-icon">'+(i+1)+'</td>'
-      + '<td class="no-print tx-drag-handle tx-col-icon" draggable="true" ondragstart="rkDragStart(event,\''+r.id+'\')" title="Tahan &amp; geser untuk urutkan"><i class="fas fa-grip-vertical"></i></td>'
+      + handle
       + '<td>'+r.tanggal+'</td>'
       + '<td class="tx-col-clip" title="'+_gcEsc(r.keterangan||'')+'">'+(belumVerifikasi?'<i class="fas fa-triangle-exclamation text-warning me-1" title="Belum terverifikasi"></i>':'')+_gcEsc(r.keterangan||'')+'</td>'
       + '<td class="text-end">'+(r.debet?fmtRp(r.debet):'&mdash;')+'</td>'
       + '<td class="text-end">'+(r.kredit?fmtRp(r.kredit):'&mdash;')+'</td>'
       + '<td class="tx-col-clip" title="'+_gcEsc(r.sumber==='tambahan'?(r.namaPos||''):(_rekKoranUnitNama[r.kodeUnit]||''))+'">'+labelUnit+'</td>'
-      + '<td class="no-print tx-aksi"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksiRK(\''+r.id+'\', this)"><i class="fas fa-edit"></i></button>'
-      + '<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksiRK(\''+r.id+'\', this)"><i class="fas fa-trash"></i></button></td></tr>';
+      + '<td class="no-print tx-aksi'+(_rkLocked?' locked-ui':'')+'"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksiRK(\''+r.id+'\', this)"'+(_rkLocked?' disabled':'')+'><i class="fas fa-edit"></i></button>'
+      + '<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksiRK(\''+r.id+'\', this)"'+(_rkLocked?' disabled':'')+'><i class="fas fa-trash"></i></button></td></tr>';
   }).join('') || '<tr><td colspan="8" class="text-center text-muted">'+(kataKunci?'Tidak ada hasil untuk pencarian tersebut':'Belum ada data bulan ini')+'</td></tr>';
   document.getElementById('tot-debet-rekkoran').textContent = fmtRp(d);
   document.getElementById('tot-kredit-rekkoran').textContent = fmtRp(k);
@@ -3137,8 +3168,8 @@ function renderVfRiwayat(){
     return '<tr><td>'+(i+1)+'</td><td>'+r.tanggal+'</td><td>'+_gcEsc(r.keterangan||'')+'</td>'
       + '<td class="text-end">'+(r.debet?fmtRp(r.debet):'')+'</td><td class="text-end">'+(r.kredit?fmtRp(r.kredit):'')+'</td>'
       + '<td>'+_gcEsc(r.namaPos||r.kodePos||'-')+'</td>'
-      + '<td class="no-print d-flex gap-1"><button class="btn btn-sm btn-outline-secondary" onclick="bukaUbahPosVerifikasi(\''+r.id+'\',\''+(r.kodePos||'')+'\')"><i class="fas fa-exchange-alt me-1"></i>Ubah Pos</button>'
-      + '<button class="btn btn-sm btn-outline-danger" title="Kembalikan ke daftar Belum Jelas Pos-nya (kalau ternyata bukan punya Unit ini)" onclick="kembalikanTransaksiVerifikasi(\''+r.id+'\')"><i class="fas fa-rotate-left"></i></button></td></tr>';
+      + '<td class="no-print d-flex gap-1'+(_vfLocked?' locked-ui':'')+'"><button class="btn btn-sm btn-outline-secondary" onclick="bukaUbahPosVerifikasi(\''+r.id+'\',\''+(r.kodePos||'')+'\')"'+(_vfLocked?' disabled':'')+'><i class="fas fa-exchange-alt me-1"></i>Ubah Pos</button>'
+      + '<button class="btn btn-sm btn-outline-danger" title="Kembalikan ke daftar Belum Jelas Pos-nya (kalau ternyata bukan punya Unit ini)" onclick="kembalikanTransaksiVerifikasi(\''+r.id+'\')"'+(_vfLocked?' disabled':'')+'><i class="fas fa-rotate-left"></i></button></td></tr>';
   }).join('');
 }
 function bukaUbahPosVerifikasi(id, kodePosSaatIni){
@@ -4104,9 +4135,9 @@ function renderTambahanInputPanel(){
     totalD += t.debet; totalK += t.kredit;
     var namaKat = (kategoriByKode[t.kodeKategori] || {}).namaKategori || '(tidak dikenal)';
     var cls = t._optimistic ? ' class="row-optimistic"' : '';
-    return '<tr'+cls+'><td class="no-print"><input type="checkbox" class="chk-tb" value="'+t.id+'" onclick="updateJumlahTerpilih()"></td><td>'+(i+1)+'</td><td>'+t.tanggal+'</td><td>'+_gcEsc(namaKat)+'</td><td>'+_gcEsc(t.keterangan||'')+'</td><td>'+fmtRp(t.debet)+'</td><td>'+fmtRp(t.kredit)+'</td>'
-      +'<td class="no-print text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick=\'editTambahan('+JSON.stringify(t)+')\'><i class="fas fa-edit"></i></button>'
-      +'<button class="btn btn-sm btn-outline-danger" onclick="hapusTambahan(\''+t.id+'\')"><i class="fas fa-trash"></i></button></td></tr>';
+    return '<tr'+cls+'><td class="no-print'+(_inputLocked?' locked-ui':'')+'"><input type="checkbox" class="chk-tb" value="'+t.id+'" onclick="updateJumlahTerpilih()"'+(_inputLocked?' disabled':'')+'></td><td>'+(i+1)+'</td><td>'+t.tanggal+'</td><td>'+_gcEsc(namaKat)+'</td><td>'+_gcEsc(t.keterangan||'')+'</td><td>'+fmtRp(t.debet)+'</td><td>'+fmtRp(t.kredit)+'</td>'
+      +'<td class="no-print text-nowrap'+(_inputLocked?' locked-ui':'')+'"><button class="btn btn-sm btn-outline-secondary me-1" onclick=\'editTambahan('+JSON.stringify(t)+')\''+(_inputLocked?' disabled':'')+'><i class="fas fa-edit"></i></button>'
+      +'<button class="btn btn-sm btn-outline-danger" onclick="hapusTambahan(\''+t.id+'\')"'+(_inputLocked?' disabled':'')+'><i class="fas fa-trash"></i></button></td></tr>';
   }).join('') || '<tr><td colspan="8" class="text-center text-muted">Belum ada data</td></tr>';
   document.getElementById('tot-debet-tambahan').textContent = fmtRp(totalD);
   document.getElementById('tot-kredit-tambahan').textContent = fmtRp(totalK);
