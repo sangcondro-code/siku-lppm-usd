@@ -3001,22 +3001,29 @@ function loadPerluVerifikasi(){
 // ============================================================
 var _vfPerlu = []; // cache di memori: daftar transaksi perlu diverifikasi (bulan terpilih)
 var _vfRiwayat = []; // cache di memori: transaksi yang sudah SAYA verifikasi (bulan terpilih)
+var _vfCache = {}; // cache per tahun_bulan -- {perlu, riwayat} -- supaya balik ke bulan yg SUDAH pernah dibuka di sesi ini instan, tidak "memuat" ulang dari server
 function loadViewVerifikasi(){
   initBulanSelect('sel-bulan-verifikasi', loadViewVerifikasiData);
 }
 function loadViewVerifikasiData(){
   var bulan = document.getElementById('sel-bulan-verifikasi').value;
   if(!bulan) return;
-  showBar();
+  var key = STATE.tahunAktif + '_' + bulan;
+  var cached = _vfCache[key];
+  // 1) Tampilkan cache instan kalau ada (bulan ini sudah pernah dibuka)
+  if(cached){ _vfPerlu = cached.perlu; _vfRiwayat = cached.riwayat; renderVfPerlu(); renderVfRiwayat(); }
+  else showBar();
+  // 2) Refresh dari server di belakang layar
   Promise.all([
     gasCall('getTransaksiBelumVerifikasi', STATE.tahunAktif, bulan, STATE.token),
     gasCall('getRiwayatVerifikasiSaya', STATE.tahunAktif, bulan, STATE.token)
   ]).then(function(res){
     hideBar();
     var perlu = res[0], riwayat = res[1];
-    if(perlu.success){ _vfPerlu = perlu.data; renderVfPerlu(); }
-    if(riwayat.success){ _vfRiwayat = riwayat.data; renderVfRiwayat(); }
-  }).catch(function(){ hideBar(); toast('error','Gagal memuat data verifikasi'); });
+    if(perlu.success){ _vfPerlu = perlu.data; if(key===STATE.tahunAktif+'_'+document.getElementById('sel-bulan-verifikasi').value) renderVfPerlu(); }
+    if(riwayat.success){ _vfRiwayat = riwayat.data; if(key===STATE.tahunAktif+'_'+document.getElementById('sel-bulan-verifikasi').value) renderVfRiwayat(); }
+    if(perlu.success && riwayat.success) _vfCache[key] = { perlu:_vfPerlu, riwayat:_vfRiwayat };
+  }).catch(function(){ hideBar(); if(!cached) toast('error','Gagal memuat data verifikasi'); });
 }
 function renderVfPerlu(){
   var wrap = document.getElementById('vf-daftar-perlu');
@@ -4266,14 +4273,19 @@ function cetakKonsolidasi(){
 // ============================================================
 var _unitPosData = { units:[], pos:[] };
 function loadUnitPos(){
-  showBar();
+  // Tampilkan dulu versi yang sudah ada di memori (kalau pernah dimuat
+  // sebelumnya di sesi ini) -- instan, tanpa nunggu jawaban server --
+  // baru disegarkan diam-diam di belakang layar. Pola sama dgn
+  // Dashboard/Rekap Bulanan/Konsolidasi/Pengajuan Dana.
+  if(_unitPosData && _unitPosData.units){ renderUnitTable(); renderPosGroups(); }
+  else showBar();
   Promise.all([
     gasCall('getUnitPosList', STATE.token),
     gasCall('getKategoriTambahanList', STATE.token)
   ]).then(function(hasil){
     hideBar();
     var res = hasil[0], katRes = hasil[1];
-    if(!res.success){ toast('error', res.message); return; }
+    if(!res.success){ if(!_unitPosData) toast('error', res.message); return; }
     _unitPosData = res;
     // Ikut segarkan STATE.myPos/myUnits (dipakai dropdown Pos di dialog Edit
     // Transaksi & form Input) -- KHUSUS Admin, karena utk Admin isinya
@@ -4291,7 +4303,7 @@ function loadUnitPos(){
     document.getElementById('ps-unit').innerHTML = res.units.map(function(u){ return '<option value="'+u.kodeUnit+'">'+u.namaUnit+'</option>'; }).join('');
     _kategoriTambahanData = (katRes && katRes.success) ? katRes.data : [];
     renderKategoriTable();
-  }).catch(function(){ hideBar(); });
+  }).catch(function(){ hideBar(); if(!_unitPosData) toast('error','Gagal memuat Unit & Pos'); });
 }
 function renderUnitTable(){
   var list = _unitPosData.units;
@@ -5822,8 +5834,15 @@ function pdPastikanKomponenList(callback){
   }).catch(function(err){ toast('error', (err && err.message) || 'Gagal memuat daftar Komponen Anggaran'); callback(); });
 }
 function loadPengajuanDana(){
-  pdMuatRingkasan();
-  pdMuatDaftar();
+  // Kalau daftar ini sudah pernah dimuat sebelumnya di sesi ini, tampilkan
+  // DULU apa yang sudah ada di memori -- INSTAN, tanpa nunggu jawaban
+  // server -- baru disegarkan diam-diam di belakang layar lewat
+  // pdMuatRingkasanDanDaftar() di bawah. Pola ini SAMA PERSIS dgn yang
+  // sudah dipakai Dashboard/Rekap Bulanan/Konsolidasi (_dashboardCache/
+  // CACHE.rekap/_konsolidasiRawCache) -- supaya pindah-pindah menu tidak
+  // selalu terasa "memuat ulang dari nol".
+  if(PD.daftar && PD.daftar.length) pdRenderDaftarTable();
+  pdMuatRingkasanDanDaftar(); // 1 round-trip gabungan (ringkasan+badge+daftar), gantikan pdMuatRingkasan()+pdMuatDaftar() terpisah
   pdSub('daftar');
   pdPastikanKomponenList(function(){ pdRenderTabelRab(); pdRenderTabelRealisasiForm(); });
   if(STATE.role==='ADMIN'){
@@ -5834,6 +5853,13 @@ function loadPengajuanDana(){
       }).catch(function(){});
     }
   }
+  // Pemanasan cache sheet anak Pengajuan (Detail/Realisasi/File/Komentar)
+  // DIAM-DIAM di latar belakang (fire-and-forget, hasilnya tidak
+  // dipedulikan) -- supaya begitu user benar-benar klik tombol Detail
+  // beberapa saat kemudian, server TIDAK PERLU lagi baca-penuh sheet yang
+  // mahal itu (sudah "dibayar duluan" di sini), jadi Detail terasa jauh
+  // lebih cepat dibuka. Lihat pemanasanCachePengajuan di Code.gs.
+  gasCall('pemanasanCachePengajuan', STATE.token).catch(function(){});
 }
 // Kategori sekarang dipilih lewat tab DI DALAM halaman Daftar Pengajuan
 // (bukan dropdown sidebar lagi) -- lebih sederhana, tidak perlu navigasi
