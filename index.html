@@ -181,6 +181,7 @@
 .pd-ms-item.done .pd-ms-line{ background:var(--maroon); }
 .pd-ms-item.revisi .pd-ms-line{ background:#f97316; }
 .pd-ms-item:first-child .pd-ms-row .pd-ms-line:first-child{ visibility:hidden; }
+.pd-ms-item:last-child .pd-ms-row .pd-ms-line:last-child{ visibility:hidden; }
 .pd-ms-dot{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.72rem; flex-shrink:0; background:#f3f4f6; color:#9ca3af; border:2px solid #e5e7eb; }
 .pd-ms-item.done .pd-ms-dot{ background:var(--maroon); color:#fff; border-color:var(--maroon); }
 .pd-ms-item.active .pd-ms-dot{ background:#fef3c7; color:#92400e; border-color:#fbbf24; }
@@ -298,6 +299,9 @@
     <div class="nav-item admin-only" data-view="tahun" onclick="gotoView('tahun')"><i class="fas fa-calendar-plus"></i> Rollover Tahun</div>
     <div class="nav-item admin-only" data-view="setup" onclick="gotoView('setup')"><i class="fas fa-cog"></i> Pengaturan</div>
     <div class="nav-item admin-only" data-view="log" onclick="gotoView('log')"><i class="fas fa-history"></i> Log Aktivitas</div>
+    <div class="nav-label unit-only">Administrasi</div>
+    <div class="nav-item unit-only" data-view="userunit" onclick="gotoView('userunit')"><i class="fas fa-users"></i> Kelola User</div>
+    <div class="nav-item unit-only" data-view="logunit" onclick="gotoView('logunit')"><i class="fas fa-history"></i> Log Aktivitas</div>
   </div>
 
   <div class="main">
@@ -632,6 +636,24 @@
       </div></div>
     </div>
 
+    <!-- USER UNIT (khusus akun UNIT, terbatas ke Unit sendiri) -->
+    <div id="view-userunit" class="view d-none">
+      <h5 class="page-title mb-3">Kelola User</h5>
+      <p class="text-muted small mb-3">Ganti password akun-akun yang terhubung ke Unit Anda. Menambah atau menghapus akun tetap wewenang Admin.</p>
+      <div class="card"><div class="card-body">
+        <table class="table tbl mb-0"><thead><tr><th>Username</th><th>Nama</th><th>Email</th><th>Aktif</th><th></th></tr></thead><tbody id="tbody-user-unit"></tbody></table>
+      </div></div>
+    </div>
+
+    <!-- LOG AKTIVITAS UNIT (khusus akun UNIT, terbatas ke aktivitas Unit sendiri) -->
+    <div id="view-logunit" class="view d-none">
+      <h5 class="page-title mb-3">Log Aktivitas</h5>
+      <p class="text-muted small mb-3">Riwayat aktivitas seluruh akun yang terhubung ke Unit Anda (login, pengajuan, dsb).</p>
+      <div class="card"><div class="card-body">
+        <table class="table tbl mb-0"><thead><tr><th>Waktu</th><th>Username</th><th>Aksi</th><th>Detail</th></tr></thead><tbody id="tbody-log-unit"></tbody></table>
+      </div></div>
+    </div>
+
     <!-- ROLLOVER TAHUN -->
     <div id="view-tahun" class="view d-none">
       <h5 class="page-title mb-3">Rollover Tahun Baru</h5>
@@ -792,7 +814,23 @@
       <div id="pd-sub-daftar">
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
           <h5 class="page-title">Pengajuan Dana</h5>
-          <button class="btn btn-sm" style="background:var(--maroon);color:#fff;" onclick="pdBukaFormBaru()"><i class="fas fa-plus me-1"></i>Ajukan Baru</button>
+          <div class="d-flex gap-2 flex-wrap align-items-center">
+            <select id="pd-filter-bulan" class="form-select form-select-sm" style="width:150px;" onchange="pdFilterTambahanUbah()">
+              <option value="SEMUA">Semua Bulan</option>
+              <option value="1">Januari</option><option value="2">Februari</option><option value="3">Maret</option>
+              <option value="4">April</option><option value="5">Mei</option><option value="6">Juni</option>
+              <option value="7">Juli</option><option value="8">Agustus</option><option value="9">September</option>
+              <option value="10">Oktober</option><option value="11">November</option><option value="12">Desember</option>
+            </select>
+            <select id="pd-filter-jenis" class="form-select form-select-sm" style="width:190px;" onchange="pdFilterTambahanUbah()">
+              <option value="SEMUA">Semua Jenis Pengajuan</option>
+              <option value="MUKA">Dana Kegiatan</option>
+              <option value="SEKALIGUS">Penggantian Biaya</option>
+              <option value="TAGIHAN">Tagihan</option>
+              <option value="LAPORAN_UNIT">Laporan Usaha Unit</option>
+            </select>
+            <button class="btn btn-sm" style="background:var(--maroon);color:#fff;" onclick="pdBukaFormBaru()"><i class="fas fa-plus me-1"></i>Ajukan Baru</button>
+          </div>
         </div>
 
         <div class="row g-3 mb-3">
@@ -825,10 +863,10 @@
             </div>
           </div>
           <div class="d-flex gap-2 mb-3 flex-wrap" id="pd-kategori-tabs">
-            <div class="pos-tab active" data-kat="SEMUA" onclick="pdSetKategori('SEMUA')">Semua</div>
-            <div class="pos-tab" data-kat="BARU" onclick="pdSetKategori('BARU')"><i class="fas fa-hourglass-half"></i>Pengajuan Baru</div>
+            <div class="pos-tab active" data-kat="BARU" onclick="pdSetKategori('BARU')"><i class="fas fa-hourglass-half"></i>Pengajuan Baru</div>
             <div class="pos-tab" data-kat="PROSES" onclick="pdSetKategori('PROSES')"><i class="fas fa-arrows-rotate"></i>Proses</div>
             <div class="pos-tab" data-kat="SELESAI" onclick="pdSetKategori('SELESAI')"><i class="fas fa-circle-check"></i>Selesai</div>
+            <div class="pos-tab" data-kat="SEMUA" onclick="pdSetKategori('SEMUA')">Semua</div>
           </div>
           <div class="table-responsive"><table class="table tbl mb-0">
             <thead><tr><th>No. Pengajuan / Jenis</th><th>Kegiatan</th><th>Diajukan Oleh</th><th>Tanggal</th><th class="text-end">Nominal</th><th>Status</th><th></th></tr></thead>
@@ -1533,7 +1571,9 @@ function refreshViewSilently(name){
   else if(name==='konsolidasi') loadKonsolidasi();
   else if(name==='unit') loadUnitPos();
   else if(name==='user') loadUserView();
+  else if(name==='userunit') loadUserUnitView();
   else if(name==='log') loadLogView();
+  else if(name==='logunit') loadLogUnitView();
   else if(name==='pengajuan'){
     var subDaftar = document.getElementById('pd-sub-daftar');
     if(subDaftar && !subDaftar.classList.contains('d-none')){ pdMuatRingkasan(); pdMuatDaftar(); }
@@ -1619,11 +1659,13 @@ function gotoView(name){
   if(namaKonten==='unit') loadUnitPos();
   if(namaKonten==='memorial') initMemorialView();
   if(namaKonten==='user') loadUserView();
+  if(namaKonten==='userunit') loadUserUnitView();
   if(namaKonten==='tahun') loadTahunView();
   if(namaKonten==='setup') loadSetupView();
   if(namaKonten==='log') loadLogView();
+  if(namaKonten==='logunit') loadLogUnitView();
   if(namaKonten==='pengajuan'){
-    if(!sudahDiPengajuan){ PD.kategori = 'SEMUA'; PD.halaman = 1; PD.cariTeks = ''; var elCari = document.getElementById('pd-cari'); if(elCari) elCari.value = ''; } // reset ke Semua CUMA kalau navigasi baru dari menu lain, bukan sekadar refresh (mis. ganti tahun)
+    if(!sudahDiPengajuan){ PD.kategori = 'BARU'; PD.halaman = 1; PD.cariTeks = ''; PD.filterBulan = 'SEMUA'; PD.filterJenis = 'SEMUA'; var elCari = document.getElementById('pd-cari'); if(elCari) elCari.value = ''; var elFB = document.getElementById('pd-filter-bulan'); if(elFB) elFB.value = 'SEMUA'; var elFJ = document.getElementById('pd-filter-jenis'); if(elFJ) elFJ.value = 'SEMUA'; } // reset ke Pengajuan Baru CUMA kalau navigasi baru dari menu lain, bukan sekadar refresh (mis. ganti tahun)
     loadPengajuanDana();
     // PERBAIKAN BUG: dropdown "Ajukan atas nama Unit" (khusus Admin) tadinya
     // CUMA diisi lewat pdBukaFormBaru() -- kalau sesi di-restore LANGSUNG ke
@@ -4625,6 +4667,69 @@ function hapusUser(username){
 }
 
 // ============================================================
+// KELOLA USER UNIT -- versi terbatas dari "Kelola User" di atas, khusus
+// utk role UNIT: cuma bisa melihat/mengubah akun yg terhubung ke Unit
+// SENDIRI (bisa lebih dari 1 akun per Unit), tidak ada pilihan Role/Unit
+// sama sekali (SELALU dipaksa UNIT & Unit sendiri oleh backend) -- fitur
+// utamanya justru GANTI PASSWORD (baik akun sendiri maupun akun lain
+// sesama Unit), yang sebelumnya TIDAK PUNYA jalan sama sekali dari sisi
+// Unit (cuma bisa lewat Admin atau lupa-password/OTP email).
+// ============================================================
+function loadUserUnitView(){
+  showBar();
+  gasCall('getUserListUnit', STATE.token).then(function(res){
+    hideBar();
+    if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat daftar user'); return; }
+    document.getElementById('tbody-user-unit').innerHTML = res.data.map(function(u){
+      return '<tr><td>'+esc(u.username)+(u.username===STATE.username?' <span class="text-muted small">(Anda)</span>':'')+'</td><td>'+esc(u.nama)+'</td><td>'+esc(u.email)+'</td>'+
+        '<td>'+(u.aktif?'<span class="text-success">Aktif</span>':'<span class="text-danger">Nonaktif</span>')+'</td>'+
+        '<td><button class="btn btn-sm btn-outline-secondary" onclick="gantiPasswordUserUnitKlik(\''+u.username+'\')"><i class="fas fa-key me-1"></i>Ganti Password</button></td></tr>';
+    }).join('') || '<tr><td colspan="5" class="text-center text-muted py-3">Belum ada user di Unit Anda.</td></tr>';
+  }).catch(function(){ hideBar(); toast('error','Gagal memuat daftar user'); });
+}
+// Unit HANYA bisa ganti password (tidak ada tambah/hapus akun -- itu tetap
+// wewenang Admin lewat "Kelola User" pusat). Pakai dialog Swal sederhana
+// (2 field: password baru + konfirmasi) bukan form terpisah, karena ini
+// satu-satunya aksi yang tersedia di sini.
+function gantiPasswordUserUnitKlik(username){
+  Swal.fire({
+    title:'Ganti Password: '+username,
+    html:'<input type="password" id="sw-pass-baru" class="swal2-input" placeholder="Password baru (min. 8 karakter)">'
+       + '<input type="password" id="sw-pass-ulang" class="swal2-input" placeholder="Ulangi password baru">',
+    confirmButtonText:'Simpan', confirmButtonColor:'#800000', showCancelButton:true, cancelButtonText:'Batal',
+    preConfirm:function(){
+      var p1 = document.getElementById('sw-pass-baru').value;
+      var p2 = document.getElementById('sw-pass-ulang').value;
+      if(!p1 || p1.length<8){ Swal.showValidationMessage('Password baru minimal 8 karakter'); return false; }
+      if(p1!==p2){ Swal.showValidationMessage('Konfirmasi password tidak cocok'); return false; }
+      return p1;
+    }
+  }).then(function(r){
+    if(!r.isConfirmed) return;
+    gasCall('gantiPasswordUserUnit', username, r.value, STATE.token).then(function(res){
+      if(!res || !res.success){ toast('error', res.message); return; }
+      toast('success','Password berhasil diganti');
+    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal mengganti password'); });
+  });
+}
+
+// ============================================================
+// LOG AKTIVITAS UNIT -- versi terbatas dari "Log Aktivitas" ADMIN, cuma
+// menampilkan baris log milik akun-akun yg terhubung ke Unit yg sedang
+// login (backend yg memfilter, lihat getLogAktivitasUnit di Code.gs).
+// ============================================================
+function loadLogUnitView(){
+  showBar();
+  gasCall('getLogAktivitasUnit', 200, STATE.token).then(function(res){
+    hideBar();
+    if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat log'); return; }
+    document.getElementById('tbody-log-unit').innerHTML = res.data.map(function(l){
+      return '<tr><td>'+esc(l.waktu)+'</td><td>'+esc(l.username)+'</td><td>'+esc(l.aksi)+'</td><td>'+esc(l.detail||'')+'</td></tr>';
+    }).join('') || '<tr><td colspan="4" class="text-center text-muted">Belum ada log aktivitas</td></tr>';
+  }).catch(function(err){ hideBar(); toast('error','Gagal memuat log: ' + (err && err.message ? err.message : 'coba lagi')); });
+}
+
+// ============================================================
 // ROLLOVER TAHUN (ADMIN) — ini satu-satunya aksi yang memang butuh waktu
 // (membuat spreadsheet+folder baru di Drive), jadi tetap pakai loading penuh.
 // ============================================================
@@ -5684,8 +5789,8 @@ function loadLogView(){
 // ============================================================
 var PD = {
   daftar:[], ringkasan:null, filterStatus:'SEMUA', filterUnit:'SEMUA', cariTeks:'',
-  kategori:'SEMUA', halaman:1, ukuranHalaman:25,
-  jenisForm:'MUKA',
+  kategori:'BARU', filterBulan:'SEMUA', filterJenis:'SEMUA', halaman:1, ukuranHalaman:25,
+  jenisForm:'MUKA', formNonce:'',
   rab:[{namaKomponen:'',keterangan:'',nominal:0}],
   suratFile:null,
   realisasiSekaligus:[{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}],
@@ -5761,6 +5866,16 @@ function pdDaftarTersaring(){
     var daftarStatus = PD_KATEGORI_STATUS[PD.kategori] || [];
     hasil = hasil.filter(function(p){ return daftarStatus.indexOf(p.status)!==-1; });
   }
+  if(PD.filterJenis && PD.filterJenis!=='SEMUA'){
+    hasil = hasil.filter(function(p){ return p.jenis===PD.filterJenis; });
+  }
+  if(PD.filterBulan && PD.filterBulan!=='SEMUA'){
+    hasil = hasil.filter(function(p){
+      if(!p.tglPengajuan) return false;
+      var bln = new Date(p.tglPengajuan).getMonth()+1;
+      return String(bln)===String(PD.filterBulan);
+    });
+  }
   var kataKunci = (PD.cariTeks||'').trim().toLowerCase();
   if(kataKunci){
     hasil = hasil.filter(function(p){
@@ -5772,6 +5887,17 @@ function pdDaftarTersaring(){
     });
   }
   return hasil;
+}
+// Filter Bulan & Jenis Pengajuan (di samping tombol Ajukan Baru) -- SENGAJA
+// murni client-side & instan, pola sama persis dgn pdCariUbah (daftar yg
+// sedang tampil sudah ada di memori, tidak perlu round-trip server lagi).
+function pdFilterTambahanUbah(){
+  var elBulan = document.getElementById('pd-filter-bulan');
+  var elJenis = document.getElementById('pd-filter-jenis');
+  PD.filterBulan = elBulan ? elBulan.value : 'SEMUA';
+  PD.filterJenis = elJenis ? elJenis.value : 'SEMUA';
+  PD.halaman = 1;
+  pdRenderDaftarTable();
 }
 // Pencarian teks (ID/judul/nama pengaju/Unit/dibayarkan-kepada) SENGAJA
 // murni client-side & instan (bukan lewat pdFilterUbah -> pdMuatDaftar()
@@ -5958,6 +6084,14 @@ function pdSub(nama){
 function pdBukaFormBaru(){ pdResetForm(); gotoView('pengajuanform'); pdCekDraftBaru('muka'); pdIsiUnitAdminDropdown(); }
 function pdResetForm(){
   PD.jenisForm = 'MUKA';
+  // Nonce BARU tiap kali form ini dibuka dari awal (bukan tiap render ulang)
+  // -- supaya idempotency key (_idemKey, lihat submit* di bawah) yang
+  // dihitung dari ISI data tidak menyamakan 2 pengajuan yang ISINYA
+  // KEBETULAN sama tapi memang dimaksudkan sbg pengajuan TERPISAH (mis.
+  // Unit mengajukan beberapa kegiatan dgn judul/nominal yang identik).
+  // Double-klik tombol Simpan pada form yang SAMA masih tetap terlindungi
+  // (nonce belum berubah karena form belum di-reset ulang).
+  PD.formNonce = String(Date.now()) + '_' + Math.random().toString(36).slice(2);
   PD_DRAFT_DICEK.baru_muka = false; PD_DRAFT_DICEK.baru_sekaligus = false; PD_DRAFT_DICEK.baru_tagihan = false; PD_DRAFT_DICEK.baru_laporan = false; // izinkan tawaran "lanjutkan draft?" muncul lagi tiap kali form ini dibuka dari awal
   PD.rab = [{namaKomponen:'',keterangan:'',nominal:0}]; PD.suratFile = null;
   PD.realisasiSekaligus = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.lpjFileSekaligus = null;
@@ -6403,7 +6537,7 @@ function pdSubmitPermohonanDana(btn){
   var kodeUnitAdmin = pdKodeUnitAdminTerpilih('muka');
   pdCekSerupaLaluLanjut(judul, 'MUKA', function(){
     btnBusy(btn, true);
-    var idKey = _idemKey('ajukan_muka', {judul:judul,tgl:tgl,rab:rab,kodeUnit:kodeUnitAdmin});
+    var idKey = _idemKey('ajukan_muka', {judul:judul,tgl:tgl,rab:rab,kodeUnit:kodeUnitAdmin,nonce:PD.formNonce});
     gasCall('ajukanPermohonanDanaKegiatan', {judul:judul, tglPengajuan:tgl, rab:rab, suratFile:PD.suratFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey).then(function(res){
       btnBusy(btn, false);
       if(!res || !res.success){ toast('error', res.message); return; }
@@ -6434,7 +6568,7 @@ function pdSubmitPenggantianBiaya(btn){
   var kodeUnitAdminSk = pdKodeUnitAdminTerpilih('sekaligus');
   pdCekSerupaLaluLanjut(judul, 'SEKALIGUS', function(){
     btnBusy(btn, true);
-    var idKey = _idemKey('ajukan_sekaligus', {judul:judul,tgl:tgl,realisasi:realisasi,kodeUnit:kodeUnitAdminSk});
+    var idKey = _idemKey('ajukan_sekaligus', {judul:judul,tgl:tgl,realisasi:realisasi,kodeUnit:kodeUnitAdminSk,nonce:PD.formNonce});
     gasCall('ajukanPenggantianBiaya', {judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminSk}, STATE.token, idKey).then(function(res){
       btnBusy(btn, false);
       if(!res || !res.success){ toast('error', res.message); return; }
@@ -6460,7 +6594,7 @@ function pdSubmitTagihan(btn){
   var kodeUnitAdminTg = pdKodeUnitAdminTerpilih('tagihan');
   pdCekSerupaLaluLanjut(judul, 'TAGIHAN', function(){
     btnBusy(btn, true);
-    var idKey = _idemKey('ajukan_tagihan', {judul:judul,kepada:kepada,nominal:nominal,kodeUnit:kodeUnitAdminTg});
+    var idKey = _idemKey('ajukan_tagihan', {judul:judul,kepada:kepada,nominal:nominal,kodeUnit:kodeUnitAdminTg,nonce:PD.formNonce});
     gasCall('ajukanTagihan', {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminTg}, STATE.token, idKey).then(function(res){
       btnBusy(btn, false);
       if(!res || !res.success){ toast('error', res.message); return; }
@@ -6480,7 +6614,7 @@ function pdSubmitLaporanUnit(btn){
   var kodeUnitAdmin = pdKodeUnitAdminTerpilih('laporan');
   if(STATE.role==='ADMIN' && !kodeUnitAdmin){ toast('error','Pilih Unit yang laporannya mau diajukan'); return; }
   btnBusy(btn, true);
-  var idKey = _idemKey('ajukan_laporan', {bulan:bulan,tahun:tahun,pemasukan:pemasukan,pengeluaran:pengeluaran,kodeUnit:kodeUnitAdmin});
+  var idKey = _idemKey('ajukan_laporan', {bulan:bulan,tahun:tahun,pemasukan:pemasukan,pengeluaran:pengeluaran,kodeUnit:kodeUnitAdmin,nonce:PD.formNonce});
   gasCall('ajukanLaporanUnit', {bulan:bulan, tahun:tahun, pemasukan:pemasukan, pengeluaran:pengeluaran, buktiFile:PD.laporanBuktiFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
