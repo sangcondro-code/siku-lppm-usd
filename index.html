@@ -2212,15 +2212,24 @@ function editTransaksi(id, btn){
     var hasil = res.value;
     if(hasil.kembalikanKeBelumJelas){
       toast('success','Tersimpan & dikembalikan ke daftar Belum Jelas Pos-nya');
+      // Pindah BUCKET (dari Pos spesifik ke "Belum Jelas") -- bukan sekadar
+      // ubah 1 field di tempat yang sama, jadi tetap ambil ulang dari
+      // server (aman & tidak berisiko salah pindah antar cache secara manual).
+      delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
+      delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
+      loadRekapBulan();
     } else {
       var arr = _arrTransaksiAktif();
       var idx = arr.findIndex(function(d){return d.id===id;});
       if(idx>-1) Object.assign(arr[idx], hasil);
       toast('success', hasil.kodePosBaru ? 'Tersimpan & dipindah ke Pos lain' : 'Tersimpan');
+      // PERBAIKAN PERFORMA: data yang baru saja di-patch di atas SUDAH
+      // BENAR (server sudah konfirmasi berhasil) -- render LANGSUNG dari
+      // situ, JANGAN buang cache dulu lalu menunggu 1 round-trip baru
+      // cuma utk menampilkan sesuatu yang sudah diketahui hasilnya.
+      renderTransaksiTable();
+      loadRekapBulan(); // tetap disegarkan diam-diam di latar belakang utk rekonsiliasi akhir -- TIDAK menghalangi tampilan yang sudah benar di atas
     }
-    delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
-    delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
-    loadRekapBulan();
   });
 }
 function hapusTransaksi(id){
@@ -2427,12 +2436,18 @@ function editTransaksiRK(id, btn){
     delete CACHE.belumVerifikasi[STATE.tahunAktif + '_' + bulan];
     if(v.kembalikanKeBelumJelas){
       toast('success','Tersimpan & dikembalikan ke daftar Belum Jelas Pos-nya');
+      loadRekapRekeningKoran(); // pindah BUCKET -- ambil ulang dari server, bukan sekadar ubah 1 field
     } else {
       var idx = _rekKoranRows.findIndex(function(d){return d.id===id;});
       if(idx>-1) Object.assign(_rekKoranRows[idx], v);
       toast('success', v.kodePosBaru ? 'Tersimpan & dipindah ke Pos lain' : 'Tersimpan');
+      // PERBAIKAN PERFORMA: data yang baru saja di-patch di atas SUDAH BENAR
+      // (server sudah konfirmasi berhasil) -- render LANGSUNG dari situ,
+      // JANGAN tunggu 1 round-trip baru cuma utk menampilkan sesuatu yang
+      // sudah diketahui hasilnya.
+      renderRekeningKoranTable();
+      loadRekapRekeningKoran(); // tetap disegarkan diam-diam di latar belakang utk rekonsiliasi akhir -- TIDAK menghalangi tampilan yang sudah benar di atas
     }
-    loadRekapRekeningKoran();
   });
 }
 function hapusTransaksiRK(id){
@@ -4076,7 +4091,8 @@ function submitTambahan(e){
     var optimisticRow = Object.assign({ id:tempId, _optimistic:true }, data);
     arr.push(optimisticRow);
     _refreshTambahanEverywhere(key);
-    gasCall('saveTambahan', STATE.tahunAktif, bulan, data, STATE.token).then(function(res){
+    var idKeyTb = _idemKey('tambahan_'+bulan+'_'+STATE.tahunAktif, data);
+    gasCall('saveTambahan', STATE.tahunAktif, bulan, data, STATE.token, idKeyTb).then(function(res){
       if(!res.success){ var i2=arr.findIndex(function(d){return d.id===tempId;}); if(i2>-1) arr.splice(i2,1); _refreshTambahanEverywhere(key); toast('error', res.message); return; }
       optimisticRow.id = res.id; delete optimisticRow._optimistic;
       _refreshTambahanEverywhere(key);
@@ -5511,7 +5527,8 @@ function bukaFormMemorialTambahan(id){
     }
   }).then(function(res){
     if(!res.isConfirmed) return;
-    gasCall('saveMemorialTambahan', STATE.tahunAktif, res.value, STATE.token).then(function(r){
+    var idKeyMt = res.value.id ? null : _idemKey('memtambahan_'+STATE.tahunAktif, res.value); // hanya perlu utk TAMBAH baru -- edit (ada id) sudah aman by-nature (menimpa baris yang sama)
+    gasCall('saveMemorialTambahan', STATE.tahunAktif, res.value, STATE.token, idKeyMt).then(function(r){
       if(!r.success){ toast('error', r.message); return; }
       toast('success','Memorial Tambahan/Koreksi tersimpan'); loadJurnalMemorial();
     }).catch(function(err){ toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
@@ -6812,6 +6829,21 @@ function pdBukaDetail(idPengajuan, btn){
     pdSub('detail');
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal memuat detail pengajuan'); });
 }
+// PERBAIKAN PERFORMA BESAR: dulu SETIAP aksi (setuju/tolak/revisi/cairkan/
+// verifikasi/kirim ulang/komentar, dst) selalu memanggil pdBukaDetail(id)
+// LAGI sesudah aksi selesai -- padahal server SUDAH TAHU PERSIS hasil
+// akhirnya begitu aksi itu sendiri selesai (backend sekarang menyertakan
+// header/detail/realisasi/file/komentar TERBARU langsung di respons aksi
+// itu sendiri, lihat _lampiranDetailPengajuan di Code.gs). Jadi TIDAK
+// PERLU lagi 1 permintaan jaringan TERPISAH cuma utk menampilkan hasil
+// yang sebenarnya SUDAH ada di tangan -- tampilan Detail langsung
+// diperbarui SEKETIKA dari respons aksi yang sama, tanpa jeda tambahan.
+function pdTerapkanDetailDariAksi(res){
+  if(!res || !res.header) return;
+  PD.detail = res;
+  pdRenderDetail(res);
+  pdSub('detail');
+}
 function pdRenderMinistep(labels, t, revisiTahap, ditolakTahap){
   var total = labels.length;
   var html = '';
@@ -7156,7 +7188,7 @@ function pdAksiSetujui(id, btn){
   gasCall('setujuiPermohonanDana', id, catatan, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan disetujui'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Pengajuan disetujui'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 // Admin minta REVISI di tahap Persetujuan awal -- tahap 1 (Pengajuan) akan
@@ -7168,7 +7200,7 @@ function pdAksiRevisi(id, btn){
   gasCall('revisiPengajuan', id, catatan, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan dikembalikan untuk direvisi'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Pengajuan dikembalikan untuk direvisi'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 function pdAksiTolak(id, btn){
@@ -7178,7 +7210,7 @@ function pdAksiTolak(id, btn){
   gasCall('tolakPermohonanDana', id, catatan, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan ditolak'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Pengajuan ditolak'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 // Unit kirim ULANG pengajuan (RAB + surat) sesudah diminta revisi di tahap
@@ -7190,7 +7222,7 @@ function pdAksiKirimUlang(id, btn){
   gasCall('kirimUlangPengajuan', id, {rab:rab, suratFile:PD.suratFile}, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan dikirim ulang'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Pengajuan dikirim ulang'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim ulang'); });
 }
 // Hapus pengajuan (khusus Admin) -- WAJIB konfirmasi dulu karena ireversibel
@@ -7219,7 +7251,7 @@ function pdAksiCairkan(id, btn){
   gasCall('cairkanDana', id, tgl, noBukti, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Dana ditandai sudah dicairkan'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Dana ditandai sudah dicairkan'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 function pdAksiKirimLpj(id, btn){
@@ -7230,7 +7262,7 @@ function pdAksiKirimLpj(id, btn){
   gasCall('kirimLpjPengajuan', id, realisasi, PD.lpjFileEdit, '', STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','LPJ terkirim'); gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','LPJ terkirim'); gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim LPJ'); });
 }
 function pdAksiVerifikasiLpj(id, keputusan, btn){
@@ -7242,7 +7274,7 @@ function pdAksiVerifikasiLpj(id, keputusan, btn){
   gasCall('verifikasiLpjPengajuan', id, keputusan, catatan, noBukti, null, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Verifikasi tersimpan'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Verifikasi tersimpan'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 function pdAksiKirimRevisiSekaligus(id, btn){
@@ -7253,7 +7285,7 @@ function pdAksiKirimRevisiSekaligus(id, btn){
   gasCall('kirimPenggantianBiayaRevisi', id, realisasi, PD.lpjFileEdit, '', STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Terkirim ulang'); gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Terkirim ulang'); gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim'); });
 }
 function pdAksiVerifikasiSekaligus(id, keputusan, btn){
@@ -7274,7 +7306,7 @@ function pdAksiVerifikasiSekaligus(id, keputusan, btn){
   gasCall('verifikasiPenggantianBiaya', id, keputusan, catatan, noBukti, buktiTransferFile, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Verifikasi tersimpan'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Verifikasi tersimpan'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 function pdAksiVerifikasiTagihan(id, keputusan, btn){
@@ -7291,7 +7323,7 @@ function pdAksiVerifikasiTagihan(id, keputusan, btn){
   gasCall('verifikasiTagihan', id, keputusan, catatan, PD.buktiBayarFile, noBukti, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Tersimpan'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Tersimpan'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 
@@ -7427,7 +7459,7 @@ function pdAksiKirimUlangLaporanUnit(id, btn){
   gasCall('kirimUlangLaporanUnit', id, pemasukan, pengeluaran, PD.laporanEditBuktiFile, '', STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Laporan terkirim ulang'); gasCall('hapusDraftPengajuan', 'lapedit_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Laporan terkirim ulang'); gasCall('hapusDraftPengajuan', 'lapedit_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim ulang'); });
 }
 function pdAksiVerifikasiLaporanUnit(id, keputusan, btn){
@@ -7439,7 +7471,7 @@ function pdAksiVerifikasiLaporanUnit(id, keputusan, btn){
   gasCall('verifikasiLaporanUnit', id, keputusan, catatan, noBuktiMasuk, noBuktiKeluar, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Tersimpan'); pdMuatRingkasanDanDaftar(); pdBukaDetail(id);
+    toast('success','Tersimpan'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
 }
 
