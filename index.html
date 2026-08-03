@@ -1161,7 +1161,7 @@
 // aksi simpan/ubah/hapus, UI diupdate LEBIH DULU (optimistic) baru
 // permintaan dikirim ke server — kalau gagal baru di-rollback + toast error.
 // ============================================================
-var STATE = { token:null, role:null, nama:null, username:null, tahunAktif:null, daftarTahun:[], myPos:[], myUnits:[], namaBank:'CIMB Niaga', kodeRekeningKasBank:'' };
+var STATE = { token:null, role:null, nama:null, username:null, tahunAktif:null, daftarTahun:[], myPos:[], myUnits:[], namaBank:'CIMB Niaga', kodeRekeningKasBank:'', bulanAktif:null };
 var _konsolidasiCache = null; // PERBAIKAN BUG: sebelumnya tidak dideklarasikan var di awal -> ReferenceError 'not defined' kalau dipakai (mis. saat simpan Item Non-Unit) SEBELUM pernah membuka halaman Rekap Konsolidasi sekali pun di sesi itu, dan error itu menggagalkan seluruh proses simpan.
 // ── Sesi login disimpan di sessionStorage (BUKAN localStorage) supaya:
 // (a) reload/refresh halaman TIDAK langsung melempar ke Login lagi — sesi
@@ -1463,6 +1463,7 @@ function kembaliKeLogin(){
   ssRemove('token');
   STATE.token = null; STATE.role = null; STATE.nama = null; STATE.username = null;
   STATE.myPos = []; STATE.myUnits = []; STATE.daftarTahun = []; STATE.tahunAktif = null;
+  STATE.bulanAktif = null; // PERBAIKAN: sinkron bulan cuma berlaku SELAMA 1 sesi login -- login baru harus tetap mulai dari bulan berjalan, bukan diingat dari sesi sebelumnya.
   CACHE.rekap = {};
   STATE_posAktif = null;
   document.getElementById('li-user').value = '';
@@ -1720,26 +1721,23 @@ function gotoView(name){
 var BULAN_NAMA = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
 // PERBAIKAN BUG: sebelumnya SETIAP select bulan (Input, Verifikasi, Rekap
 // Rekening Koran, Konsolidasi, Jurnal Memorial) selalu default ke bulan
-// kalender SAAT INI setiap kali dibangun -- tidak ada yang diingat sama
-// sekali. Akibatnya begitu login ulang (atau baru pertama buka menu itu di
-// sesi ini), filter bulan selalu lompat balik ke bulan berjalan walau
-// terakhir kali user sengaja memilih bulan lain. Sekarang bulan yang
-// terakhir dipilih (di menu MANA PUN) diingat secara global lewat
-// localStorage (_sinkronBulanAktifGlobal), dipakai sebagai default untuk
-// SEMUA select bulan, dan langsung disamakan ke select bulan lain yang
-// sudah ada di DOM saat itu juga -- jadi konsisten antar menu maupun
-// antar sesi login.
+// kalender SAAT INI setiap kali dibangun, dan masing-masing berdiri sendiri
+// -- pilih Juli di satu menu TIDAK ikut mengubah menu lain. Sekarang bulan
+// yang terakhir dipilih (di menu MANA PUN) diingat SELAMA SESI LOGIN INI
+// (STATE.bulanAktif, direset ke null tiap logout -- lihat kembaliKeLogin)
+// dan langsung disamakan ke semua select bulan lain yang sudah ada di DOM.
+// Login baru/ulang tetap mulai dari bulan berjalan seperti biasa.
 function initBulanSelect(id, onChangeFn){
   var sel = document.getElementById(id);
   if(!sel.options.length){
-    var bulanIngat = lsGet('bulan_aktif_' + STATE.username) || (new Date().getMonth()+1);
-    sel.innerHTML = BULAN_NAMA.map(function(n,i){ return '<option value="'+(i+1)+'"'+((i+1)===Number(bulanIngat)?' selected':'')+'>'+n+'</option>'; }).join('');
+    var bulanDefault = STATE.bulanAktif || (new Date().getMonth()+1);
+    sel.innerHTML = BULAN_NAMA.map(function(n,i){ return '<option value="'+(i+1)+'"'+((i+1)===Number(bulanDefault)?' selected':'')+'>'+n+'</option>'; }).join('');
     sel.onchange = function(){ _sinkronBulanAktifGlobal(sel.value); onChangeFn(); };
   }
   onChangeFn();
 }
 function _sinkronBulanAktifGlobal(bulan){
-  lsSet('bulan_aktif_' + STATE.username, Number(bulan));
+  STATE.bulanAktif = Number(bulan);
   ['sel-bulan-input','sel-bulan-verifikasi','sel-bulan-rekkoran','sel-bulan-konsolidasi','sel-bulan-memorial'].forEach(function(selId){
     var el = document.getElementById(selId);
     if(el && el.value !== String(bulan)) el.value = String(bulan);
