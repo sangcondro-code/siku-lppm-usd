@@ -1718,13 +1718,32 @@ function gotoView(name){
   }
 }
 var BULAN_NAMA = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+// PERBAIKAN BUG: sebelumnya SETIAP select bulan (Input, Verifikasi, Rekap
+// Rekening Koran, Konsolidasi, Jurnal Memorial) selalu default ke bulan
+// kalender SAAT INI setiap kali dibangun -- tidak ada yang diingat sama
+// sekali. Akibatnya begitu login ulang (atau baru pertama buka menu itu di
+// sesi ini), filter bulan selalu lompat balik ke bulan berjalan walau
+// terakhir kali user sengaja memilih bulan lain. Sekarang bulan yang
+// terakhir dipilih (di menu MANA PUN) diingat secara global lewat
+// localStorage (_sinkronBulanAktifGlobal), dipakai sebagai default untuk
+// SEMUA select bulan, dan langsung disamakan ke select bulan lain yang
+// sudah ada di DOM saat itu juga -- jadi konsisten antar menu maupun
+// antar sesi login.
 function initBulanSelect(id, onChangeFn){
   var sel = document.getElementById(id);
   if(!sel.options.length){
-    sel.innerHTML = BULAN_NAMA.map(function(n,i){ return '<option value="'+(i+1)+'"'+((i+1)===(new Date().getMonth()+1)?' selected':'')+'>'+n+'</option>'; }).join('');
-    sel.onchange = onChangeFn;
+    var bulanIngat = lsGet('bulan_aktif_' + STATE.username) || (new Date().getMonth()+1);
+    sel.innerHTML = BULAN_NAMA.map(function(n,i){ return '<option value="'+(i+1)+'"'+((i+1)===Number(bulanIngat)?' selected':'')+'>'+n+'</option>'; }).join('');
+    sel.onchange = function(){ _sinkronBulanAktifGlobal(sel.value); onChangeFn(); };
   }
   onChangeFn();
+}
+function _sinkronBulanAktifGlobal(bulan){
+  lsSet('bulan_aktif_' + STATE.username, Number(bulan));
+  ['sel-bulan-input','sel-bulan-verifikasi','sel-bulan-rekkoran','sel-bulan-konsolidasi','sel-bulan-memorial'].forEach(function(selId){
+    var el = document.getElementById(selId);
+    if(el && el.value !== String(bulan)) el.value = String(bulan);
+  });
 }
 
 // ============================================================
@@ -4164,9 +4183,19 @@ function renderTambahanInputPanel(){
   var tambahan = (CACHE.tambahan[key] || []).slice().sort(function(a,b){ return (a.tanggal||'').localeCompare(b.tanggal||''); });
   var kategoriByKode = {}; kategoriList.forEach(function(k){ kategoriByKode[k.kodeKategori]=k; });
 
-  document.getElementById('tb-kategori').innerHTML = kategoriList.length
+  // PERBAIKAN BUG: fungsi ini juga dipanggil oleh auto-refresh diam-diam
+  // tiap 10 detik (lihat _srgAutoRefresh) selama panel "Input Non Unit"
+  // sedang kebuka. Sebelumnya innerHTML select #tb-kategori di-rebuild
+  // total setiap kali, sehingga pilihan yang BARU SAJA dipilih user (belum
+  // sempat disimpan) ikut ke-reset balik ke opsi pertama dalam daftar.
+  // Sekarang: simpan dulu kategori yang sedang aktif dipilih, baru pasang
+  // lagi setelah innerHTML dibangun ulang (kalau kategorinya masih ada).
+  var selKategoriEl = document.getElementById('tb-kategori');
+  var kategoriDipilihSaatIni = selKategoriEl ? selKategoriEl.value : '';
+  selKategoriEl.innerHTML = kategoriList.length
     ? kategoriList.map(function(k){ return '<option value="'+k.kodeKategori+'">'+k.namaKategori+' ('+(k.posisi==='ATAS'?'Atas':'Bawah')+')</option>'; }).join('')
     : '<option value="">- Belum ada kategori, buat dulu di Kelola Unit & Pos -</option>';
+  if(kategoriDipilihSaatIni && kategoriByKode[kategoriDipilihSaatIni]) selKategoriEl.value = kategoriDipilihSaatIni;
 
   var totalD=0, totalK=0;
   tbody.innerHTML = tambahan.map(function(t,i){
