@@ -1618,8 +1618,7 @@ function afterLogin(){
   if(_navLabelInputAwal) _navLabelInputAwal.textContent = (STATE.role==='ADMIN') ? 'Input Rekap Bulanan' : 'Daftar Transaksi Saya';
   var _navLabelPesanAwal = document.getElementById('nav-label-pesan');
   if(_navLabelPesanAwal) _navLabelPesanAwal.textContent = 'Pesan';
-  muatBadgePesan();
-  muatBadgePengajuan();
+  muatBadgeGabungan();
 
   // 1) Tampilkan dulu dari cache lokal kalau ada (instan, tanpa spinner)
   var cachedInit = lsGet('init_v2_' + STATE.username);
@@ -1687,8 +1686,7 @@ function afterLogin(){
   if (!window._srgAutoRefresh) {
     window._srgAutoRefresh = setInterval(function(){
       if(!STATE.token) return;
-      muatBadgePesan();
-      muatBadgePengajuan();
+      muatBadgeGabungan();
       var av = document.querySelector('.nav-item.active');
       if(!av) return;
       refreshViewSilently(av.dataset.view);
@@ -1789,7 +1787,7 @@ function _preloadBulanTetangga(){
 }
 function refreshViewSilently(name){
   if(name==='dashboard') loadDashboard();
-  else if(name==='input'){ loadRekapBulan(); if(!document.getElementById('panel-input-nonunit').classList.contains('d-none')) loadTambahanForInput(); }
+  else if(name==='input'){ _muatInputGabungan(); }
   else if(name==='verifikasi') loadViewVerifikasiData();
   else if(name==='pesan') loadViewPesan();
   else if(name==='pos') renderPosUnitSayaForm();
@@ -1956,30 +1954,31 @@ function loadDashboard(){
   // cuma disembunyikan di balik cache render), supaya pindah2 menu dgn
   // cepat tidak memicu request berulang-ulang ke server.
   if(cached && !_bolehSegarkan('dashboard_'+STATE.tahunAktif)) return;
-  gasCall('getRingkasanTahun', STATE.tahunAktif, STATE.token).then(function(res){
+  // PERBAIKAN BUG PENTING (kelanjutan perbaikan konkurensi di loadKonsolidasi
+  // & muatBadgeGabungan): sebelumnya di sini ADA 2 permintaan TERPISAH yang
+  // ditembak BERSAMAAN (getRingkasanTahun & getRingkasanPengajuan) -- 2
+  // eksekusi Apps Script konkuren, dan karena Dashboard adalah halaman
+  // pertama setelah login DAN ikut disegarkan diam-diam tiap 10 detik, ini
+  // jadi salah satu sumber kontensi paling sering terjadi di seluruh
+  // aplikasi. Digabung jadi 1 batch -- hasilnya dipakai bersama oleh kartu
+  // dashboard MAUPUN banner Pengajuan (lihat catatan _renderBannerPengajuanDashboard
+  // di bawah, tetap tidak berubah -- cukup 1x tarik data, dipakai 2 tempat).
+  gasCallBatch([
+    { fn:'getRingkasanTahun', args:[STATE.tahunAktif, STATE.token] },
+    { fn:'getRingkasanPengajuan', args:[STATE.token] }
+  ]).then(function(hasil){
+    var res = hasil[0], resPengajuan = hasil[1];
     if(!cached) hideBar();
-    if(!res.success){ if(!cached) toast('error', res.message); return; }
-    _dashboardCache[STATE.tahunAktif] = res;
-    _dashboardDataTahun = res;
+    if(!res || !res.success){ if(!cached) toast('error', res && res.message); }
+    else {
+      _dashboardCache[STATE.tahunAktif] = res;
+      _dashboardDataTahun = res;
+    }
+    if(resPengajuan && resPengajuan.success) _dashboardDataPengajuan = resPengajuan;
     _renderKartuDashboard();
-    _renderGrafikDashboard(res);
-  }).catch(function(){ if(!cached){ hideBar(); toast('error','Gagal memuat dashboard'); } });
-  // Data Pengajuan Dana dimuat TERPISAH & PARALEL (tidak saling menunggu
-  // dgn data transaksi) -- _renderKartuDashboard() dipanggil ulang di
-  // KEDUA jalur (data transaksi & data pengajuan), selalu MEMBANGUN ULANG
-  // daftar kartu LENGKAP dari kedua sumber (bukan menambah/menimpa
-  // sebagian) -- jadi urutan mana yang selesai duluan tidak masalah, tidak
-  // ada kartu yang hilang tertimpa gara-gara race condition.
-  // PERBAIKAN PERFORMA: dulu di sini ADA 2 panggilan terpisah ke
-  // 'getRingkasanPengajuan' yang PERSIS SAMA (1 utk kartu dashboard lewat
-  // sini, 1 lagi di dalam _muatBannerPengajuanDashboard() di bawah) --
-  // dipanggil balik-balikan tiap Dashboard dibuka, padahal datanya identik.
-  // Sekarang cukup 1 panggilan, hasilnya dipakai bersama oleh keduanya.
-  gasCall('getRingkasanPengajuan', STATE.token).then(function(res){
-    if(res && res.success) _dashboardDataPengajuan = res;
-    _renderKartuDashboard();
-    _renderBannerPengajuanDashboard(res);
-  }).catch(function(){ _renderBannerPengajuanDashboard(null); });
+    if(res && res.success) _renderGrafikDashboard(res);
+    _renderBannerPengajuanDashboard(resPengajuan);
+  }).catch(function(){ if(!cached){ hideBar(); toast('error','Gagal memuat dashboard'); } _renderBannerPengajuanDashboard(null); });
 }
 // Highlight modul Pengajuan Dana di Dashboard utama -- CUMA muncul kalau
 // ada sesuatu yg perlu perhatian (perlu revisi / menunggu diproses), biar
@@ -2072,8 +2071,7 @@ function initInputView(){
   _gcBuildPosOpsi();
   initRevPos();
   initBulanSelect('sel-bulan-input', function(){
-    loadRekapBulan();
-    if(!document.getElementById('panel-input-nonunit').classList.contains('d-none')) loadTambahanForInput();
+    _muatInputGabungan();
     if(STATE.role==='ADMIN') _gcRefreshRentangTanggal(); // update batas tanggal di baris grid yang sudah ada, tanpa menghapus isiannya
   });
   if(STATE.role==='ADMIN') initGridCepat(); // role UNIT tidak menampilkan grid ini sama sekali, tidak perlu dirender
@@ -2149,6 +2147,75 @@ function renderInputLockBanner(){
     ? '<div class="alert alert-warning d-flex align-items-center gap-2 mb-3 no-print"><i class="fas fa-lock"></i><span class="small">Jurnal Memorial bulan ini sudah <b>terkunci</b> — transaksi bulan ini sudah final dan tidak bisa ditambah/diubah/dihapus lagi. Buka kunci dulu di menu Jurnal Memorial kalau memang perlu koreksi.</span></div>'
     : '';
 }
+// PERBAIKAN BUG PENTING (kelanjutan perbaikan konkurensi di loadKonsolidasi/
+// loadDashboard/loadUnitPos/muatBadgeGabungan): dulu ganti bulan di halaman
+// ini (kalau tab "Input Non Unit" sedang terbuka) menembak DUA fungsi
+// TERPISAH sekaligus -- loadRekapBulan() (1 batch) DAN loadTambahanForInput()
+// (1-2 panggilan lagi) -- jadi 2-3 eksekusi Apps Script KONKUREN, semuanya
+// berebut akses ke spreadsheet TAHUN yang sama, yang paling mungkin jadi
+// penyebab keluhan "ganti bulan lama sekali (>10 detik)" di halaman yang
+// PALING sering dipakai ini. Fungsi ini menggabungkan KEDUANYA jadi 1x
+// round-trip saja -- dipakai khusus utk trigger ganti bulan (initInputView
+// & refreshViewSilently); loadRekapBulan()/loadTambahanForInput() SENDIRI
+// tetap ada apa adanya utk dipanggil satu-satu dari tempat lain (mis.
+// sesudah verifikasi/hapus/edit transaksi -- itu memang cuma perlu 1 dari
+// keduanya, tidak perlu digabung).
+function _muatInputGabungan(){
+  var bulan = document.getElementById('sel-bulan-input').value;
+  if(!bulan) return;
+  var key = _rekapCacheKey();
+  var elPanelNonUnit = document.getElementById('panel-input-nonunit');
+  var perluTambahan = STATE.role==='ADMIN' && elPanelNonUnit && !elPanelNonUnit.classList.contains('d-none');
+
+  // 1) Tampilkan cache instan kalau ada (masing-masing bagian independen)
+  if(CACHE.rekap[key]){ renderTransaksiTable(); } else { showBar(); }
+  if(perluTambahan){ if(CACHE.tambahan[key] && CACHE.kategoriTambahan) renderTambahanInputPanel(); else showBar(); }
+
+  // 2) SATU batch gabungan utk semua yang dibutuhkan halaman ini saat ini
+  var calls = [
+    { fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
+    { fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
+    { fn:'getTransaksiBelumVerifikasi', args:[STATE.tahunAktif, bulan, STATE.token] }
+  ];
+  var idxTambahan = -1, idxKategori = -1;
+  if(perluTambahan){
+    idxTambahan = calls.length;
+    calls.push({ fn:'getTambahanBulan', args:[STATE.tahunAktif, bulan, STATE.token] });
+    if(!CACHE.kategoriTambahan){
+      idxKategori = calls.length;
+      calls.push({ fn:'getKategoriTambahanList', args:[STATE.token] });
+    }
+  }
+
+  gasCallBatch(calls).then(function(hasil){
+    hideBar();
+    var resRekap = hasil[0], resKunci = hasil[1], resBelumJelas = hasil[2];
+    var masihSamaBulan = (key === _rekapCacheKey());
+    if(!resRekap || !resRekap.success){ if(!CACHE.rekap[key]) toast('error', resRekap && resRekap.message); }
+    else {
+      CACHE.rekap[key] = resRekap.data;
+      if(masihSamaBulan) renderTransaksiTable();
+    }
+    if(resKunci && resKunci.success && masihSamaBulan){ _inputLocked = !!resKunci.locked; renderInputLockBanner(); }
+    if(resBelumJelas && resBelumJelas.success){
+      CACHE.belumVerifikasi[key] = resBelumJelas.data;
+      if(STATE_posAktif === POS_BELUM_JELAS && masihSamaBulan) renderTransaksiTable();
+    }
+    if(perluTambahan){
+      var tb = idxTambahan >= 0 ? hasil[idxTambahan] : null;
+      var katRes = idxKategori >= 0 ? hasil[idxKategori] : {success:true, data:CACHE.kategoriTambahan};
+      CACHE.tambahan[key] = (tb && tb.success) ? tb.data : (CACHE.tambahan[key] || []);
+      CACHE.kategoriTambahan = (katRes && katRes.success) ? katRes.data : (CACHE.kategoriTambahan || []);
+      if((!tb || !tb.success) && !CACHE.tambahan[key].length) toast('error', (tb && tb.message) || 'Gagal memuat Item Non-Unit');
+      else if(katRes && !katRes.success && !CACHE.kategoriTambahan.length) toast('error', katRes.message || 'Gagal memuat daftar Kategori');
+      if(masihSamaBulan) renderTambahanInputPanel();
+    }
+  }).catch(function(){
+    hideBar();
+    if(!CACHE.rekap[key]) toast('error','Gagal memuat rekap');
+    if(perluTambahan && (!CACHE.tambahan[key] || !CACHE.tambahan[key].length)) toast('error','Gagal memuat Item Non-Unit (periksa koneksi, lalu coba lagi)');
+  });
+}
 function loadRekapBulan(){
   var bulan = document.getElementById('sel-bulan-input').value;
   if(!bulan) return;
@@ -2165,6 +2232,10 @@ function loadRekapBulan(){
   // padahal ketiganya sama-sama read-only & independen. Sekarang digabung
   // jadi 1x round-trip lewat gasCallBatch (lihat catatan gasCallBatch di
   // atas), 3x lebih sedikit tunggu jaringan.
+  // CATATAN: dipakai utk pemanggilan SATU-SATU (mis. sesudah verifikasi/
+  // hapus/edit transaksi) -- utk trigger ganti bulan yg mungkin JUGA perlu
+  // loadTambahanForInput() sekaligus, pakai _muatInputGabungan() di atas
+  // supaya jadi 1 round-trip gabungan, bukan 2 round-trip konkuren.
   gasCallBatch([
     { fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
@@ -3824,6 +3895,31 @@ function muatBadgePengajuan(){
     else el.classList.add('d-none');
   }).catch(function(){});
 }
+// PERBAIKAN BUG PENTING (kelanjutan dari perbaikan loadKonsolidasi di atas):
+// muatBadgePesan() & muatBadgePengajuan() SEBELUMNYA dipanggil TERPISAH tapi
+// BERSAMAAN dari 2 tempat yang paling sering jalan -- afterLogin() & tick
+// auto-refresh tiap 10 detik -- artinya 2 eksekusi Apps Script konkuren
+// tiap kali, DITAMBAH refreshViewSilently() di baris sesudahnya (1 eksekusi
+// lagi) = bisa 3 eksekusi bersamaan tiap 10 detik, semuanya berebut akses
+// ke spreadsheet yang sama (lihat catatan lengkap soal kontensi ini di
+// loadKonsolidasi). Digabung jadi 1 permintaan supaya tiap tick cuma
+// menambah 1 eksekusi tambahan, bukan 2.
+function muatBadgeGabungan(){
+  gasCallBatch([
+    { fn:'getJumlahPesanBelumDibaca', args:[STATE.token] },
+    { fn:'getJumlahPengajuanPerluPerhatian', args:[STATE.token] }
+  ]).then(function(hasil){
+    var resPesan = hasil[0], resPengajuan = hasil[1];
+    if(resPesan && resPesan.success){
+      var elP = document.getElementById('pesan-badge');
+      if(elP){ if(resPesan.jumlah > 0){ elP.textContent = resPesan.jumlah > 99 ? '99+' : resPesan.jumlah; elP.classList.remove('d-none'); } else elP.classList.add('d-none'); }
+    }
+    if(resPengajuan && resPengajuan.success){
+      var elQ = document.getElementById('pengajuan-badge');
+      if(elQ){ if(resPengajuan.jumlah > 0){ elQ.textContent = resPengajuan.jumlah > 99 ? '99+' : resPengajuan.jumlah; elQ.classList.remove('d-none'); } else elQ.classList.add('d-none'); }
+    }
+  }).catch(function(){});
+}
 
 function bukaImportExcel(){
   if(!STATE_posAktif){ toast('error','Pilih Unit & Pos dahulu di form atas'); return; }
@@ -4036,24 +4132,33 @@ function loadKonsolidasi(){
   var key = STATE.tahunAktif + '_' + bulan;
   var cached = _konsolidasiRawCache[key];
   if(cached) _renderKonsolidasi(bulan, cached);
+  // PERBAIKAN BUG PENTING (penyebab utama "ganti bulan lama sekali, > 10
+  // detik"): sebelumnya fungsi ini menembak DUA permintaan TERPISAH ke
+  // server SEKALIGUS (gasCallBatch di bawah, DAN gasCall('getStatusKunciBulan')
+  // terpisah setelahnya) -- artinya 2 eksekusi Apps Script BERBEDA jalan
+  // BERSAMAAN, keduanya sama-sama membuka/membaca spreadsheet TAHUN yang
+  // SAMA di waktu yang nyaris sama persis. Google Apps Script cenderung
+  // mengunci/menyerialkan akses BERSAMAAN ke spreadsheet yang sama --
+  // akibatnya salah satu permintaan harus MENUNGGU permintaan lainnya
+  // selesai dulu, dan itu bisa berlipat-lipat lebih lambat dibanding kalau
+  // cuma 1 permintaan saja. Sekarang getStatusKunciBulan DIGABUNG ke dalam
+  // batch yang sama (jadi 1 eksekusi server saja per ganti bulan, bukan 2).
   gasCallBatch([
     { fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getRekonsiliasi', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getTambahanBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
-    { fn:'getKategoriTambahanList', args:[STATE.token] }
+    { fn:'getKategoriTambahanList', args:[STATE.token] },
+    { fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] }
   ]).then(function(hasil){
     if(!hasil[0].success){ if(!cached) toast('error', hasil[0].message); return; }
     _konsolidasiRawCache[key] = hasil;
     _renderKonsolidasi(bulan, hasil);
-  }).catch(function(){ if(!cached) toast('error','Gagal memuat konsolidasi'); });
-  gasCall('getStatusKunciBulan', STATE.tahunAktif, bulan, STATE.token).then(function(res){
-    if(res && res.success && bulan === document.getElementById('sel-bulan-konsolidasi').value){
-      _konsoLocked = !!res.locked;
+    var resKunci = hasil[4];
+    if(resKunci && resKunci.success && bulan === document.getElementById('sel-bulan-konsolidasi').value){
+      _konsoLocked = !!resKunci.locked;
       renderKonsoLockBanner();
-      var dataUntukRender = _konsolidasiRawCache[key];
-      if(dataUntukRender) _renderKonsolidasi(bulan, dataUntukRender);
     }
-  }).catch(function(){});
+  }).catch(function(){ if(!cached) toast('error','Gagal memuat konsolidasi'); });
 }
 // Baris tabel Rekap Konsolidasi UNTUK UNIT -- boleh Edit transaksi miliknya
 // sendiri (tombol pensil, buka form editTransaksiKonso).
@@ -4755,9 +4860,14 @@ function loadUnitPos(){
   // Kalau sudah disegarkan dlm 20 detik terakhir, cukup pakai yg ada --
   // lewati request baru sama sekali.
   if(punyaCache && !_bolehSegarkan('unitpos')) return;
-  Promise.all([
-    gasCall('getUnitPosList', STATE.token),
-    gasCall('getKategoriTambahanList', STATE.token)
+  // PERBAIKAN BUG PENTING: sebelumnya 2 gasCall() TERPISAH lewat Promise.all
+  // -- 2 eksekusi Apps Script konkuren berebut akses ke spreadsheet yang
+  // sama (lihat catatan lengkap soal kontensi ini di loadKonsolidasi).
+  // Halaman ini JUGA ikut disegarkan diam-diam tiap 10 detik, jadi
+  // dampaknya berulang terus. Digabung jadi 1 batch.
+  gasCallBatch([
+    { fn:'getUnitPosList', args:[STATE.token] },
+    { fn:'getKategoriTambahanList', args:[STATE.token] }
   ]).then(function(hasil){
     hideBar();
     var res = hasil[0], katRes = hasil[1];
