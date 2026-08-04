@@ -1404,16 +1404,39 @@ function gasCall(fnName){
   var args = Array.prototype.slice.call(arguments, 1);
   return _gasCallDenganRetry(fnName, args, 0);
 }
-function _gasCallDenganRetry(fnName, args, percobaan){
+// PERBAIKAN BUG: sebelumnya HANYA respons "Sistem sedang memproses
+// permintaan lain" (LOCK_BUSY_MSG) yang dicoba ulang otomatis -- kalau
+// fetch() itu sendiri GAGAL (mis. koneksi terputus sesaat, DNS/CORS
+// hiccup, atau Apps Script sedang "cold start" dan sempat tidak merespons),
+// promise-nya langsung REJECT tanpa dicoba ulang sama sekali, sehingga
+// panggilan yang sebenarnya cuma butuh 1x percobaan ulang malah gagal total
+// dan user melihat pesan error (mis. "Gagal memuat data verifikasi",
+// "Gagal memuat Item Non-Unit") padahal cuma gangguan sesaat. Sekarang
+// kegagalan jaringan/level-fetch JUGA dicoba ulang otomatis (maks 2x,
+// terpisah dari hitungan retry LOCK_BUSY di atas) sebelum benar-benar
+// menyerah -- aman diulang krn permintaan tulis selalu bawa idKey (idempotency).
+function _gasCallDenganRetry(fnName, args, percobaan, percobaanJaringan){
+  percobaanJaringan = percobaanJaringan || 0;
   return _gasCallFetch.apply(null, [fnName].concat(args)).then(function(res){
     if(res === null || res === undefined){
       return { success:false, message:'Server tidak mengembalikan respons ("'+fnName+'"). Coba muat ulang halaman -- kalau masih terjadi, kemungkinan ada perubahan kode yang belum ter-deploy ulang.' };
     }
     if(res && res.success === false && res.message === LOCK_BUSY_MSG && percobaan < 3){
       return new Promise(function(r){ setTimeout(r, 700 * (percobaan + 1)); })
-        .then(function(){ return _gasCallDenganRetry(fnName, args, percobaan + 1); });
+        .then(function(){ return _gasCallDenganRetry(fnName, args, percobaan + 1, percobaanJaringan); });
     }
     return res;
+  }).catch(function(err){
+    // Timeout eksplisit (90 detik, lihat AbortController di _gasCallFetch)
+    // TIDAK dicoba ulang otomatis -- kalau server benar-benar macet 90
+    // detik, mencoba ulang cuma bikin user menunggu lebih lama lagi tanpa
+    // manfaat; pesan errornya sendiri sudah jelas.
+    var isTimeout = err && err.message && err.message.indexOf('Waktu tunggu habis') !== -1;
+    if(!isTimeout && percobaanJaringan < 2){
+      return new Promise(function(r){ setTimeout(r, 600 * (percobaanJaringan + 1)); })
+        .then(function(){ return _gasCallDenganRetry(fnName, args, percobaan, percobaanJaringan + 1); });
+    }
+    throw err;
   });
 }
 
@@ -1464,6 +1487,22 @@ function kembaliKeLogin(){
   STATE.token = null; STATE.role = null; STATE.nama = null; STATE.username = null;
   STATE.myPos = []; STATE.myUnits = []; STATE.daftarTahun = []; STATE.tahunAktif = null;
   STATE.bulanAktif = null; // PERBAIKAN: sinkron bulan cuma berlaku SELAMA 1 sesi login -- login baru harus tetap mulai dari bulan berjalan, bukan diingat dari sesi sebelumnya.
+  // PERBAIKAN BUG: reset STATE.bulanAktif di atas TERNYATA tidak cukup --
+  // karena aplikasi ini SPA (elemen <select> bulan TIDAK ikut dibuang saat
+  // logout, cuma disembunyikan lewat d-none), initBulanSelect() cuma mengisi
+  // opsi & memilih bulan default SEKALI SAJA per elemen (lihat pengecekan
+  // "if(!sel.options.length)" di sana) -- begitu sudah pernah dibuka 1x,
+  // <select>-nya SUDAH terisi opsi utk seterusnya, jadi login berikutnya
+  // (di tab yang sama, tanpa reload) initBulanSelect langsung lompat ke
+  // onChangeFn() tanpa pernah menghitung ulang "bulan default"-nya, dan
+  // <select> tetap menampilkan bulan TERAKHIR yang dipilih sebelum logout.
+  // Kosongkan opsinya di sini supaya SEMUA select bulan wajib dibangun ULANG
+  // dari nol (dan otomatis kembali ke bulan kalender berjalan) begitu login
+  // lagi -- berlaku juga kalau login lagi pakai akun BERBEDA.
+  ['sel-bulan-input','sel-bulan-verifikasi','sel-bulan-rekkoran','sel-bulan-konsolidasi','sel-bulan-memorial'].forEach(function(selId){
+    var elBulan = document.getElementById(selId);
+    if(elBulan) elBulan.innerHTML = '';
+  });
   CACHE.rekap = {};
   STATE_posAktif = null;
   document.getElementById('li-user').value = '';
@@ -4170,8 +4209,15 @@ function loadTambahanForInput(){
     var tb = hasil[0], katRes = hasil[1];
     CACHE.tambahan[key] = (tb && tb.success) ? tb.data : (CACHE.tambahan[key] || []);
     CACHE.kategoriTambahan = (katRes && katRes.success) ? katRes.data : (CACHE.kategoriTambahan || []);
+    // PERBAIKAN BUG: sebelumnya kalau salah satu dari 2 request gagal
+    // (mis. jaringan putus sesaat), tidak ada pemberitahuan SAMA SEKALI ke
+    // user -- panel Input Non Unit diam saja seolah kosong/tidak berubah,
+    // padahal sebenarnya gagal memuat. Sekarang beri toast kalau memang
+    // tidak ada satupun sumber yang berhasil dimuat.
+    if((!tb || !tb.success) && !CACHE.tambahan[key].length) toast('error', (tb && tb.message) || 'Gagal memuat Item Non-Unit');
+    else if(katRes && !katRes.success && !CACHE.kategoriTambahan.length) toast('error', katRes.message || 'Gagal memuat daftar Kategori');
     renderTambahanInputPanel();
-  }).catch(function(){ hideBar(); });
+  }).catch(function(){ hideBar(); if(!CACHE.tambahan[key] || !CACHE.tambahan[key].length) toast('error','Gagal memuat Item Non-Unit (periksa koneksi, lalu coba lagi)'); });
 }
 function renderTambahanInputPanel(){
   var tbody = document.getElementById('tbody-tambahan-input');
