@@ -1735,7 +1735,7 @@ function gotoView(name){
   if(namaKonten==='laporanunit') loadLaporanUnit();
   if(namaKonten==='rekkoran') initBulanSelect('sel-bulan-rekkoran', loadRekapRekeningKoran);
   if(namaKonten==='pos') renderPosUnitSayaForm();
-  if(namaKonten==='konsolidasi') initBulanSelect('sel-bulan-konsolidasi', loadKonsolidasi);
+  if(namaKonten==='konsolidasi'){ _rkFormSedangDiedit = false; initBulanSelect('sel-bulan-konsolidasi', loadKonsolidasi); }
   if(namaKonten==='unit') loadUnitPos();
   if(namaKonten==='memorial') initMemorialView();
   if(namaKonten==='user') loadUserView();
@@ -3364,12 +3364,29 @@ function hapusPesanChat(waktuISO){
 // tong sampah kecil di tiap bubble, lihat hapusPesanChat).
 function renderPesanUnit(){
   var wrap = document.getElementById('pesan-container');
+  // PERBAIKAN BUG: fungsi ini juga dipanggil oleh auto-refresh diam-diam
+  // tiap 10 detik (lihat refreshViewSilently) selama halaman Pesan sedang
+  // terbuka -- sebelumnya SELALU membangun ulang wrap.innerHTML dari nol,
+  // termasuk <textarea id="pesan-input">, sehingga pesan yang SEDANG
+  // DIKETIK (belum sempat dikirim) HILANG BEGITU SAJA tiap 10 detik tanpa
+  // peringatan apa pun. Sekarang: simpan dulu isi ketikan yang belum
+  // terkirim (& status fokus/posisi kursor), baru pasang lagi setelah
+  // textarea-nya dibangun ulang.
+  var _inpLama = document.getElementById('pesan-input');
+  var _teksBelumKirim = _inpLama ? _inpLama.value : '';
+  var _adaFokus = !!(_inpLama && document.activeElement === _inpLama);
+  var _posisiKursor = _adaFokus ? _inpLama.selectionStart : null;
   wrap.innerHTML = '<div class="d-flex justify-content-between mb-2">'
     + '<button class="btn btn-sm btn-outline-secondary" onclick="bukaPesanBaruUnit()"><i class="fas fa-plus me-1"></i>Pesan Baru</button>'
     + '</div>'
     + '<div class="chat-wrap" id="pesan-chat-wrap">'+(_pesanCacheSaya ? '' : '<p class="text-muted small text-center mb-0">Memuat...</p>')+'</div>'
     + _chatInputHtml('Tulis pesan ke Admin...', 'pesanUnitKeydown', 'pesanUnitKirim');
   if(_pesanCacheSaya) _renderChatBubbles('pesan-chat-wrap', _pesanCacheSaya, 'saya');
+  var _inpBaru = document.getElementById('pesan-input');
+  if(_inpBaru && _teksBelumKirim){
+    _inpBaru.value = _teksBelumKirim;
+    if(_adaFokus){ _inpBaru.focus(); _inpBaru.setSelectionRange(_posisiKursor, _posisiKursor); }
+  }
   gasCall('getPercakapanSaya', STATE.token).then(function(res){
     if(!res.success){ if(!_pesanCacheSaya) toast('error', res.message); return; }
     _pesanCacheSaya = res.data;
@@ -3533,6 +3550,15 @@ function renderPesanAdminThread(username){
   _pesanAdminSedangDibuka = username;
   var wrap = document.getElementById('pesan-container');
   var cached = _pesanCacheAdminThread[username];
+  // PERBAIKAN BUG: sama seperti renderPesanUnit() -- fungsi ini juga
+  // dipanggil oleh auto-refresh diam-diam tiap 10 detik selama thread ini
+  // sedang terbuka, dan sebelumnya SELALU membangun ulang textarea balasan
+  // dari nol, menghapus balasan yang SEDANG DIKETIK Admin (belum sempat
+  // dikirim). Simpan dulu isi ketikannya, pasang lagi setelah dibangun ulang.
+  var _inpLama = document.getElementById('pesan-input');
+  var _teksBelumKirim = _inpLama ? _inpLama.value : '';
+  var _adaFokus = !!(_inpLama && document.activeElement === _inpLama);
+  var _posisiKursor = _adaFokus ? _inpLama.selectionStart : null;
   wrap.innerHTML = '<div class="d-flex justify-content-between mb-2">'
     + '<button class="btn btn-sm btn-link ps-0" onclick="renderPesanAdminList()"><i class="fas fa-arrow-left me-1"></i>Kembali ke daftar</button>'
     + '<button class="btn btn-sm btn-outline-danger" onclick="bersihkanPercakapan()" title="Hapus semua pesan di thread ini"><i class="fas fa-broom me-1"></i>Bersihkan</button>'
@@ -3540,6 +3566,11 @@ function renderPesanAdminThread(username){
     + '<div class="chat-wrap" id="pesan-chat-wrap">'+(cached ? '' : '<p class="text-muted small text-center mb-0">Memuat...</p>')+'</div>'
     + _chatInputHtml('Balas...', 'pesanAdminKeydown', 'pesanAdminKirim');
   if(cached) _renderChatBubbles('pesan-chat-wrap', cached, 'saya');
+  var _inpBaru = document.getElementById('pesan-input');
+  if(_inpBaru && _teksBelumKirim){
+    _inpBaru.value = _teksBelumKirim;
+    if(_adaFokus){ _inpBaru.focus(); _inpBaru.setSelectionRange(_posisiKursor, _posisiKursor); }
+  }
   gasCall('getPercakapanDenganUnit', username, STATE.token).then(function(res){
     if(!res.success){ if(!cached) toast('error', res.message); return; }
     _pesanCacheAdminThread[username] = res.data;
@@ -3886,9 +3917,25 @@ function _renderKonsolidasi(bulan, hasil){
     CACHE.tambahan[key] = (tb && tb.success) ? tb.data : (CACHE.tambahan[key] || []);
     CACHE.kategoriTambahan = (katRes && katRes.success) ? katRes.data : (CACHE.kategoriTambahan || []);
 
-    isiAngkaFormatted('rk-saldo-awal', rek.saldoAwal || 0);
-    isiAngkaFormatted('rk-total-debet-bank', rek.totalDebetBank || 0);
-    isiAngkaFormatted('rk-total-kredit-bank', rek.totalKreditBank || 0);
+    // PERBAIKAN BUG: halaman ini disegarkan diam-diam tiap 10 detik lewat
+    // _srgAutoRefresh (lihat refreshViewSilently) SUPAYA data dari unit/admin
+    // lain langsung kelihatan tanpa refresh manual -- tapi sebelumnya baris
+    // di bawah ini SELALU menimpa isi 3 kotak input Rekonsiliasi Bank DAN
+    // SELALU memaksa tutup form (lihat rkBatalForm() di akhir fungsi ini),
+    // walau Admin sedang AKTIF mengetik di form "Edit Angka Bank" yang belum
+    // sempat disimpan -- akibatnya, tiap 10 detik ketikan yang belum
+    // disimpan itu HILANG BEGITU SAJA dan formnya tertutup sendiri (persis
+    // laporan bug: "kok aneh, waktu edit balik lagi"). Sekarang: kalau
+    // formnya SEDANG TERBUKA utk diedit (_rkFormSedangDiedit true), JANGAN
+    // sentuh nilai input maupun status buka/tutup form -- biarkan Admin
+    // menyelesaikan ketikannya. Nilai akan disinkronkan lagi begitu form
+    // ditutup (lewat Simpan ATAU Batal, lihat rkTampilkanForm/rkBatalForm/
+    // submitRekonsiliasi), bukan diam-diam di tengah proses mengetik.
+    if(!_rkFormSedangDiedit){
+      isiAngkaFormatted('rk-saldo-awal', rek.saldoAwal || 0);
+      isiAngkaFormatted('rk-total-debet-bank', rek.totalDebetBank || 0);
+      isiAngkaFormatted('rk-total-kredit-bank', rek.totalKreditBank || 0);
+    }
 
     _konsolidasiCache = { bulan:bulan, unitList:STATE.myUnits, ringkasanPos:ringkasanPos, gtD:gtD, gtK:gtK,
       kategoriAtas:[], kategoriBawah:[], byKategori:{},
@@ -3896,7 +3943,7 @@ function _renderKonsolidasi(bulan, hasil){
       detailByUnit:byUnit };
     renderKategoriBagian(key); // isi kategoriAtas/Bawah, dropdown, grand total, & hitungRekonsiliasi
     hitungRekonsiliasi();
-    rkBatalForm(); // pastikan tampil sebagai tampilan statis, form disembunyikan
+    if(!_rkFormSedangDiedit) rkBatalForm(); // pastikan tampil sebagai tampilan statis, form disembunyikan -- KECUALI sedang diedit aktif (lihat catatan di atas)
 }
 // ── KELOMPOK PEMASUKAN (POS) SAYA — self-service, semua role boleh pakai.
 // Untuk role UNIT dibatasi server-side (savePos) hanya untuk unit sendiri.
@@ -3906,7 +3953,16 @@ function renderPosUnitSayaForm(){
   var units = STATE.myUnits || [];
   if(units.length > 1){
     wrapSel.classList.remove('d-none');
+    // PERBAIKAN BUG: fungsi ini juga dipanggil oleh auto-refresh diam-diam
+    // tiap 10 detik selama halaman ini terbuka -- sebelumnya SELALU
+    // membangun ulang <select> Unit dari nol, sehingga Unit yang baru saja
+    // dipilih user (utk user yang punya lebih dari 1 Unit, belum sempat
+    // klik Simpan) diam-diam ke-reset balik ke pilihan pertama. Kalau user
+    // tidak sadar, Pos baru bisa tersimpan di Unit yang SALAH. Sekarang:
+    // simpan dulu Unit yang sedang dipilih, pasang lagi setelah dibangun ulang.
+    var _unitDipilihSaatIni = sel ? sel.value : '';
     sel.innerHTML = units.map(function(u){ return '<option value="'+u.kodeUnit+'">'+u.namaUnit+'</option>'; }).join('');
+    if(_unitDipilihSaatIni && units.some(function(u){return u.kodeUnit===_unitDipilihSaatIni;})) sel.value = _unitDipilihSaatIni;
   } else {
     wrapSel.classList.add('d-none');
   }
@@ -4063,6 +4119,11 @@ function renderRekapPerPosUI(){
   document.getElementById('rp-saldo-awal').textContent = fmtRp(c.saldoAwal);
   document.getElementById('rp-saldo-akhir').textContent = fmtRp(hasil.saldoAkhir);
 }
+// Penanda: form "Edit Angka Bank" SEDANG dibuka & aktif diedit Admin --
+// dipakai _renderKonsolidasi() (lihat catatan PERBAIKAN BUG di sana) supaya
+// auto-refresh diam-diam tiap 10 detik TIDAK menimpa ketikan yang belum
+// disimpan / menutup paksa form ini.
+var _rkFormSedangDiedit = false;
 function hitungRekonsiliasi(){
   if(!_konsolidasiCache) return;
   var saldoAwal = angkaKeAngka(document.getElementById('rk-saldo-awal').value);
@@ -4081,8 +4142,8 @@ function hitungRekonsiliasi(){
   var elK = document.getElementById('rk-selisih-kredit'); elK.textContent = fmtRp(selisihK); elK.style.color = selisihK===0 ? '#16a34a' : '#dc2626';
   document.getElementById('rk-saldo-akhir').textContent = fmtRp(saldoAkhir);
 }
-function rkTampilkanForm(){ document.getElementById('form-rekonsiliasi').classList.remove('d-none'); document.getElementById('rk-btn-edit').classList.add('d-none'); }
-function rkBatalForm(){ document.getElementById('form-rekonsiliasi').classList.add('d-none'); document.getElementById('rk-btn-edit').classList.remove('d-none');
+function rkTampilkanForm(){ _rkFormSedangDiedit = true; document.getElementById('form-rekonsiliasi').classList.remove('d-none'); document.getElementById('rk-btn-edit').classList.add('d-none'); }
+function rkBatalForm(){ _rkFormSedangDiedit = false; document.getElementById('form-rekonsiliasi').classList.add('d-none'); document.getElementById('rk-btn-edit').classList.remove('d-none');
   // kembalikan nilai form ke nilai tersimpan (batal perubahan yang belum disimpan)
   if(_konsolidasiCache){ isiAngkaFormatted('rk-saldo-awal', _konsolidasiCache.saldoAwal); isiAngkaFormatted('rk-total-debet-bank', _konsolidasiCache.totalDebetBank); isiAngkaFormatted('rk-total-kredit-bank', _konsolidasiCache.totalKreditBank); hitungRekonsiliasi(); }
 }
@@ -4099,6 +4160,13 @@ function submitRekonsiliasi(e){
   gasCall('saveRekonsiliasi', STATE.tahunAktif, bulan, data, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res.success){ toast('error', res.message); return; }
+    // PERBAIKAN BUG: matikan _rkFormSedangDiedit DI SINI (sebelum
+    // loadKonsolidasi() memuat ulang) supaya render berikutnya sekarang
+    // BOLEH menyinkronkan input & menutup form seperti biasa -- kalau
+    // tidak, guard baru di _renderKonsolidasi() (yang sengaja melindungi
+    // ketikan yang BELUM disimpan) malah ikut membuat form ini tetap
+    // terbuka dengan nilai lama walau baru saja berhasil Simpan.
+    _rkFormSedangDiedit = false;
     toast('success','Rekonsiliasi tersimpan'); loadKonsolidasi();
   }).catch(function(){ btnBusy(btn, false); toast('error','Gagal menyimpan'); });
 }
@@ -4509,7 +4577,17 @@ function loadUnitPos(){
     }
     renderUnitTable();
     renderPosGroups();
-    document.getElementById('ps-unit').innerHTML = res.units.map(function(u){ return '<option value="'+u.kodeUnit+'">'+u.namaUnit+'</option>'; }).join('');
+    // PERBAIKAN BUG: halaman ini juga disegarkan diam-diam tiap 10 detik
+    // (lihat refreshViewSilently) -- sebelumnya baris ini SELALU membangun
+    // ulang <select> Unit di form "Tambah Pos" dari nol, sehingga Unit yang
+    // baru saja dipilih Admin (belum sempat klik Simpan) diam-diam ke-reset
+    // balik ke pilihan pertama, berisiko Pos baru tersimpan di Unit yang
+    // SALAH kalau Admin tidak sadar. Simpan dulu Unit yang sedang dipilih,
+    // pasang lagi setelah dibangun ulang.
+    var _elPsUnit = document.getElementById('ps-unit');
+    var _psUnitDipilihSaatIni = _elPsUnit ? _elPsUnit.value : '';
+    _elPsUnit.innerHTML = res.units.map(function(u){ return '<option value="'+u.kodeUnit+'">'+u.namaUnit+'</option>'; }).join('');
+    if(_psUnitDipilihSaatIni && res.units.some(function(u){return u.kodeUnit===_psUnitDipilihSaatIni;})) _elPsUnit.value = _psUnitDipilihSaatIni;
     _kategoriTambahanData = (katRes && katRes.success) ? katRes.data : [];
     renderKategoriTable();
   }).catch(function(){ hideBar(); if(!_unitPosData) toast('error','Gagal memuat Unit & Pos'); });
@@ -4834,9 +4912,25 @@ function loadUserView(){
     hideBar();
     var users = res[0], unitPos = res[1];
     if(!users.success){ toast('error', users.message); return; }
+    // PERBAIKAN BUG: halaman ini juga disegarkan diam-diam tiap 10 detik
+    // (lihat refreshViewSilently) -- sebelumnya baris di bawah SELALU
+    // membangun ulang SELURUH checkbox Unit di form Tambah/Edit User dari
+    // nol (checkbox baru = otomatis TIDAK tercentang), sehingga centang
+    // Unit yang baru saja dipilih Admin (baik utk user baru, ATAU habis
+    // klik "Edit" di user yang sudah ada -- lihat editUser()) diam-diam
+    // hilang tanpa peringatan apa pun sebelum sempat disimpan. Kalau Admin
+    // tidak sadar & tetap klik Simpan, user itu bisa tersimpan TANPA akses
+    // Unit sama sekali, atau dengan akses Unit yang salah -- risiko
+    // keamanan/akses, bukan cuma gangguan tampilan. Sekarang: simpan dulu
+    // Unit mana saja yang sedang tercentang, pasang lagi setelah checkbox-
+    // nya dibangun ulang.
+    var _unitTercentangSaatIni = Array.prototype.slice.call(document.querySelectorAll('.us-unit-chk:checked')).map(function(c){return c.value;});
     document.getElementById('us-unit-checks').innerHTML = unitPos.units.map(function(u){
       return '<label class="form-check-label small border rounded px-2 py-1"><input type="checkbox" class="form-check-input me-1 us-unit-chk" value="'+u.kodeUnit+'">'+u.namaUnit+'</label>';
     }).join('');
+    if(_unitTercentangSaatIni.length){
+      document.querySelectorAll('.us-unit-chk').forEach(function(c){ c.checked = _unitTercentangSaatIni.indexOf(c.value) !== -1; });
+    }
     document.getElementById('tbody-user').innerHTML = users.data.map(function(u){
       return '<tr><td>'+u.username+'</td><td>'+u.nama+'</td><td>'+u.email+'</td><td>'+u.role+'</td><td>'+u.kodeUnit.join(', ')+'</td>'+
         '<td>'+(u.aktif?'<span class="text-success">Aktif</span>':'<span class="text-danger">Nonaktif</span>')+'</td>'+
