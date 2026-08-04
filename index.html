@@ -1650,10 +1650,13 @@ function afterLogin(){
     gotoView(document.querySelector('.nav-item.active') ? document.querySelector('.nav-item.active').dataset.view : 'dashboard');
     // PRELOAD bulan berjalan + 1 bulan sebelum/sesudahnya (lihat catatan
     // lengkap di _preloadBulanTetangga di bawah) -- dijalankan sesudah
-    // tampilan awal (Dashboard) sudah beres, dengan jeda singkat, supaya
-    // TIDAK berebut kuota/jaringan dengan permintaan yang sedang dibutuhkan
-    // user saat itu juga.
-    setTimeout(_preloadBulanTetangga, 1200);
+    // tampilan awal (Dashboard) sudah beres, dengan jeda singkat (supaya
+    // TIDAK berebut jaringan dengan permintaan Dashboard yang baru saja
+    // dikirim di atas), tapi SESINGKAT MUNGKIN -- makin lama ditunda, makin
+    // besar kemungkinan user keburu buka menu lain SEBELUM preload ini
+    // selesai (jadi tidak kerasa manfaatnya sama sekali untuk kunjungan
+    // pertama). Sebelumnya 1200ms, terlalu lama menunggu tanpa alasan kuat.
+    setTimeout(_preloadBulanTetangga, 300);
   }).catch(function(){ hideLoading(); hideBar(); if(!cachedInit) toast('error','Gagal memuat data awal'); });
 
   // Auto-refresh diam-diam tiap 10 detik (tanpa indikator apa pun) supaya
@@ -1705,55 +1708,51 @@ function _preloadBulanTetangga(){
   if(bulanSekarang>1) bulanList.push(bulanSekarang-1);
   if(bulanSekarang<12) bulanList.push(bulanSekarang+1);
 
-  // PERBAIKAN: preload sekarang JUGA menyiapkan Jurnal Memorial (supaya
-  // konsisten dengan 4 menu lain di grup yang sama -- lihat _memorialRawCache
-  // & loadJurnalMemorial) -- SATU-SATUNYA menu di grup ini yang SEBELUMNYA
-  // tidak ikut dicache sama sekali, jadi selalu terasa "harus loading" tiap
-  // dibuka walau baru saja dibuka juga. (Rekap Rekening Koran TETAP TIDAK
-  // di-preload -- lihat catatan di refreshViewSilently, datanya tidak
-  // dicache per bulan, tapi sudah cepat lewat gasCallBatch tersendiri +
-  // auto-refresh.)
+  // PERBAIKAN (atas permintaan): Jurnal Memorial DIKELUARKAN LAGI dari
+  // preload ini (sempat dicoba diikutkan, tapi ditarik lagi -- lihat catatan
+  // di loadJurnalMemorial) -- jadi cukup 1 batch saja lagi (bukan 2 batch
+  // paralel), lebih sederhana DAN kemungkinan lebih cepat juga (2 batch
+  // paralel yang sempat dicoba kemungkinan tidak benar-benar diproses
+  // bersamaan di sisi Apps Script -- 1 akun Google punya batas eksekusi
+  // simultan, jadi 2 permintaan sekaligus bisa jadi malah saling antre,
+  // bukan benar-benar paralel).
   //
-  // Dengan tambahan getStatusJurnalMemorial & getMemorialTambahan, jumlah
-  // panggilan per bulan sekarang 8 -- 3 bulan x 8 = 24, MELEBIHI batas 20
-  // panggilan per batch (lihat doPost di Code.gs). Makanya dipecah jadi 2
-  // batch yang jalan BERSAMAAN (Promise.all -- bukan 1 nunggu 1, tetap 1
-  // "gelombang" permintaan, bukan N kali bolak-balik seperti sebelum
-  // gasCallBatch ada).
-  var callsA = [], callsB = [];
+  // Susun SEMUA panggilan (utk seluruh bulan di atas) jadi SATU batch --
+  // 1x round-trip, bukan 1x per bulan -- lihat catatan performa gasCallBatch.
+  // Panggilan getRekonsiliasi/getTambahanBulan TETAP disertakan utk role
+  // UNIT juga (walau ditolak backend krn admin-only) supaya bentuk cache
+  // _konsolidasiRawCache PERSIS SAMA seperti hasil loadKonsolidasi() versi
+  // biasa (yang juga selalu memanggil keduanya apa pun role-nya) -- kalau
+  // tidak, isi cache preload & cache hasil buka manual bisa beda bentuk.
+  var calls = [];
   var idx = {};
   bulanList.forEach(function(bulan){
-    idx[bulan] = {};
-    idx[bulan].rekap = callsA.length;
-    callsA.push({ fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] });
-    idx[bulan].kunci = callsA.length;
-    callsA.push({ fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] });
-    idx[bulan].belumVerif = callsA.length;
-    callsA.push({ fn:'getTransaksiBelumVerifikasi', args:[STATE.tahunAktif, bulan, STATE.token] });
-    idx[bulan].riwayatVerif = callsA.length;
-    callsA.push({ fn:'getRiwayatVerifikasiSaya', args:[STATE.tahunAktif, bulan, STATE.token] });
-
-    idx[bulan].rekon = callsB.length;
-    callsB.push({ fn:'getRekonsiliasi', args:[STATE.tahunAktif, bulan, STATE.token] });
-    idx[bulan].tambahan = callsB.length;
-    callsB.push({ fn:'getTambahanBulan', args:[STATE.tahunAktif, bulan, STATE.token] });
-    idx[bulan].statusMemorial = callsB.length;
-    callsB.push({ fn:'getStatusJurnalMemorial', args:[STATE.tahunAktif, bulan, STATE.token] });
-    idx[bulan].memorialTambahan = callsB.length;
-    callsB.push({ fn:'getMemorialTambahan', args:[STATE.tahunAktif, bulan, STATE.token] });
+    idx[bulan] = {
+      rekap: calls.length
+    };
+    calls.push({ fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] });
+    idx[bulan].kunci = calls.length;
+    calls.push({ fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] });
+    idx[bulan].belumVerif = calls.length;
+    calls.push({ fn:'getTransaksiBelumVerifikasi', args:[STATE.tahunAktif, bulan, STATE.token] });
+    idx[bulan].riwayatVerif = calls.length;
+    calls.push({ fn:'getRiwayatVerifikasiSaya', args:[STATE.tahunAktif, bulan, STATE.token] });
+    idx[bulan].rekon = calls.length;
+    calls.push({ fn:'getRekonsiliasi', args:[STATE.tahunAktif, bulan, STATE.token] });
+    idx[bulan].tambahan = calls.length;
+    calls.push({ fn:'getTambahanBulan', args:[STATE.tahunAktif, bulan, STATE.token] });
   });
-  var idxKategori = callsB.length;
-  callsB.push({ fn:'getKategoriTambahanList', args:[STATE.token] });
+  var idxKategori = calls.length;
+  calls.push({ fn:'getKategoriTambahanList', args:[STATE.token] });
 
-  Promise.all([ gasCallBatch(callsA), gasCallBatch(callsB) ]).then(function(hasilDua){
-    var hasilA = hasilDua[0], hasilB = hasilDua[1];
-    var resKategori = hasilB[idxKategori];
+  gasCallBatch(calls).then(function(hasil){
+    var resKategori = hasil[idxKategori];
     if(resKategori && resKategori.success && !CACHE.kategoriTambahan) CACHE.kategoriTambahan = resKategori.data;
     bulanList.forEach(function(bulan){
       var key = STATE.tahunAktif + '_' + bulan;
       var i = idx[bulan];
-      var resRekap = hasilA[i.rekap], resKunci = hasilA[i.kunci], resBelumVerif = hasilA[i.belumVerif], resRiwayatVerif = hasilA[i.riwayatVerif];
-      var resRekon = hasilB[i.rekon], resTambahan = hasilB[i.tambahan], resStatusMemorial = hasilB[i.statusMemorial], resMemorialTambahan = hasilB[i.memorialTambahan];
+      var resRekap = hasil[i.rekap], resKunci = hasil[i.kunci], resBelumVerif = hasil[i.belumVerif],
+          resRiwayatVerif = hasil[i.riwayatVerif], resRekon = hasil[i.rekon], resTambahan = hasil[i.tambahan];
       // "Isi kalau masih kosong" -- BUKAN paksa timpa -- kalau user sudah
       // sempat buka halaman terkait duluan (lebih cepat dari preload ini),
       // data yang sudah ada/lebih baru itu TIDAK boleh ketiban data preload
@@ -1766,9 +1765,6 @@ function _preloadBulanTetangga(){
       }
       if(resRekap && resRekap.success && !_konsolidasiRawCache[key]){
         _konsolidasiRawCache[key] = [resRekap, resRekon, resTambahan, resKategori];
-      }
-      if(resStatusMemorial && resStatusMemorial.success && !_memorialRawCache[key]){
-        _memorialRawCache[key] = { statusRes:resStatusMemorial, rekap:resRekap, tb:resTambahan, katRes:resKategori, mtRes:resMemorialTambahan };
       }
     });
   }).catch(function(){ /* preload murni percepatan opsional -- gagal diam2, tidak mengganggu user */ });
@@ -2433,7 +2429,6 @@ function editTransaksi(id, btn){
       delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
       delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
       delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: data juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
-      delete _memorialRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: data juga tampil di Jurnal Memorial -- jangan sampai basi di sana
       loadRekapBulan();
     } else {
       var arr = _arrTransaksiAktif();
@@ -2658,7 +2653,6 @@ function editTransaksiRK(id, btn){
     delete CACHE.tambahan[STATE.tahunAktif + '_' + bulan]; // juga tampil di "Input Non Unit"
     delete CACHE.belumVerifikasi[STATE.tahunAktif + '_' + bulan];
     delete _konsolidasiRawCache[STATE.tahunAktif + '_' + bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
-    delete _memorialRawCache[STATE.tahunAktif + '_' + bulan]; // PERBAIKAN BUG: data juga tampil di Jurnal Memorial -- jangan sampai basi di sana
     if(v.kembalikanKeBelumJelas){
       toast('success','Tersimpan & dikembalikan ke daftar Belum Jelas Pos-nya');
       loadRekapRekeningKoran(); // pindah BUCKET -- ambil ulang dari server, bukan sekadar ubah 1 field
@@ -2690,7 +2684,6 @@ function hapusTransaksiRK(id){
         delete CACHE.rekap[STATE.tahunAktif + '_' + bulan];
         delete CACHE.tambahan[STATE.tahunAktif + '_' + bulan];
         delete _konsolidasiRawCache[STATE.tahunAktif + '_' + bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
-        delete _memorialRawCache[STATE.tahunAktif + '_' + bulan]; // PERBAIKAN BUG: data juga tampil di Jurnal Memorial -- jangan sampai basi di sana
         return true;
       }).catch(function(){ Swal.showValidationMessage('Gagal menghapus, coba lagi.'); return false; });
     }
@@ -3240,7 +3233,6 @@ function gcSimpanSemua(){
       initGridCepat();
       delete CACHE.rekap[_rekapCacheKey()];
       delete _konsolidasiRawCache[_rekapCacheKey()]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
-      delete _memorialRawCache[_rekapCacheKey()]; // PERBAIKAN BUG: data juga tampil di Jurnal Memorial -- jangan sampai basi di sana
       loadRekapBulan();
       if(adaBV) loadPerluVerifikasi();
     }
@@ -3422,7 +3414,6 @@ function bukaVerifikasiTransaksi(id){
     // dibatalkan di sini juga, supaya begitu dibuka, langsung ambil data
     // terbaru dari server tanpa sempat menampilkan yang lama sama sekali.
     delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan];
-    delete _memorialRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: data juga tampil di Jurnal Memorial -- jangan sampai basi di sana
     loadViewVerifikasiData();
   });
 }
@@ -3460,7 +3451,6 @@ function bukaUbahPosVerifikasi(id, kodePosSaatIni){
     toast('success','Pos berhasil diubah');
     delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
     delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
-    delete _memorialRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: data juga tampil di Jurnal Memorial -- jangan sampai basi di sana
     loadViewVerifikasiData();
   });
 }
@@ -3490,7 +3480,6 @@ function kembalikanTransaksiVerifikasi(id){
     delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
     delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
     delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
-    delete _memorialRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: data juga tampil di Jurnal Memorial -- jangan sampai basi di sana
     loadViewVerifikasiData();
   });
 }
@@ -3877,7 +3866,7 @@ function bukaImportExcel(){
       if(idx >= batches.length){
         hideLoading();
         toast('success', totalMasuk + (isBelumJelas ? ' baris tersimpan sebagai Belum Terverifikasi' : ' baris berhasil diimpor'));
-        if(isBelumJelas){ loadPerluVerifikasi(); } else { delete CACHE.rekap[_rekapCacheKey()]; delete _konsolidasiRawCache[_rekapCacheKey()]; delete _memorialRawCache[_rekapCacheKey()]; loadRekapBulan(); }
+        if(isBelumJelas){ loadPerluVerifikasi(); } else { delete CACHE.rekap[_rekapCacheKey()]; delete _konsolidasiRawCache[_rekapCacheKey()]; loadRekapBulan(); }
         return;
       }
       showLoading('Mengimpor baris ' + (idx*UKURAN_BATCH+1) + '–' + Math.min((idx+1)*UKURAN_BATCH, semuaBaris.length) + ' dari ' + semuaBaris.length + '...');
@@ -3979,7 +3968,6 @@ function editTransaksiKonso(id, bulan){
   }).then(function(res){
     if(!res.isConfirmed) return;
     delete _konsolidasiRawCache[key]; // data sudah berubah -- paksa ambil ulang, jangan pakai cache basi
-    delete _memorialRawCache[key]; // PERBAIKAN BUG: data juga tampil di Jurnal Memorial -- jangan sampai basi di sana
     delete CACHE.rekap[key]; // ikut tampil di "Input Rekap Bulanan" juga
     toast('success','Tersimpan');
     loadKonsolidasi();
@@ -4006,7 +3994,6 @@ function kembalikanTransaksiKonso(id, bulan){
     if(!res.isConfirmed) return;
     var key = STATE.tahunAktif + '_' + bulan;
     delete _konsolidasiRawCache[key];
-    delete _memorialRawCache[key]; // PERBAIKAN BUG: data juga tampil di Jurnal Memorial -- jangan sampai basi di sana
     delete CACHE.rekap[key];
     delete CACHE.belumVerifikasi[key];
     toast('success','Transaksi dikembalikan ke daftar Belum Jelas Pos-nya');
@@ -5527,24 +5514,15 @@ function switchMemorialMode(mode){
 // Cek status kunci DULU (1 panggilan ringan) — kalau sudah terkunci, tidak
 // perlu tarik 5 sumber data lagi sama sekali, langsung tampilkan data beku.
 // Ini yang membuat tampilan bulan yang sudah final tetap cepat dibuka.
-// Cache mentah per bulan (tahun_bulan -> {statusRes,rekap,tb,katRes,mtRes})
-// -- diisi oleh _preloadBulanTetangga() begitu login, ATAU oleh fetch
-// manual di bawah. SENGAJA TIDAK auto-disegarkan lagi di belakang layar
-// sesudah tampil pertama kali (beda dari Input Rekap Bulanan/Konsolidasi/
-// Verifikasi) -- karena centang "Pisah" di checklist Jurnal Memorial HANYA
-// ada di memori browser (belum tersimpan ke server sampai user klik Simpan
-// PDF/cetak), jadi kalau ada refresh diam-diam menyusul di belakang layar
-// sesudah user mulai mencentang, semua centangnya bisa hilang tanpa
-// disadari. Makanya di sini: cache dipakai APA ADANYA sekali render, baru
-// diambil ulang dari server kalau user sendiri ganti bulan / re-login /
-// aksi eksplisit lain yang memang wajar me-reset checklist ke awal.
-var _memorialRawCache = {};
+// PERBAIKAN (atas permintaan): Jurnal Memorial SENGAJA TIDAK dicache/
+// preload seperti 4 menu lainnya -- dikembalikan ke perilaku semula, SELALU
+// ambil data terbaru dari server tiap dibuka/ganti bulan. Alasannya: halaman
+// ini punya checklist "Pisah" yang cuma ada di memori browser sampai
+// disimpan, jadi risiko menampilkan data lama/tidak sesuai realita dianggap
+// lebih penting untuk dihindari di sini daripada kecepatan buka.
 function loadJurnalMemorial(){
   var bulan = document.getElementById('sel-bulan-memorial').value;
   if(!bulan) return;
-  var key = STATE.tahunAktif + '_' + bulan;
-  var cached = _memorialRawCache[key];
-  if(cached){ _terapkanDataMemorial(cached); return; }
   showBar();
   // Semua panggilan jalan BERSAMAAN dalam SATU request batch (bukan tunggu
   // status kunci dulu baru mulai tarik data, dan bukan N request terpisah)
@@ -5560,15 +5538,12 @@ function loadJurnalMemorial(){
   ];
   if (!pakaiCacheKategori) callsMemorial.push({ fn:'getKategoriTambahanList', args:[STATE.token] });
   gasCallBatch(callsMemorial).then(function(hasilBatch){
-    // Urutan dikembalikan SAMA PERSIS seperti Promise.all([...]) sebelumnya
-    // (statusRes, rekap, tb, katRes, mtRes) supaya kode di bawah tidak berubah.
     var hasil = {
       statusRes: hasilBatch[0], rekap: hasilBatch[1], tb: hasilBatch[2],
       katRes: pakaiCacheKategori ? {success:true, data:CACHE.kategoriTambahan} : hasilBatch[4],
       mtRes: hasilBatch[3]
     };
     hideBar();
-    if(hasil.statusRes && hasil.statusRes.success) _memorialRawCache[key] = hasil;
     _terapkanDataMemorial(hasil);
   }).catch(function(err){ hideBar(); toast('error','Gagal memuat: ' + (err && err.message ? err.message : 'coba lagi')); });
 }
@@ -5704,7 +5679,6 @@ function _segarkanSemuaSetelahKunciBerubah(tahun, bulan){
   delete _konsolidasiRawCache[key];
   delete CACHE.rekap[key];
   delete _vfCache[key];
-  delete _memorialRawCache[key]; // PERBAIKAN: status kunci Jurnal Memorial sendiri ikut berubah -- jangan sampai halaman Jurnal Memorial basi
   delete _lastFetchAt['verifikasi_'+key];
   delete _lastFetchAt['dashboard_'+tahun]; // ringkasan Dashboard ikut menampilkan jumlah per status, aman ikut disegarkan
 }
@@ -5912,7 +5886,6 @@ function bukaFormMemorialTambahan(id){
     gasCall('saveMemorialTambahan', STATE.tahunAktif, res.value, STATE.token, idKeyMt).then(function(r){
       if(!r.success){ toast('error', r.message); return; }
       toast('success','Memorial Tambahan/Koreksi tersimpan');
-      delete _memorialRawCache[STATE.tahunAktif+'_'+res.value.bulan]; // PERBAIKAN BUG: data baru saja berubah -- jangan sampai loadJurnalMemorial() di bawah malah pakai cache lama
       loadJurnalMemorial();
     }).catch(function(err){ toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
   });
@@ -5924,7 +5897,6 @@ function hapusMemorialTambahanUI(id){
     gasCall('hapusMemorialTambahan', STATE.tahunAktif, bulan, id, STATE.token).then(function(res){
       if(!res.success){ toast('error', res.message); return; }
       toast('success','Dihapus');
-      delete _memorialRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: data baru saja berubah -- jangan sampai loadJurnalMemorial() di bawah malah pakai cache lama
       loadJurnalMemorial();
     }).catch(function(err){ toast('error', (err && err.message) ? err.message : 'Gagal menghapus'); });
   });
