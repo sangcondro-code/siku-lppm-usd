@@ -2026,20 +2026,38 @@ function loadRekapBulan(){
   var key = _rekapCacheKey();
   // 1) Tampilkan cache instan kalau ada
   if(CACHE.rekap[key]){ renderTransaksiTable(); } else { showBar(); }
-  // 2) Refresh dari server di belakang layar
-  gasCall('getRekapBulan', STATE.tahunAktif, bulan, STATE.token).then(function(res){
+  // 2) Refresh dari server di belakang layar.
+  // PERBAIKAN PERFORMA: sebelumnya ini 3 permintaan TERPISAH (getRekapBulan,
+  // getStatusKunciBulan, dan getTransaksiBelumVerifikasi lewat
+  // loadPerluVerifikasi()) -- tiap permintaan terpisah membayar overhead
+  // round-trip PENUH ke Apps Script sendiri-sendiri (jauh lebih terasa di
+  // versi GitHub Pages yang fetch() ke URL Web App, ada redirect internal
+  // tambahan dibanding google.script.run) -- jadi ganti bulan terasa lambat
+  // padahal ketiganya sama-sama read-only & independen. Sekarang digabung
+  // jadi 1x round-trip lewat gasCallBatch (lihat catatan gasCallBatch di
+  // atas), 3x lebih sedikit tunggu jaringan.
+  gasCallBatch([
+    { fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
+    { fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
+    { fn:'getTransaksiBelumVerifikasi', args:[STATE.tahunAktif, bulan, STATE.token] }
+  ]).then(function(hasil){
     hideBar();
-    if(!res.success){ toast('error', res.message); return; }
-    CACHE.rekap[key] = res.data;
-    if(key === _rekapCacheKey()) renderTransaksiTable();
+    var resRekap = hasil[0], resKunci = hasil[1], resBelumJelas = hasil[2];
+    var masihSamaBulan = (key === _rekapCacheKey());
+    if(!resRekap || !resRekap.success){ if(!CACHE.rekap[key]) toast('error', resRekap && resRekap.message); }
+    else {
+      CACHE.rekap[key] = resRekap.data;
+      if(masihSamaBulan) renderTransaksiTable();
+    }
+    // Status kunci Jurnal Memorial -- murni utk banner peringatan di sini,
+    // backend (lihat _jurnalMemorialTerkunci di Code.gs) tetap jadi penjaga
+    // sebenarnya di semua endpoint tulis, terlepas dari banner ini muncul atau tidak.
+    if(resKunci && resKunci.success && masihSamaBulan){ _inputLocked = !!resKunci.locked; renderInputLockBanner(); }
+    if(resBelumJelas && resBelumJelas.success){
+      CACHE.belumVerifikasi[key] = resBelumJelas.data;
+      if(STATE_posAktif === POS_BELUM_JELAS && masihSamaBulan) renderTransaksiTable();
+    }
   }).catch(function(){ hideBar(); if(!CACHE.rekap[key]) toast('error','Gagal memuat rekap'); });
-  // Status kunci Jurnal Memorial -- murni utk banner peringatan di sini,
-  // backend (lihat _jurnalMemorialTerkunci di Code.gs) tetap jadi penjaga
-  // sebenarnya di semua endpoint tulis, terlepas dari banner ini muncul atau tidak.
-  gasCall('getStatusKunciBulan', STATE.tahunAktif, bulan, STATE.token).then(function(res){
-    if(res && res.success && key === _rekapCacheKey()){ _inputLocked = !!res.locked; renderInputLockBanner(); }
-  }).catch(function(){});
-  loadPerluVerifikasi();
 }
 function renderTransaksiTable(){
   var key = _rekapCacheKey();
@@ -2358,9 +2376,17 @@ function loadRekapRekeningKoran(){
   var kodeUnit = document.getElementById('sel-unit-rekkoran').value;
   if(!bulan) return;
   showBar();
-  gasCall('getRekapRekeningKoran', STATE.tahunAktif, bulan, kodeUnit || null, STATE.token).then(function(res){
+  // PERBAIKAN PERFORMA: digabung jadi 1x round-trip lewat gasCallBatch
+  // (sebelumnya 2 gasCall() TERPISAH) -- lihat catatan performa yang sama
+  // di loadRekapBulan/loadViewVerifikasiData.
+  gasCallBatch([
+    { fn:'getRekapRekeningKoran', args:[STATE.tahunAktif, bulan, kodeUnit || null, STATE.token] },
+    { fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] }
+  ]).then(function(hasil){
     hideBar();
-    if(!res.success){ toast('error', res.message); return; }
+    var res = hasil[0], resKunci = hasil[1];
+    var masihSamaBulan = (bulan === document.getElementById('sel-bulan-rekkoran').value);
+    if(!res || !res.success){ toast('error', res && res.message); return; }
     _rekKoranRows = res.data;
     (res.units||[]).forEach(function(u){ _rekKoranUnitNama[u.kodeUnit] = u.namaUnit; });
     // Isi dropdown filter Unit sekali saja (kalau belum pernah diisi)
@@ -2369,11 +2395,9 @@ function loadRekapRekeningKoran(){
       selUnit.innerHTML = '<option value="">- Semua Unit -</option>' + res.units.map(function(u){ return '<option value="'+u.kodeUnit+'">'+_gcEsc(u.namaUnit)+'</option>'; }).join('');
       selUnit.value = kodeUnit || '';
     }
+    if(resKunci && resKunci.success && masihSamaBulan){ _rkLocked = !!resKunci.locked; renderRkLockBanner(); }
     renderRekeningKoranTable();
   }).catch(function(){ hideBar(); toast('error','Gagal memuat data'); });
-  gasCall('getStatusKunciBulan', STATE.tahunAktif, bulan, STATE.token).then(function(res){
-    if(res && res.success && bulan === document.getElementById('sel-bulan-rekkoran').value){ _rkLocked = !!res.locked; renderRkLockBanner(); renderRekeningKoranTable(); }
-  }).catch(function(){});
 }
 function renderRekeningKoranTable(){
   var tb = document.getElementById('tbody-rekkoran');
@@ -3207,11 +3231,16 @@ function loadViewVerifikasiData(){
   // Kalau bulan ini sudah disegarkan dlm 20 detik terakhir, cukup pakai yg
   // ada -- lewati request baru sama sekali.
   if(cached && !_bolehSegarkan('verifikasi_'+key)) return;
-  // 2) Refresh dari server di belakang layar
-  Promise.all([
-    gasCall('getTransaksiBelumVerifikasi', STATE.tahunAktif, bulan, STATE.token),
-    gasCall('getRiwayatVerifikasiSaya', STATE.tahunAktif, bulan, STATE.token),
-    gasCall('getStatusKunciBulan', STATE.tahunAktif, bulan, STATE.token)
+  // 2) Refresh dari server di belakang layar.
+  // PERBAIKAN PERFORMA: digabung jadi 1x round-trip lewat gasCallBatch
+  // (sebelumnya Promise.all atas 3 gasCall() TERPISAH -- tiap permintaan
+  // terpisah tetap membayar overhead round-trip Apps Script sendiri²,
+  // paling terasa di versi GitHub Pages). Struktur hasil (array, urutan
+  // sama persis) TIDAK berubah, jadi kode penanganan di bawah tetap sama.
+  gasCallBatch([
+    { fn:'getTransaksiBelumVerifikasi', args:[STATE.tahunAktif, bulan, STATE.token] },
+    { fn:'getRiwayatVerifikasiSaya', args:[STATE.tahunAktif, bulan, STATE.token] },
+    { fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] }
   ]).then(function(res){
     hideBar();
     var perlu = res[0], riwayat = res[1], statusKunci = res[2];
