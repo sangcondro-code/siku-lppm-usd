@@ -1319,6 +1319,32 @@ var GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw69OIEt4B5EmosDf
 // (jadi kode pemanggil yang sebelumnya pakai Promise.all([...]).then(function(hasil){
 // var a=hasil[0], b=hasil[1]; ... }) TIDAK PERLU diubah strukturnya).
 function gasCallBatch(calls){
+  return _gasCallBatchDenganRetry(calls, 0);
+}
+// PERBAIKAN BUG: sebelumnya fungsi ini langsung fetch() TANPA percobaan
+// ulang sama sekali (beda dari gasCall() biasa yang sudah punya retry --
+// lihat _gasCallDenganRetry) -- padahal gasCallBatch() dipakai di titik
+// yang justru PALING sering dipanggil (muat awal setelah login, Rekap
+// Konsolidasi & Rekonsiliasi Bank, Kelola User, ringkasan+daftar Pengajuan
+// Dana). Akibatnya, gangguan jaringan SESAAT sekalipun (yang harusnya
+// tidak terasa krn gasCall() biasa otomatis coba lagi) langsung muncul
+// sebagai error ke user, mis. "Gagal memuat konsolidasi" -- padahal
+// sebenarnya cuma butuh 1x coba ulang. Sekarang disamakan: kegagalan
+// level-jaringan dicoba ulang otomatis (maks 2x, jeda singkat) sebelum
+// benar-benar menyerah. Aman diulang karena SEMUA panggilan di dalam 1
+// batch di sini SENGAJA hanya yang saling bebas / read-only (lihat catatan
+// gasCallBatch di Code.gs) -- tidak ada risiko data tertulis dobel.
+function _gasCallBatchDenganRetry(calls, percobaanJaringan){
+  return _gasCallBatchFetch(calls).catch(function(err){
+    var isTimeout = err && err.message && err.message.indexOf('Waktu tunggu habis') !== -1;
+    if(!isTimeout && percobaanJaringan < 2){
+      return new Promise(function(r){ setTimeout(r, 600 * (percobaanJaringan + 1)); })
+        .then(function(){ return _gasCallBatchDenganRetry(calls, percobaanJaringan + 1); });
+    }
+    throw err;
+  });
+}
+function _gasCallBatchFetch(calls){
   if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.indexOf('TEMPEL_URL_WEB_APP') !== -1) {
     return Promise.reject(new Error('GAS_WEB_APP_URL belum diisi.'));
   }
@@ -6305,7 +6331,22 @@ function pdMuatRingkasanDanDaftar(){
     }
     if(resDaftar && resDaftar.success){ PD.daftar = resDaftar.data; pdRenderDaftarTable(); }
     else if(resDaftar){ toast('error', resDaftar.message); }
-  }).catch(function(){ pdMuatRingkasanDanDaftar(); });
+  }).catch(function(){
+    // PERBAIKAN BUG: sebelumnya baris ini memanggil pdMuatRingkasanDanDaftar()
+    // LAGI setiap kali batch-nya gagal -- TANPA batas jumlah percobaan dan
+    // TANPA jeda sama sekali, jadi kalau jaringan benar-benar bermasalah
+    // (bukan cuma blip sesaat -- gasCallBatch sendiri SUDAH mencoba ulang
+    // 2x lebih dulu, lihat _gasCallBatchDenganRetry), fungsi ini akan terus
+    // memanggil dirinya sendiri TANPA HENTI, membanjiri server dengan
+    // permintaan gagal berulang-ulang dan user tidak pernah diberi tahu ada
+    // masalah -- juga TIDAK PERNAH benar-benar "jatuh balik ke 3 panggilan
+    // terpisah" seperti yang dijanjikan di catatan atas fungsi ini. Sekarang
+    // baru benar-benar dijalankan: 3 panggilan terpisah (masing-masing
+    // fungsi ini sudah py penanganan errornya sendiri), sekali saja -- tidak
+    // ada lagi rekursi tanpa batas.
+    pdMuatRingkasan();
+    pdMuatDaftar();
+  });
 }
 function pdMuatRingkasan(){
   gasCall('getRingkasanPengajuan', STATE.token).then(function(res){
