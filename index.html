@@ -1195,20 +1195,25 @@ function hideBar(){}
 // lama SEKETIKA, TAPI tetap langsung menembak 1 permintaan baru ke server
 // di belakang layar SETIAP KALI menu itu dibuka.
 // -------------------------------------------------------------------
-// PERBAIKAN (permintaan eksplisit: TIDAK BOLEH ADA data basi sedikit pun,
-// demi akuntabilitas): sebelumnya ada "jendela tenang" 20 detik yang
-// MELEWATI permintaan refresh sama sekali kalau menu yang sama baru saja
-// dibuka -- ini SENGAJA DIMATIKAN sekarang (_bolehSegarkan SELALU
-// mengembalikan true). Alasannya: jendela 20 detik itu berarti kalau ada
-// perubahan dari user/tab lain dalam rentang itu, tampilan bisa basi
-// sampai 20 detik -- tidak bisa diterima untuk data yang menyangkut
-// akuntabilitas. Ini TIDAK memunculkan loading terlihat apa pun -- tampilan
-// cache tetap muncul INSTAN, cuma sekarang refresh diam-diam ke server
-// betul-betul terjadi SETIAP KALI menu dibuka, tanpa dilewati.
-var _lastFetchAt = {}; // dipertahankan (tidak dipakai untuk melewati apa pun lagi) supaya pemanggil yang sudah ada tidak perlu diubah
-var VIEW_REFRESH_DEBOUNCE_MS = 0;
+// RIWAYAT: sempat DIMATIKAN total ("_bolehSegarkan selalu true") demi
+// "tidak boleh ada data basi sedikit pun" -- tapi ini berarti kalau user
+// klik cepat bolak-balik antar menu (mis. Dashboard -> Input -> Dashboard
+// lagi dalam hitungan detik, atau tidak sengaja dobel-klik), SETIAP kunjungan
+// itu menembak permintaan baru ke server, walau baru saja diambil sepersekian
+// detik sebelumnya -- ikut menyumbang beban/lambat, persis yang dikeluhkan.
+// PERBAIKAN (atas permintaan "lebih rasional, asal tidak bottleneck"):
+// diaktifkan lagi, TAPI dengan jendela yang jauh lebih pendek drpd
+// sebelumnya (dulu 20 detik) -- cukup menahan re-fetch yang benar2 REDUNDAN
+// (klik ulang menu yang sama dalam hitungan detik), TIDAK sampai bikin data
+// terasa basi kalau user memang diam agak lama di 1 halaman (lagipula,
+// auto-refresh 30 detik di atas tetap jalan utk itu).
+var _lastFetchAt = {};
+var VIEW_REFRESH_DEBOUNCE_MS = 8000;
 function _bolehSegarkan(key){
-  _lastFetchAt[key] = Date.now();
+  var now = Date.now();
+  var lalu = _lastFetchAt[key] || 0;
+  if(now - lalu < VIEW_REFRESH_DEBOUNCE_MS) return false;
+  _lastFetchAt[key] = now;
   return true;
 }
 // Spinner KECIL di tombol itu sendiri — dipakai untuk aksi yang MEMANG masih
@@ -1676,13 +1681,27 @@ function afterLogin(){
     // setTimeout(_preloadBulanTetangga, 300);
   }).catch(function(){ hideLoading(); hideBar(); if(!cachedInit) toast('error','Gagal memuat data awal'); });
 
-  // Auto-refresh diam-diam tiap 10 detik (tanpa indikator apa pun) supaya
-  // data yang diubah unit/admin lain ikut kelihatan tanpa perlu refresh
-  // manual. PERBAIKAN: sebelumnya 60 detik -- dipercepat jadi 10 detik atas
-  // permintaan eksplisit "tidak boleh ada data basi sedikit pun" (demi
-  // akuntabilitas) -- supaya user yang DIAM di 1 layar (tidak pindah menu,
-  // yang mana sudah SELALU disegarkan sendiri tiap kali pindah -- lihat
-  // _bolehSegarkan) tetap cepat lihat perubahan dari user/admin lain.
+  // Auto-refresh diam-diam supaya data yang diubah unit/admin lain ikut
+  // kelihatan tanpa perlu refresh manual (tanpa indikator apa pun -- diam2
+  // di belakang layar).
+  // PERBAIKAN (atas permintaan "kok makin lambat, buat lebih rasional"):
+  // sempat dipercepat jadi tiap 10 DETIK demi "tidak boleh ada data basi
+  // sedikit pun" -- tapi utk aplikasi rekonsiliasi keuangan (bukan chat/
+  // trading real-time), 10 detik itu SANGAT agresif: dengan cuma 3-4 orang
+  // login bersamaan pun, itu berarti puluhan permintaan "sekadar cek" per
+  // MENIT terus-menerus ke server yang sama, bahkan saat tidak ada satu pun
+  // yang benar-benar sedang berubah -- ini besar kemungkinannya jadi
+  // penyumbang lambat yang lebih besar drpd yang sudah diperbaiki di
+  // gasCallBatch/loadKonsolidasi/dst, krn ini TERUS-MENERUS jalan, bukan
+  // cuma sesekali. Diseimbangkan ke 30 detik -- tetap jauh lebih cepat
+  // ketahuan drpd versi awal 60 detik, tapi permintaan latar belakang
+  // berkurang jadi SEPERTIGA dari sebelumnya. PENTING: ini SAMA SEKALI
+  // tidak mengurangi kesegaran data yang Anda LIHAT LANGSUNG -- setiap kali
+  // pindah menu / ganti bulan / habis Simpan, itu SELALU ambil data
+  // terbaru langsung (lihat _bolehSegarkan & gasCallBatch di semua
+  // load___() masing2 halaman) -- interval ini CUMA soal "kalau user diam
+  // di 1 layar tanpa berbuat apa2, seberapa cepat perubahan dari ORANG
+  // LAIN ikut nongol tanpa dia klik apa pun".
   if (!window._srgAutoRefresh) {
     window._srgAutoRefresh = setInterval(function(){
       if(!STATE.token) return;
@@ -1690,7 +1709,7 @@ function afterLogin(){
       var av = document.querySelector('.nav-item.active');
       if(!av) return;
       refreshViewSilently(av.dataset.view);
-    }, 10000);
+    }, 30000);
   }
 }
 
