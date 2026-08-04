@@ -1199,7 +1199,32 @@ function hideLoading(){ document.getElementById('loading').classList.remove('sho
 // tahun (bikin spreadsheet+folder baru).
 function showBar(){}
 function hideBar(){}
-
+// PERBAIKAN PERFORMA: sebelumnya menu2 dgn cache (Dashboard/Pengajuan Dana/
+// Kelola Unit & Pos/Verifikasi Transaksi) memang sudah menampilkan versi
+// lama SEKETIKA, TAPI tetap langsung menembak 1 permintaan baru ke server
+// di belakang layar SETIAP KALI menu itu dibuka.
+// -------------------------------------------------------------------
+// RIWAYAT: sempat DIMATIKAN total ("_bolehSegarkan selalu true") demi
+// "tidak boleh ada data basi sedikit pun" -- tapi ini berarti kalau user
+// klik cepat bolak-balik antar menu (mis. Dashboard -> Input -> Dashboard
+// lagi dalam hitungan detik, atau tidak sengaja dobel-klik), SETIAP kunjungan
+// itu menembak permintaan baru ke server, walau baru saja diambil sepersekian
+// detik sebelumnya -- ikut menyumbang beban/lambat, persis yang dikeluhkan.
+// PERBAIKAN (atas permintaan "lebih rasional, asal tidak bottleneck"):
+// diaktifkan lagi, TAPI dengan jendela yang jauh lebih pendek drpd
+// sebelumnya (dulu 20 detik) -- cukup menahan re-fetch yang benar2 REDUNDAN
+// (klik ulang menu yang sama dalam hitungan detik), TIDAK sampai bikin data
+// terasa basi kalau user memang diam agak lama di 1 halaman (lagipula,
+// auto-refresh di atas tetap jalan utk itu).
+var _lastFetchAt = {};
+var VIEW_REFRESH_DEBOUNCE_MS = 8000;
+function _bolehSegarkan(key){
+  var now = Date.now();
+  var lalu = _lastFetchAt[key] || 0;
+  if(now - lalu < VIEW_REFRESH_DEBOUNCE_MS) return false;
+  _lastFetchAt[key] = now;
+  return true;
+}
 // Spinner KECIL di tombol itu sendiri — dipakai untuk aksi yang MEMANG masih
 // perlu menunggu server (belum/tidak bisa dibuat optimistic, mis. Unit/Pos/
 // Kategori/User/Rekonsiliasi), supaya jelas ada proses jalan tanpa mengunci
@@ -1307,15 +1332,40 @@ var GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbw69OIEt4B5EmosDf
 // Return: Promise -> array hasil, urutan SAMA PERSIS dengan urutan calls
 // (jadi kode pemanggil yang sebelumnya pakai Promise.all([...]).then(function(hasil){
 // var a=hasil[0], b=hasil[1]; ... }) TIDAK PERLU diubah strukturnya).
-// PERBAIKAN (kembali ke model sederhana, atas permintaan langsung): sempat
-// dicoba tambah lapisan "coba lagi otomatis" di sini -- tapi lapisan itu
-// menambah kompleksitas tanpa manfaat yang jelas terasa, dan berisiko
-// MALAH menambah jeda kalau memang sedang ada gangguan yang lebih dari
-// sesaat. Dikembalikan ke bentuk langsung -- 1x panggilan, 1x fetch, tanpa
-// lapisan tambahan. Kalau memang gagal, error langsung terlihat -- user
-// bisa coba lagi sendiri, lebih jelas & lebih cepat drpd menunggu beberapa
-// x percobaan otomatis di belakang layar dulu.
 function gasCallBatch(calls){
+  return _gasCallBatchDenganRetry(calls, 0);
+}
+// PERBAIKAN BUG: sebelumnya fungsi ini langsung fetch() TANPA percobaan
+// ulang sama sekali (beda dari gasCall() biasa yang sudah punya retry --
+// lihat _gasCallDenganRetry) -- padahal gasCallBatch() dipakai di titik
+// yang justru PALING sering dipanggil (muat awal setelah login, Rekap
+// Konsolidasi & Rekonsiliasi Bank, Kelola User, ringkasan+daftar Pengajuan
+// Dana). Akibatnya, gangguan jaringan SESAAT sekalipun (yang harusnya
+// tidak terasa krn gasCall() biasa otomatis coba lagi) langsung muncul
+// sebagai error ke user, mis. "Gagal memuat konsolidasi" -- padahal
+// sebenarnya cuma butuh 1x coba ulang. Sekarang disamakan: kegagalan
+// level-jaringan dicoba ulang otomatis (maks 1x, jeda singkat) sebelum
+// benar-benar menyerah. Aman diulang karena SEMUA panggilan di dalam 1
+// batch di sini SENGAJA hanya yang saling bebas / read-only (lihat catatan
+// gasCallBatch di Code.gs) -- tidak ada risiko data tertulis dobel.
+// PERBAIKAN: sebelumnya maks 2x percobaan ulang dgn jeda 600ms/1200ms
+// (total bisa nambah ~1,8 detik) -- kalau koneksi memang SEDANG lambat
+// terus-menerus (bukan cuma blip sesaat), coba-ulang 2x itu MALAH bikin
+// kelihatan lebih lambat (menunggu 2x lebih lama sebelum akhirnya
+// menyerah/berhasil), bukan lebih cepat. Dikurangi jadi 1x percobaan ulang
+// saja dgn jeda lebih singkat -- cukup untuk blip sesaat, tidak menambah
+// beban berarti kalau memang sedang ada gangguan yang lebih panjang.
+function _gasCallBatchDenganRetry(calls, percobaanJaringan){
+  return _gasCallBatchFetch(calls).catch(function(err){
+    var isTimeout = err && err.message && err.message.indexOf('Waktu tunggu habis') !== -1;
+    if(!isTimeout && percobaanJaringan < 1){
+      return new Promise(function(r){ setTimeout(r, 400); })
+        .then(function(){ return _gasCallBatchDenganRetry(calls, percobaanJaringan + 1); });
+    }
+    throw err;
+  });
+}
+function _gasCallBatchFetch(calls){
   if (!GAS_WEB_APP_URL || GAS_WEB_APP_URL.indexOf('TEMPEL_URL_WEB_APP') !== -1) {
     return Promise.reject(new Error('GAS_WEB_APP_URL belum diisi.'));
   }
@@ -1401,23 +1451,45 @@ function gasCall(fnName){
   var args = Array.prototype.slice.call(arguments, 1);
   return _gasCallDenganRetry(fnName, args, 0);
 }
-// PERBAIKAN (kembali ke model sederhana, atas permintaan langsung): lapisan
-// "coba lagi otomatis khusus jaringan" yang sempat ditambahkan ditarik lagi
-// -- kompleksitas itu tidak terasa manfaatnya & berisiko menambah jeda
-// kalau memang sedang ada gangguan yang lebih dari sesaat. Retry
-// LOCK_BUSY_MSG di bawah (beda hal -- itu memang server BALAS "sedang
-// sibuk", bukan gangguan jaringan) tetap dipertahankan karena itu memang
-// skenario yang wajar terjadi & retry-nya jelas tepat guna.
-function _gasCallDenganRetry(fnName, args, percobaan){
+// PERBAIKAN BUG: sebelumnya HANYA respons "Sistem sedang memproses
+// permintaan lain" (LOCK_BUSY_MSG) yang dicoba ulang otomatis -- kalau
+// fetch() itu sendiri GAGAL (mis. koneksi terputus sesaat, DNS/CORS
+// hiccup, atau Apps Script sedang "cold start" dan sempat tidak merespons),
+// promise-nya langsung REJECT tanpa dicoba ulang sama sekali, sehingga
+// panggilan yang sebenarnya cuma butuh 1x percobaan ulang malah gagal total
+// dan user melihat pesan error (mis. "Gagal memuat data verifikasi",
+// "Gagal memuat Item Non-Unit") padahal cuma gangguan sesaat. Sekarang
+// kegagalan jaringan/level-fetch JUGA dicoba ulang otomatis (maks 1x,
+// terpisah dari hitungan retry LOCK_BUSY di atas) sebelum benar-benar
+// menyerah -- aman diulang krn permintaan tulis selalu bawa idKey (idempotency).
+// PERBAIKAN: sebelumnya maks 2x percobaan ulang dgn jeda 600ms/1200ms
+// (total bisa nambah ~1,8 detik PER panggilan) -- kalau koneksi memang
+// SEDANG lambat terus-menerus (bukan cuma blip sesaat), ini malah bikin
+// SEMUA menu kelihatan lebih lambat, bukan lebih cepat -- terutama karena
+// beberapa halaman memanggil ini beberapa kali sekaligus. Dikurangi jadi
+// 1x percobaan ulang saja dgn jeda lebih singkat.
+function _gasCallDenganRetry(fnName, args, percobaan, percobaanJaringan){
+  percobaanJaringan = percobaanJaringan || 0;
   return _gasCallFetch.apply(null, [fnName].concat(args)).then(function(res){
     if(res === null || res === undefined){
       return { success:false, message:'Server tidak mengembalikan respons ("'+fnName+'"). Coba muat ulang halaman -- kalau masih terjadi, kemungkinan ada perubahan kode yang belum ter-deploy ulang.' };
     }
     if(res && res.success === false && res.message === LOCK_BUSY_MSG && percobaan < 3){
       return new Promise(function(r){ setTimeout(r, 700 * (percobaan + 1)); })
-        .then(function(){ return _gasCallDenganRetry(fnName, args, percobaan + 1); });
+        .then(function(){ return _gasCallDenganRetry(fnName, args, percobaan + 1, percobaanJaringan); });
     }
     return res;
+  }).catch(function(err){
+    // Timeout eksplisit (90 detik, lihat AbortController di _gasCallFetch)
+    // TIDAK dicoba ulang otomatis -- kalau server benar-benar macet 90
+    // detik, mencoba ulang cuma bikin user menunggu lebih lama lagi tanpa
+    // manfaat; pesan errornya sendiri sudah jelas.
+    var isTimeout = err && err.message && err.message.indexOf('Waktu tunggu habis') !== -1;
+    if(!isTimeout && percobaanJaringan < 1){
+      return new Promise(function(r){ setTimeout(r, 400); })
+        .then(function(){ return _gasCallDenganRetry(fnName, args, percobaan, percobaanJaringan + 1); });
+    }
+    throw err;
   });
 }
 
@@ -1636,7 +1708,7 @@ function afterLogin(){
   // ini SAMA SEKALI tidak mengurangi kesegaran data yang Anda LIHAT
   // LANGSUNG -- setiap kali Anda sendiri pindah menu / ganti bulan / habis
   // Simpan/Ubah/Hapus, itu SELALU ambil data terbaru langsung saat itu
-  // juga (lihat gasCallBatch di semua load___() masing2
+  // juga (lihat _bolehSegarkan & gasCallBatch di semua load___() masing2
   // halaman, dan semua titik "delete CACHE...[key]" sesudah aksi tulis) --
   // interval 5 menit ini CUMA soal "kalau user diam di 1 layar tanpa
   // berbuat apa2, seberapa cepat perubahan dari ORANG LAIN ikut nongol
@@ -1912,6 +1984,11 @@ function loadDashboard(){
   document.getElementById('db-tahun-label').textContent = STATE.tahunAktif || '-';
   var cached = _dashboardCache[STATE.tahunAktif];
   if(cached){ _dashboardDataTahun = cached; _renderKartuDashboard(); _renderGrafikDashboard(cached); } else { showBar(); }
+  // Kalau tahun yang sama baru saja disegarkan dlm 20 detik terakhir, cukup
+  // pakai versi yg sudah ada -- lewati permintaan baru sama sekali (bukan
+  // cuma disembunyikan di balik cache render), supaya pindah2 menu dgn
+  // cepat tidak memicu request berulang-ulang ke server.
+  if(cached && !_bolehSegarkan('dashboard_'+STATE.tahunAktif)) return;
   // PERBAIKAN BUG PENTING (kelanjutan perbaikan konkurensi di loadKonsolidasi
   // & muatBadgeGabungan): sebelumnya di sini ADA 2 permintaan TERPISAH yang
   // ditembak BERSAMAAN (getRingkasanTahun & getRingkasanPengajuan) -- 2
@@ -3390,6 +3467,9 @@ function loadViewVerifikasiData(){
   // 1) Tampilkan cache instan kalau ada (bulan ini sudah pernah dibuka)
   if(cached){ _vfPerlu = cached.perlu; _vfRiwayat = cached.riwayat; _vfLocked = !!cached.locked; renderVfLockBanner(); renderVfPerlu(); renderVfRiwayat(); }
   else showBar();
+  // Kalau bulan ini sudah disegarkan dlm 20 detik terakhir, cukup pakai yg
+  // ada -- lewati request baru sama sekali.
+  if(cached && !_bolehSegarkan('verifikasi_'+key)) return;
   // 2) Refresh dari server di belakang layar.
   // PERBAIKAN PERFORMA: digabung jadi 1x round-trip lewat gasCallBatch
   // (sebelumnya Promise.all atas 3 gasCall() TERPISAH -- tiap permintaan
@@ -4812,6 +4892,9 @@ function loadUnitPos(){
   var punyaCache = _unitPosData && _unitPosData.units;
   if(punyaCache){ renderUnitTable(); renderPosGroups(); }
   else showBar();
+  // Kalau sudah disegarkan dlm 20 detik terakhir, cukup pakai yg ada --
+  // lewati request baru sama sekali.
+  if(punyaCache && !_bolehSegarkan('unitpos')) return;
   // PERBAIKAN BUG PENTING: sebelumnya 2 gasCall() TERPISAH lewat Promise.all
   // -- 2 eksekusi Apps Script konkuren berebut akses ke spreadsheet yang
   // sama (lihat catatan lengkap soal kontensi ini di loadKonsolidasi).
@@ -5749,8 +5832,8 @@ function renderMemorialLockBanner(){
 // cache sendiri utk bulan yg sama (Konsolidasi, Verifikasi Transaksi,
 // Input Rekap Bulanan, Rekening Koran) harus langsung tahu -- kalau tidak,
 // mereka akan terus menampilkan status kunci/tombol yg BASI sampai cache
-// itu sendiri kedaluwarsa.
-// Fungsi ini menghapus SEMUA cache terkait bulan itu
+// atau jendela "tenang" 20 detik (_bolehSegarkan) itu sendiri kedaluwarsa.
+// Fungsi ini menghapus SEMUA cache & timestamp debounce terkait bulan itu
 // di SEMUA halaman sekaligus, supaya kunjungan BERIKUTNYA ke halaman mana
 // pun (secepat apa pun setelah kunci/buka kunci) SELALU mengambil status
 // terbaru dari server, tidak menunggu.
@@ -5759,6 +5842,8 @@ function _segarkanSemuaSetelahKunciBerubah(tahun, bulan){
   delete _konsolidasiRawCache[key];
   delete CACHE.rekap[key];
   delete _vfCache[key];
+  delete _lastFetchAt['verifikasi_'+key];
+  delete _lastFetchAt['dashboard_'+tahun]; // ringkasan Dashboard ikut menampilkan jumlah per status, aman ikut disegarkan
 }
 function kunciMemorial(){
   var memo = _bangunDaftarMemo();
@@ -6444,6 +6529,12 @@ function loadPengajuanDana(){
       }).catch(function(){});
     }
   }
+  // Kalau daftar sudah pernah disegarkan dlm 20 detik terakhir, cukup pakai
+  // versi yg sudah ada -- LEWATI permintaan baru ke server sama sekali
+  // (termasuk pemanasan cache di bawah), supaya pindah2 menu dgn cepat
+  // tidak memicu request berulang-ulang. Kalau memang belum pernah dimuat
+  // sama sekali (PD.daftar masih kosong), tetap SELALU muat spt biasa.
+  if(PD.daftar.length && !_bolehSegarkan('pengajuan_daftar')) return;
   pdMuatRingkasanDanDaftar(); // 1 round-trip gabungan (ringkasan+badge+daftar), gantikan pdMuatRingkasan()+pdMuatDaftar() terpisah
   // Pemanasan cache sheet anak Pengajuan (Detail/Realisasi/File/Komentar)
   // DIAM-DIAM di latar belakang (fire-and-forget, hasilnya tidak
@@ -6570,8 +6661,9 @@ function pdMuatRingkasanDanDaftar(){
   }).catch(function(){
     // PERBAIKAN BUG: sebelumnya baris ini memanggil pdMuatRingkasanDanDaftar()
     // LAGI setiap kali batch-nya gagal -- TANPA batas jumlah percobaan dan
-    // TANPA jeda sama sekali, jadi kalau jaringan benar-benar bermasalah,
-    // fungsi ini akan terus
+    // TANPA jeda sama sekali, jadi kalau jaringan benar-benar bermasalah
+    // (bukan cuma blip sesaat -- gasCallBatch sendiri SUDAH mencoba ulang
+    // 2x lebih dulu, lihat _gasCallBatchDenganRetry), fungsi ini akan terus
     // memanggil dirinya sendiri TANPA HENTI, membanjiri server dengan
     // permintaan gagal berulang-ulang dan user tidak pernah diberi tahu ada
     // masalah -- juga TIDAK PERNAH benar-benar "jatuh balik ke 3 panggilan
