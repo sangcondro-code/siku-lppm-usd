@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SIKU LPPM USD</title>
+<!-- PERBAIKAN PERFORMA (diadopsi dari referensi SIMK LPPM USD yang terasa
+     lebih cepat): preconnect ke script.google.com -- browser membuka
+     koneksi (DNS + TCP + TLS handshake) ke domain Apps Script LEBIH AWAL,
+     sebelum permintaan fetch() pertama benar-benar dikirim, jadi permintaan
+     PERTAMA (login) tidak perlu menunggu proses pembukaan koneksi itu lagi.
+     Ini murni percepatan jaringan, tidak berisiko/tidak mengubah perilaku
+     apa pun. -->
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
@@ -1206,7 +1215,7 @@ function hideBar(){}
 // sebelumnya (dulu 20 detik) -- cukup menahan re-fetch yang benar2 REDUNDAN
 // (klik ulang menu yang sama dalam hitungan detik), TIDAK sampai bikin data
 // terasa basi kalau user memang diam agak lama di 1 halaman (lagipula,
-// auto-refresh 30 detik di atas tetap jalan utk itu).
+// auto-refresh di atas tetap jalan utk itu).
 var _lastFetchAt = {};
 var VIEW_REFRESH_DEBOUNCE_MS = 8000;
 function _bolehSegarkan(key){
@@ -1516,9 +1525,19 @@ function handleLogin(e){
     afterLogin();
   }).catch(function(err){ btnBusy(btn, false); toast('error','Gagal terhubung ke server'); });
 }
+// PERBAIKAN (diadopsi dari referensi SIMK LPPM USD): sebelumnya logout
+// MENUNGGU respons server (gasCall('logoutUser',...).then(kembaliKeLogin))
+// sebelum kembali ke layar Login -- artinya kecepatan logout tersandera
+// oleh kecepatan jaringan/Apps Script, padahal user cuma ingin segera
+// keluar. Sekarang token dibatalkan di server secara fire-and-forget
+// (ditembak, TIDAK ditunggu) -- layar Login muncul SEKETIKA, tidak peduli
+// jaringan lambat atau cepat. Aman: kalaupun panggilan pembatalan token itu
+// gagal/terlambat sampai, sesi lokal (localStorage/sessionStorage) sudah
+// dihapus duluan di kembaliKeLogin(), jadi browser ini tidak bisa lagi
+// otomatis masuk lagi tanpa login ulang.
 function handleLogout(){
-  showLoading('Keluar...');
-  gasCall('logoutUser', STATE.token).then(kembaliKeLogin).catch(kembaliKeLogin);
+  if(STATE.token) gasCall('logoutUser', STATE.token).catch(function(){});
+  kembaliKeLogin();
 }
 // Reset penuh ke halaman Login TANPA mengandalkan location.reload() — di dalam
 // iframe sandbox milik Apps Script, reload() kadang tidak benar2 memuat ulang
@@ -1681,35 +1700,32 @@ function afterLogin(){
     // setTimeout(_preloadBulanTetangga, 300);
   }).catch(function(){ hideLoading(); hideBar(); if(!cachedInit) toast('error','Gagal memuat data awal'); });
 
-  // Auto-refresh diam-diam supaya data yang diubah unit/admin lain ikut
-  // kelihatan tanpa perlu refresh manual (tanpa indikator apa pun -- diam2
-  // di belakang layar).
-  // PERBAIKAN (atas permintaan "kok makin lambat, buat lebih rasional"):
-  // sempat dipercepat jadi tiap 10 DETIK demi "tidak boleh ada data basi
-  // sedikit pun" -- tapi utk aplikasi rekonsiliasi keuangan (bukan chat/
-  // trading real-time), 10 detik itu SANGAT agresif: dengan cuma 3-4 orang
-  // login bersamaan pun, itu berarti puluhan permintaan "sekadar cek" per
-  // MENIT terus-menerus ke server yang sama, bahkan saat tidak ada satu pun
-  // yang benar-benar sedang berubah -- ini besar kemungkinannya jadi
-  // penyumbang lambat yang lebih besar drpd yang sudah diperbaiki di
-  // gasCallBatch/loadKonsolidasi/dst, krn ini TERUS-MENERUS jalan, bukan
-  // cuma sesekali. Diseimbangkan ke 30 detik -- tetap jauh lebih cepat
-  // ketahuan drpd versi awal 60 detik, tapi permintaan latar belakang
-  // berkurang jadi SEPERTIGA dari sebelumnya. PENTING: ini SAMA SEKALI
-  // tidak mengurangi kesegaran data yang Anda LIHAT LANGSUNG -- setiap kali
-  // pindah menu / ganti bulan / habis Simpan, itu SELALU ambil data
-  // terbaru langsung (lihat _bolehSegarkan & gasCallBatch di semua
-  // load___() masing2 halaman) -- interval ini CUMA soal "kalau user diam
-  // di 1 layar tanpa berbuat apa2, seberapa cepat perubahan dari ORANG
-  // LAIN ikut nongol tanpa dia klik apa pun".
+  // Auto-refresh diam-diam tiap 5 MENIT supaya data yang diubah unit/admin
+  // lain ikut kelihatan tanpa perlu refresh manual (tanpa indikator apa
+  // pun -- diam2 di belakang layar). Nilai 5 menit ini SENGAJA diminta
+  // langsung oleh pengguna, setelah beberapa kali dicoba lebih pendek (10
+  // detik -> 30 detik -> 60 detik) dan masih terasa membebani. PENTING:
+  // ini SAMA SEKALI tidak mengurangi kesegaran data yang Anda LIHAT
+  // LANGSUNG -- setiap kali Anda sendiri pindah menu / ganti bulan / habis
+  // Simpan/Ubah/Hapus, itu SELALU ambil data terbaru langsung saat itu
+  // juga (lihat _bolehSegarkan & gasCallBatch di semua load___() masing2
+  // halaman, dan semua titik "delete CACHE...[key]" sesudah aksi tulis) --
+  // interval 5 menit ini CUMA soal "kalau user diam di 1 layar tanpa
+  // berbuat apa2, seberapa cepat perubahan dari ORANG LAIN ikut nongol
+  // tanpa dia klik apa pun sendiri".
   if (!window._srgAutoRefresh) {
     window._srgAutoRefresh = setInterval(function(){
       if(!STATE.token) return;
+      // Dilewati dulu kalau salah satu kondisi ini terjadi (aman -- tetap
+      // dicoba lagi di putaran berikutnya, bukan hilang selamanya):
+      if(document.hidden) return; // tab sedang tidak aktif dilihat -- hemat kuota
+      if(document.querySelector('.swal2-container')) return; // ada dialog SweetAlert terbuka -- jangan ganggu
+      if(document.querySelector('.modal.show')) return; // ada modal Bootstrap terbuka -- jangan ganggu
       muatBadgeGabungan();
       var av = document.querySelector('.nav-item.active');
       if(!av) return;
       refreshViewSilently(av.dataset.view);
-    }, 30000);
+    }, 300000); // 5 menit -- diminta eksplisit oleh pengguna
   }
 }
 
