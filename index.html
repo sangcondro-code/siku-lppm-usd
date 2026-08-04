@@ -1642,8 +1642,6 @@ function afterLogin(){
   if(_navLabelInputAwal) _navLabelInputAwal.textContent = (STATE.role==='ADMIN') ? 'Input Rekap Bulanan' : 'Daftar Transaksi Saya';
   var _navLabelPesanAwal = document.getElementById('nav-label-pesan');
   if(_navLabelPesanAwal) _navLabelPesanAwal.textContent = 'Pesan';
-  muatBadgeGabungan();
-
   // 1) Tampilkan dulu dari cache lokal kalau ada (instan, tanpa spinner)
   var cachedInit = lsGet('init_v2_' + STATE.username);
   if(cachedInit){
@@ -1661,14 +1659,42 @@ function afterLogin(){
   }
 
   // 2) Ambil data terbaru dari server di belakang layar
+  // PERBAIKAN PERFORMA PENTING ("dashboard/menu lama muncul, 7-10 detik"):
+  // sebelumnya di sini ada 3 round-trip TERPISAH yang jalan hampir
+  // bersamaan tiap kali habis login/refresh -- muatBadgeGabungan() (badge
+  // Pesan+Pengajuan), batch ini sendiri (getDaftarTahun/getMyPos/getSetup),
+  // DAN (begitu batch ini selesai) loadDashboard() menyusul dengan batch-nya
+  // SENDIRI lagi (getRingkasanTahun/getRingkasanPengajuan). Di versi GitHub
+  // Pages, SETIAP round-trip itu membayar biaya penuh fetch() lintas domain
+  // + redirect internal Apps Script (tidak ada di google.script.run) --
+  // jadi 2-3 round-trip berurutan/bersamaan itu yang paling terasa bikin
+  // "lama banget" walau masing2 baik2 saja sendiri2. Sekarang SEMUANYA
+  // digabung jadi SATU batch: data inti + badge + (kalau tahun aktif sudah
+  // diketahui dari cache lokal di langkah 1 di atas) ringkasan Dashboard
+  // SEKALIAN -- sehingga tampilan pertama biasanya CUMA menunggu 1
+  // round-trip jaringan, bukan 2-3.
   showBar();
-  gasCallBatch([
+  var _tahunTebakan = cachedInit ? cachedInit.tahunAktif : null;
+  var _callsAwal = [
     { fn:'getDaftarTahun', args:[STATE.token] },
     { fn:'getMyPos', args:[STATE.token] },
-    { fn:'getSetup', args:[STATE.token] }
-  ]).then(function(res){
+    { fn:'getSetup', args:[STATE.token] },
+    { fn:'getJumlahPesanBelumDibaca', args:[STATE.token] },
+    { fn:'getJumlahPengajuanPerluPerhatian', args:[STATE.token] }
+  ];
+  // Tebakan tahun aktif (dari cache lokal) dipakai OPTIMISTIK supaya
+  // ringkasan Dashboard ikut ditarik dalam batch yang sama -- kalau
+  // ternyata tahun aktif SEBENARNYA (dari respons getDaftarTahun) beda dari
+  // tebakan ini (mis. baru saja di-rollover admin lain), hasil tebakan
+  // dibuang & loadDashboard() jalan seperti biasa (aman, tidak pernah
+  // menampilkan data tahun yang salah -- lihat pengecekan di bawah).
+  if(_tahunTebakan){
+    _callsAwal.push({ fn:'getRingkasanTahun', args:[_tahunTebakan, STATE.token] });
+    _callsAwal.push({ fn:'getRingkasanPengajuan', args:[STATE.token] });
+  }
+  gasCallBatch(_callsAwal).then(function(res){
     hideLoading(); hideBar();
-    var thn = res[0], pos = res[1], setup = res[2];
+    var thn = res[0], pos = res[1], setup = res[2], resPesan = res[3], resPengajuan = res[4];
     STATE.daftarTahun = thn.data || []; STATE.tahunAktif = thn.tahunAktif || (STATE.daftarTahun[STATE.daftarTahun.length-1]);
     // PERBAIKAN BUG: STATE.tahunAktif adalah variabel GLOBAL yang dipakai
     // bersama utk selector "Tahun" di banyak menu (Rekap Bulanan, Jurnal
@@ -1683,6 +1709,29 @@ function afterLogin(){
     if(setup && setup.success){ STATE.namaBank = setup.namaBank || STATE.namaBank; STATE.kodeRekeningKasBank = setup.kodeRekeningKasBank || ''; }
     lsSet('init_v2_' + STATE.username, { daftarTahun:STATE.daftarTahun, tahunAktif:STATE.tahunAktif, myPos:STATE.myPos, myUnits:STATE.myUnits, namaBank:STATE.namaBank, kodeRekeningKasBank:STATE.kodeRekeningKasBank });
     renderSelTahunGlobal();
+    // Badge Pesan/Pengajuan -- sekalian dari batch yang sama di atas
+    // (menggantikan muatBadgeGabungan() yang dulu jalan terpisah di sini).
+    if(resPesan && resPesan.success){
+      var elP = document.getElementById('pesan-badge');
+      if(elP){ if(resPesan.jumlah > 0){ elP.textContent = resPesan.jumlah > 99 ? '99+' : resPesan.jumlah; elP.classList.remove('d-none'); } else elP.classList.add('d-none'); }
+    }
+    if(resPengajuan && resPengajuan.success){
+      var elQ = document.getElementById('pengajuan-badge');
+      if(elQ){ if(resPengajuan.jumlah > 0){ elQ.textContent = resPengajuan.jumlah > 99 ? '99+' : resPengajuan.jumlah; elQ.classList.remove('d-none'); } else elQ.classList.add('d-none'); }
+    }
+    // Ringkasan Dashboard yg ikut ditebak & ditarik di atas -- pakai HANYA
+    // kalau tebakan tahunnya benar-benar cocok dgn tahun aktif yg baru
+    // dikonfirmasi server; taruh di cache dashboard + tandai baru saja
+    // disegarkan, supaya loadDashboard() (dipanggil oleh gotoView di bawah)
+    // langsung render dari sini TANPA menembak round-trip ke-2.
+    if(_tahunTebakan && _tahunTebakan === STATE.tahunAktif){
+      var resRingkasan = res[5], resRingkasanPengajuan = res[6];
+      if(resRingkasan && resRingkasan.success){
+        _dashboardCache[STATE.tahunAktif] = resRingkasan;
+        _lastFetchAt['dashboard_'+STATE.tahunAktif] = Date.now();
+      }
+      if(resRingkasanPengajuan && resRingkasanPengajuan.success){ _dashboardDataPengajuan = resRingkasanPengajuan; }
+    }
     gotoView(document.querySelector('.nav-item.active') ? document.querySelector('.nav-item.active').dataset.view : 'dashboard');
     // PERBAIKAN (atas laporan "malah jadi lambat semua"): PRELOAD
     // dinonaktifkan dulu. Preload berarti mengirim 1 batch besar (~19
@@ -3646,19 +3695,26 @@ function _renderChatBubbles(elId, data, labelDiriSendiri){
 // Hapus 1 pesan (cuma bisa punya sendiri, dicek juga di server). HANYA
 // menghapus baris itu -- tidak mempengaruhi pesan lain.
 function hapusPesanChat(waktuISO){
-  Swal.fire({ title:'Hapus pesan ini?', text:'Tidak bisa dikembalikan lagi.', icon:'warning', showCancelButton:true, confirmButtonColor:'#dc2626', confirmButtonText:'Hapus', cancelButtonText:'Batal' }).then(function(res){
+  Swal.fire({
+    title:'Hapus pesan ini?', text:'Tidak bisa dikembalikan lagi.', icon:'warning', showCancelButton:true, confirmButtonColor:'#dc2626', confirmButtonText:'Hapus', cancelButtonText:'Batal',
+    allowOutsideClick:false, allowEscapeKey:false,
+    preConfirm: function(){
+      Swal.showLoading();
+      return gasCall('hapusPesan', waktuISO, STATE.token).then(function(r){
+        if(!r.success){ Swal.showValidationMessage(r.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menghapus, coba lagi.'); return false; });
+    }
+  }).then(function(res){
     if(!res.isConfirmed) return;
-    gasCall('hapusPesan', waktuISO, STATE.token).then(function(r){
-      if(!r.success){ toast('error', r.message); return; }
-      toast('success','Pesan dihapus');
-      if(STATE.role==='ADMIN'){
-        _pesanCacheAdminList = null;
-        if(_pesanAdminSedangDibuka){ delete _pesanCacheAdminThread[_pesanAdminSedangDibuka]; renderPesanAdminThread(_pesanAdminSedangDibuka); }
-      } else {
-        _pesanCacheSaya = null;
-        renderPesanUnit();
-      }
-    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menghapus, coba lagi.'); });
+    toast('success','Pesan dihapus');
+    if(STATE.role==='ADMIN'){
+      _pesanCacheAdminList = null;
+      if(_pesanAdminSedangDibuka){ delete _pesanCacheAdminThread[_pesanAdminSedangDibuka]; renderPesanAdminThread(_pesanAdminSedangDibuka); }
+    } else {
+      _pesanCacheSaya = null;
+      renderPesanUnit();
+    }
   });
 }
 
@@ -3705,20 +3761,27 @@ function renderPesanUnit(){
 function bersihkanPercakapan(){
   var lawanBicara = STATE.role==='ADMIN' ? _pesanAdminSedangDibuka : null;
   if(STATE.role==='ADMIN' && !lawanBicara){ toast('error','Pilih dulu Unit yang percakapannya mau dibersihkan'); return; }
-  Swal.fire({ title:'Bersihkan seluruh percakapan ini?', text:'Semua pesan di obrolan ini (dari kedua sisi) akan dihapus permanen. Tidak bisa dikembalikan.', icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Bersihkan', confirmButtonColor:'#dc2626', cancelButtonText:'Batal' }).then(function(r){
+  Swal.fire({
+    title:'Bersihkan seluruh percakapan ini?', text:'Semua pesan di obrolan ini (dari kedua sisi) akan dihapus permanen. Tidak bisa dikembalikan.', icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Bersihkan', confirmButtonColor:'#dc2626', cancelButtonText:'Batal',
+    allowOutsideClick:false, allowEscapeKey:false,
+    preConfirm: function(){
+      Swal.showLoading();
+      return gasCall('hapusSeluruhPercakapan', lawanBicara, STATE.token).then(function(res){
+        if(!res.success){ Swal.showValidationMessage(res.message); return false; }
+        return res.jumlah;
+      }).catch(function(){ Swal.showValidationMessage('Gagal membersihkan percakapan'); return false; });
+    }
+  }).then(function(r){
     if(!r.isConfirmed) return;
-    gasCall('hapusSeluruhPercakapan', lawanBicara, STATE.token).then(function(res){
-      if(!res.success){ toast('error', res.message); return; }
-      toast('success', res.jumlah+' pesan dihapus');
-      if(STATE.role==='ADMIN'){
-        _pesanCacheAdminList = null;
-        delete _pesanCacheAdminThread[lawanBicara];
-        renderPesanAdminThread(lawanBicara);
-      } else {
-        _pesanCacheSaya = null;
-        renderPesanUnit();
-      }
-    }).catch(function(){ toast('error','Gagal membersihkan percakapan'); });
+    toast('success', r.value+' pesan dihapus');
+    if(STATE.role==='ADMIN'){
+      _pesanCacheAdminList = null;
+      delete _pesanCacheAdminThread[lawanBicara];
+      renderPesanAdminThread(lawanBicara);
+    } else {
+      _pesanCacheSaya = null;
+      renderPesanUnit();
+    }
   });
 }
 function pesanUnitKeydown(e){ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); pesanUnitKirim(); } }
@@ -3764,7 +3827,7 @@ function tanyaAdminTentangTransaksiVf(idx){
       toast('success','Pesan terkirim ke Admin');
       _pesanCacheSaya = null;
       muatBadgePesan();
-    });
+    }).catch(function(){ toast('error','Gagal mengirim, coba lagi.'); });
   });
 }
 // Sama seperti tombol "Pesan Baru" di sisi Admin -- Unit juga bisa mulai
@@ -3779,16 +3842,18 @@ function bukaPesanBaruUnit(){
     preConfirm: function(){
       var v = document.getElementById('sw-pesan').value.trim();
       if(!v){ Swal.showValidationMessage('Isi pesan dulu'); return false; }
-      return { topik: document.getElementById('sw-topik').value.trim(), isi:v };
+      var topik = document.getElementById('sw-topik').value.trim();
+      Swal.showLoading();
+      return gasCall('kirimPesanKeAdmin', v, topik, STATE.token).then(function(r){
+        if(!r.success){ Swal.showValidationMessage(r.message); return false; }
+        return true;
+      }).catch(function(){ Swal.showValidationMessage('Gagal mengirim, coba lagi.'); return false; });
     }
   }).then(function(res){
     if(!res.isConfirmed) return;
-    gasCall('kirimPesanKeAdmin', res.value.isi, res.value.topik, STATE.token).then(function(r){
-      if(!r.success){ toast('error', r.message); return; }
-      toast('success','Pesan terkirim');
-      _pesanCacheSaya = null;
-      renderPesanUnit();
-    });
+    toast('success','Pesan terkirim');
+    _pesanCacheSaya = null;
+    renderPesanUnit();
   });
 }
 
@@ -5049,13 +5114,16 @@ function bukaEditUnit(kode){
     preConfirm: function(){
       var nama = document.getElementById('sw-nama').value.trim();
       if(!nama){ Swal.showValidationMessage('Nama unit wajib diisi'); return false; }
-      return { kodeUnit:kode, namaUnit:nama, aktif:document.getElementById('sw-aktif').checked, kodeAkunSimk:document.getElementById('sw-akun-simk').value.trim() };
+      var data = { kodeUnit:kode, namaUnit:nama, aktif:document.getElementById('sw-aktif').checked, kodeAkunSimk:document.getElementById('sw-akun-simk').value.trim() };
+      Swal.showLoading();
+      return gasCall('saveUnit', data, STATE.username, STATE.token).then(function(r){
+        if(!r.success){ Swal.showValidationMessage(r.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menyimpan, coba lagi.'); return false; });
     }
   }).then(function(res){
     if(!res.isConfirmed) return;
-    gasCall('saveUnit', res.value, STATE.username, STATE.token).then(function(r){
-      if(!r.success){ toast('error', r.message); return; } toast('success','Unit diperbarui'); loadUnitPos();
-    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menyimpan, coba lagi.'); });
+    toast('success','Unit diperbarui'); loadUnitPos();
   });
 }
 function hapusUnit(kode){
@@ -5101,13 +5169,16 @@ function bukaEditPos(kode){
     preConfirm: function(){
       var nama = document.getElementById('sw-nama').value.trim();
       if(!nama){ Swal.showValidationMessage('Nama pos wajib diisi'); return false; }
-      return { kodePos:kode, namaPos:nama, kodeUnit:document.getElementById('sw-unit').value, kodeRekening:document.getElementById('sw-rekening').value.trim(), aktif:document.getElementById('sw-aktif').checked, sertakanMemorial:document.getElementById('sw-sertakan-memorial').checked };
+      var data = { kodePos:kode, namaPos:nama, kodeUnit:document.getElementById('sw-unit').value, kodeRekening:document.getElementById('sw-rekening').value.trim(), aktif:document.getElementById('sw-aktif').checked, sertakanMemorial:document.getElementById('sw-sertakan-memorial').checked };
+      Swal.showLoading();
+      return gasCall('savePos', data, STATE.username, STATE.token).then(function(r){
+        if(!r.success){ Swal.showValidationMessage(r.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menyimpan, coba lagi.'); return false; });
     }
   }).then(function(res){
     if(!res.isConfirmed) return;
-    gasCall('savePos', res.value, STATE.username, STATE.token).then(function(r){
-      if(!r.success){ toast('error', r.message); return; } toast('success','Pos diperbarui'); loadUnitPos();
-    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menyimpan, coba lagi.'); });
+    toast('success','Pos diperbarui'); loadUnitPos();
   });
 }
 function hapusPos(kode){
@@ -5168,21 +5239,32 @@ function bukaEditKategori(kode){
     preConfirm: function(){
       var nama = document.getElementById('sw-nama').value.trim();
       if(!nama){ Swal.showValidationMessage('Nama kategori wajib diisi'); return false; }
-      return { kodeKategori:kode, namaKategori:nama, posisi:document.getElementById('sw-posisi').value, kodeRekening:document.getElementById('sw-rekening').value.trim(), aktif:document.getElementById('sw-aktif').checked, sertakanMemorial:document.getElementById('sw-sertakan-memorial').checked };
+      var data = { kodeKategori:kode, namaKategori:nama, posisi:document.getElementById('sw-posisi').value, kodeRekening:document.getElementById('sw-rekening').value.trim(), aktif:document.getElementById('sw-aktif').checked, sertakanMemorial:document.getElementById('sw-sertakan-memorial').checked };
+      Swal.showLoading();
+      return gasCall('saveKategoriTambahan', data, STATE.username, STATE.token).then(function(r){
+        if(!r.success){ Swal.showValidationMessage(r.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menyimpan, coba lagi.'); return false; });
     }
   }).then(function(res){
     if(!res.isConfirmed) return;
-    gasCall('saveKategoriTambahan', res.value, STATE.username, STATE.token).then(function(r){
-      if(!r.success){ toast('error', r.message); return; } toast('success','Kategori diperbarui'); loadUnitPos();
-    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menyimpan, coba lagi.'); });
+    toast('success','Kategori diperbarui'); loadUnitPos();
   });
 }
 function hapusKategoriTambahan(kode){
-  Swal.fire({title:'Hapus kategori ini?', text:'Item non-unit yang sudah terlanjur dicatat dgn kategori ini tetap tersimpan, tapi akan ditandai "kategori tidak dikenal".', icon:'warning', showCancelButton:true, confirmButtonText:'Hapus', confirmButtonColor:'#dc2626'}).then(function(r){
+  Swal.fire({
+    title:'Hapus kategori ini?', text:'Item non-unit yang sudah terlanjur dicatat dgn kategori ini tetap tersimpan, tapi akan ditandai "kategori tidak dikenal".', icon:'warning', showCancelButton:true, confirmButtonText:'Hapus', confirmButtonColor:'#dc2626',
+    allowOutsideClick:false, allowEscapeKey:false,
+    preConfirm: function(){
+      Swal.showLoading();
+      return gasCall('deleteKategoriTambahan', kode, STATE.username, STATE.token).then(function(res){
+        if(!res.success){ Swal.showValidationMessage(res.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menghapus, coba lagi.'); return false; });
+    }
+  }).then(function(r){
     if(!r.isConfirmed) return;
-    gasCall('deleteKategoriTambahan', kode, STATE.username, STATE.token).then(function(res){
-      if(!res.success){ toast('error', res.message); return; } toast('success','Kategori dihapus'); loadUnitPos();
-    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menghapus, coba lagi.'); });
+    toast('success','Kategori dihapus'); loadUnitPos();
   });
 }
 
@@ -5227,23 +5309,31 @@ function bukaEditKomponenAnggaran(kode){
     preConfirm:function(){
       var nama = document.getElementById('sw-nama-komponen').value.trim();
       if(!nama){ Swal.showValidationMessage('Nama komponen wajib diisi'); return false; }
-      return nama;
+      Swal.showLoading();
+      return gasCall('saveKomponenAnggaran', {kodeKomponen:kode, namaKomponen:nama}, STATE.token).then(function(r){
+        if(!r || !r.success){ Swal.showValidationMessage(r.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menyimpan, coba lagi.'); return false; });
     }
   }).then(function(res){
     if(!res.isConfirmed) return;
-    gasCall('saveKomponenAnggaran', {kodeKomponen:kode, namaKomponen:res.value}, STATE.token).then(function(r){
-      if(!r || !r.success){ toast('error', r.message); return; }
-      toast('success','Komponen diperbarui'); loadKomponenAnggaranSetup();
-    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menyimpan'); });
+    toast('success','Komponen diperbarui'); loadKomponenAnggaranSetup();
   });
 }
 function hapusKomponenAnggaranSetup(kode){
-  Swal.fire({ title:'Hapus komponen ini?', text:'Komponen yang sudah pernah dipakai di pengajuan lama tetap tersimpan di riwayat, cuma tidak muncul lagi di pilihan baru.', icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Hapus', confirmButtonColor:'#dc2626' }).then(function(r){
+  Swal.fire({
+    title:'Hapus komponen ini?', text:'Komponen yang sudah pernah dipakai di pengajuan lama tetap tersimpan di riwayat, cuma tidak muncul lagi di pilihan baru.', icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Hapus', confirmButtonColor:'#dc2626',
+    allowOutsideClick:false, allowEscapeKey:false,
+    preConfirm: function(){
+      Swal.showLoading();
+      return gasCall('hapusKomponenAnggaran', kode, STATE.token).then(function(res){
+        if(!res || !res.success){ Swal.showValidationMessage(res.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menghapus, coba lagi.'); return false; });
+    }
+  }).then(function(r){
     if(!r.isConfirmed) return;
-    gasCall('hapusKomponenAnggaran', kode, STATE.token).then(function(res){
-      if(!res || !res.success){ toast('error', res.message); return; }
-      toast('success','Komponen dihapus'); loadKomponenAnggaranSetup();
-    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menghapus'); });
+    toast('success','Komponen dihapus'); loadKomponenAnggaranSetup();
   });
 }
 
@@ -5317,11 +5407,19 @@ function submitUser(e){
   }).catch(function(){ btnBusy(btn, false); toast('error','Gagal menyimpan'); });
 }
 function hapusUser(username){
-  Swal.fire({title:'Hapus user '+username+'?', icon:'warning', showCancelButton:true, confirmButtonText:'Hapus', confirmButtonColor:'#dc2626'}).then(function(r){
+  Swal.fire({
+    title:'Hapus user '+username+'?', icon:'warning', showCancelButton:true, confirmButtonText:'Hapus', confirmButtonColor:'#dc2626',
+    allowOutsideClick:false, allowEscapeKey:false,
+    preConfirm: function(){
+      Swal.showLoading();
+      return gasCall('deleteUser', username, STATE.username, STATE.token).then(function(res){
+        if(!res.success){ Swal.showValidationMessage(res.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menghapus, coba lagi.'); return false; });
+    }
+  }).then(function(r){
     if(!r.isConfirmed) return;
-    gasCall('deleteUser', username, STATE.username, STATE.token).then(function(res){
-      if(!res.success){ toast('error', res.message); return; } toast('success','Terhapus'); loadUserView();
-    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal menghapus, coba lagi.'); });
+    toast('success','Terhapus'); loadUserView();
   });
 }
 
@@ -5361,14 +5459,15 @@ function gantiPasswordUserUnitKlik(username){
       var p2 = document.getElementById('sw-pass-ulang').value;
       if(!p1 || p1.length<8){ Swal.showValidationMessage('Password baru minimal 8 karakter'); return false; }
       if(p1!==p2){ Swal.showValidationMessage('Konfirmasi password tidak cocok'); return false; }
-      return p1;
+      Swal.showLoading();
+      return gasCall('gantiPasswordUserUnit', username, p1, STATE.token).then(function(res){
+        if(!res || !res.success){ Swal.showValidationMessage(res.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal mengganti password, coba lagi.'); return false; });
     }
   }).then(function(r){
     if(!r.isConfirmed) return;
-    gasCall('gantiPasswordUserUnit', username, r.value, STATE.token).then(function(res){
-      if(!res || !res.success){ toast('error', res.message); return; }
-      toast('success','Password berhasil diganti');
-    }).catch(function(err){ toast('error', (err && err.message) || 'Gagal mengganti password'); });
+    toast('success','Password berhasil diganti');
   });
 }
 
@@ -5790,6 +5889,15 @@ function _prosesDataMentahMemorial(rekap, tb, kategoriList, daftarUnitTerbaru, d
         var kb = idxKat.hasOwnProperty(b.kode) ? idxKat[b.kode] : 9999;
         if(ka !== kb) return ka - kb;
       }
+      // PERMINTAAN: dalam Pos/Kategori yang SAMA, Kredit (uang MASUK) selalu
+      // ditampilkan dulu, baru Debet (uang KELUAR) di bawahnya -- supaya
+      // urutannya mengikuti logika akuntabilitas (dana masuk dulu, baru
+      // penggunaannya), bukan sekadar urut tanggal. Ini yang menentukan
+      // urutan di checklist "Pilih Transaksi", Preview Bukti Memorial, DAN
+      // hasil Cetak sekaligus (ketiganya dibangun dari MEMORIAL_STATE.rawRows
+      // yang sama, lihat _bangunDaftarMemo/renderMemorialChecklist).
+      var arahA = a.kredit > 0 ? 0 : 1, arahB = b.kredit > 0 ? 0 : 1;
+      if(arahA !== arahB) return arahA - arahB;
       return String(a.tanggal||'').localeCompare(String(b.tanggal||''));
     });
     MEMORIAL_STATE.rawRows = rows;
@@ -6034,7 +6142,7 @@ function bukaFormMemorialTambahan(id){
       if(!tanggal){ Swal.showValidationMessage('Tanggal wajib diisi'); return false; }
       if(!keterangan){ Swal.showValidationMessage('Keterangan wajib diisi'); return false; }
       if(!(jumlah > 0)){ Swal.showValidationMessage('Jumlah wajib diisi dan lebih dari 0'); return false; }
-      return {
+      var data = {
         id: id || '',
         bulan: document.getElementById('sel-bulan-memorial').value,
         tanggal: tanggal, keterangan: keterangan, jumlah: jumlah,
@@ -6042,26 +6150,69 @@ function bukaFormMemorialTambahan(id){
         kreditRek: document.getElementById('mt-kredit').value.trim(),
         noMemorial: document.getElementById('mt-nomemorial').value.trim()
       };
+      // PERBAIKAN BUG "kelihatan diam saja saat Tambah": sebelumnya modal
+      // langsung tertutup begitu diklik Simpan, lalu gasCall() jalan diam-
+      // diam TANPA indikator apa pun -- kalau jaringan sedang agak lambat,
+      // user tidak melihat tanda apa-apa selama beberapa detik dan mengira
+      // tombolnya tidak berfungsi, lalu klik "Tambah" lagi dengan data yang
+      // SAMA PERSIS. Karena kunci idempotency (idKeyMt di bawah) dihitung
+      // dari ISI data, percobaan kedua yang identik itu dikenali backend
+      // sebagai pengulangan dan SENGAJA tidak menulis baris baru lagi (utk
+      // mencegah dobel akibat retry jaringan) -- hasilnya: toast "tersimpan"
+      // muncul, tapi cuma 1 baris yang benar-benar tersimpan, persis seperti
+      // yang dikeluhkan. Sekarang modal tetap terbuka dengan spinner selama
+      // proses simpan (mencegah klik dobel sekaligus memberi kepastian
+      // visual), sama seperti pola Hapus Unit/Pos yang sudah lebih dulu benar.
+      Swal.showLoading();
+      var idKeyMt = data.id ? null : _idemKey('memtambahan_'+STATE.tahunAktif, data); // hanya perlu utk TAMBAH baru -- edit (ada id) sudah aman by-nature (menimpa baris yang sama)
+      return gasCall('saveMemorialTambahan', STATE.tahunAktif, data, STATE.token, idKeyMt).then(function(r){
+        if(!r.success){ Swal.showValidationMessage(r.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menyimpan, coba lagi.'); return false; });
     }
   }).then(function(res){
     if(!res.isConfirmed) return;
-    var idKeyMt = res.value.id ? null : _idemKey('memtambahan_'+STATE.tahunAktif, res.value); // hanya perlu utk TAMBAH baru -- edit (ada id) sudah aman by-nature (menimpa baris yang sama)
-    gasCall('saveMemorialTambahan', STATE.tahunAktif, res.value, STATE.token, idKeyMt).then(function(r){
-      if(!r.success){ toast('error', r.message); return; }
-      toast('success','Memorial Tambahan/Koreksi tersimpan');
-      loadJurnalMemorial();
-    }).catch(function(err){ toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+    toast('success','Memorial Tambahan/Koreksi tersimpan');
+    // PERBAIKAN PERFORMA: sebelumnya memanggil loadJurnalMemorial() penuh
+    // (5 permintaan sekaligus: status kunci, Rekap Bulan, Tambahan Bulan,
+    // Memorial Tambahan, Kategori) padahal yang berubah cuma tabel Memorial
+    // Tambahan itu sendiri -- checklist Bukti Memorial otomatis di atasnya
+    // TIDAK terpengaruh sama sekali oleh simpan/edit Memorial Tambahan.
+    // Sekarang cukup tarik ULANG 1 data itu saja (jauh lebih cepat & lebih
+    // murah), tanpa menyentuh/membangun ulang checklist yang tidak berubah.
+    _muatUlangMemorialTambahanSaja();
   });
 }
 function hapusMemorialTambahanUI(id){
-  Swal.fire({ title:'Hapus Memorial Tambahan ini?', icon:'warning', showCancelButton:true, confirmButtonText:'Hapus', confirmButtonColor:'#dc2626' }).then(function(r){
+  var bulan = document.getElementById('sel-bulan-memorial').value;
+  Swal.fire({
+    title:'Hapus Memorial Tambahan ini?', icon:'warning', showCancelButton:true, confirmButtonText:'Hapus', confirmButtonColor:'#dc2626',
+    allowOutsideClick:false, allowEscapeKey:false,
+    preConfirm: function(){
+      Swal.showLoading();
+      return gasCall('hapusMemorialTambahan', STATE.tahunAktif, bulan, id, STATE.token).then(function(res){
+        if(!res.success){ Swal.showValidationMessage(res.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menghapus, coba lagi.'); return false; });
+    }
+  }).then(function(r){
     if(!r.isConfirmed) return;
-    var bulan = document.getElementById('sel-bulan-memorial').value;
-    gasCall('hapusMemorialTambahan', STATE.tahunAktif, bulan, id, STATE.token).then(function(res){
-      if(!res.success){ toast('error', res.message); return; }
-      toast('success','Dihapus');
-      loadJurnalMemorial();
-    }).catch(function(err){ toast('error', (err && err.message) ? err.message : 'Gagal menghapus'); });
+    toast('success','Dihapus');
+    _muatUlangMemorialTambahanSaja(); // lihat catatan performa di saveMemorialTambahan di atas -- sama, tidak perlu reload semuanya
+  });
+}
+// Refresh RINGAN khusus tabel Memorial Tambahan -- dipakai sesudah
+// simpan/edit/hapus supaya tidak perlu menembak ulang 4-5 permintaan lain
+// (status kunci, Rekap Bulan, Tambahan Bulan, Kategori) yang isinya sama
+// sekali tidak berubah akibat aksi ini.
+function _muatUlangMemorialTambahanSaja(){
+  var bulan = document.getElementById('sel-bulan-memorial').value;
+  if(!bulan) return;
+  gasCall('getMemorialTambahan', STATE.tahunAktif, bulan, STATE.token).then(function(res){
+    if(!res.success) return; // gagal refresh ringan -- data lama tetap ditampilkan, tidak fatal
+    MEMORIAL_TAMBAHAN_STATE.list = res.data;
+    MEMORIAL_TAMBAHAN_STATE.locked = res.locked;
+    renderMemorialTambahanTable();
   });
 }
 
