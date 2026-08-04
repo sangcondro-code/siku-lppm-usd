@@ -1648,6 +1648,12 @@ function afterLogin(){
     lsSet('init_v2_' + STATE.username, { daftarTahun:STATE.daftarTahun, tahunAktif:STATE.tahunAktif, myPos:STATE.myPos, myUnits:STATE.myUnits, namaBank:STATE.namaBank, kodeRekeningKasBank:STATE.kodeRekeningKasBank });
     renderSelTahunGlobal();
     gotoView(document.querySelector('.nav-item.active') ? document.querySelector('.nav-item.active').dataset.view : 'dashboard');
+    // PRELOAD bulan berjalan + 1 bulan sebelum/sesudahnya (lihat catatan
+    // lengkap di _preloadBulanTetangga di bawah) -- dijalankan sesudah
+    // tampilan awal (Dashboard) sudah beres, dengan jeda singkat, supaya
+    // TIDAK berebut kuota/jaringan dengan permintaan yang sedang dibutuhkan
+    // user saat itu juga.
+    setTimeout(_preloadBulanTetangga, 1200);
   }).catch(function(){ hideLoading(); hideBar(); if(!cachedInit) toast('error','Gagal memuat data awal'); });
 
   // Auto-refresh diam-diam tiap 10 detik (tanpa indikator apa pun) supaya
@@ -1667,6 +1673,89 @@ function afterLogin(){
       refreshViewSilently(av.dataset.view);
     }, 10000);
   }
+}
+
+// ============================================================
+// PRELOAD BULAN TETANGGA -- begitu login, diam-diam siapkan data bulan
+// BERJALAN + 1 bulan sebelum & sesudahnya (kalau ada) di memori (CACHE.rekap,
+// CACHE.belumVerifikasi, CACHE.tambahan, _vfCache, _konsolidasiRawCache),
+// SUPAYA begitu user beneran buka Input Rekap Bulanan / Verifikasi
+// Transaksi / Rekap Konsolidasi & Rekonsiliasi Bank utk salah satu dari
+// 2-3 bulan itu, tampilannya INSTAN dari cache -- tidak perlu menunggu
+// jaringan sama sekali (baru disegarkan diam-diam di belakang layar seperti
+// biasa, pola yang sama dgn cache-first di semua halaman lain).
+//
+// SENGAJA DIBATASI cuma 2-3 bulan (bukan semua 12 bulan) -- preload semua
+// 12 bulan sekaligus tiap kali ADA YANG login akan:
+// 1) Membebani kuota harian Apps Script/Sheets jauh lebih cepat habis,
+//    berisiko mengganggu SEMUA orang (termasuk operasi tulis/simpan data)
+//    kalau banyak Admin/Unit login bersamaan (mis. pagi hari).
+// 2) Boros -- realistisnya 1 sesi kerja jarang buka lebih dari 2-3 bulan.
+// 3) Laporan Unit SENGAJA TIDAK diikutkan -- itu satu-satunya menu yang
+//    menarik data dari sistem LUAR (SIMK), preload otomatis ke sana
+//    berisiko kena rate-limit/timeout di sisi SIMK, jadi tetap dibuka
+//    manual per bulan seperti biasa.
+// Kalau preload ini gagal (jaringan dsb), diamkan saja -- tidak ada toast
+// error sama sekali, karena ini murni percepatan opsional; halaman terkait
+// tetap bisa dibuka manual seperti biasa (jatuh balik ke gasCall biasa).
+function _preloadBulanTetangga(){
+  if(!STATE.tahunAktif || !STATE.token) return;
+  var bulanSekarang = new Date().getMonth()+1;
+  var bulanList = [bulanSekarang];
+  if(bulanSekarang>1) bulanList.push(bulanSekarang-1);
+  if(bulanSekarang<12) bulanList.push(bulanSekarang+1);
+
+  // Susun SEMUA panggilan (utk seluruh bulan di atas) jadi SATU batch --
+  // 1x round-trip, bukan 1x per bulan -- lihat catatan performa gasCallBatch.
+  // Panggilan getRekonsiliasi/getTambahanBulan TETAP disertakan utk role
+  // UNIT juga (walau ditolak backend krn admin-only) supaya bentuk cache
+  // _konsolidasiRawCache PERSIS SAMA seperti hasil loadKonsolidasi() versi
+  // biasa (yang juga selalu memanggil keduanya apa pun role-nya) -- kalau
+  // tidak, isi cache preload & cache hasil buka manual bisa beda bentuk.
+  var calls = [];
+  var idx = {};
+  bulanList.forEach(function(bulan){
+    idx[bulan] = {
+      rekap: calls.length
+    };
+    calls.push({ fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] });
+    idx[bulan].kunci = calls.length;
+    calls.push({ fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] });
+    idx[bulan].belumVerif = calls.length;
+    calls.push({ fn:'getTransaksiBelumVerifikasi', args:[STATE.tahunAktif, bulan, STATE.token] });
+    idx[bulan].riwayatVerif = calls.length;
+    calls.push({ fn:'getRiwayatVerifikasiSaya', args:[STATE.tahunAktif, bulan, STATE.token] });
+    idx[bulan].rekon = calls.length;
+    calls.push({ fn:'getRekonsiliasi', args:[STATE.tahunAktif, bulan, STATE.token] });
+    idx[bulan].tambahan = calls.length;
+    calls.push({ fn:'getTambahanBulan', args:[STATE.tahunAktif, bulan, STATE.token] });
+  });
+  var idxKategori = calls.length;
+  calls.push({ fn:'getKategoriTambahanList', args:[STATE.token] });
+
+  gasCallBatch(calls).then(function(hasil){
+    var resKategori = hasil[idxKategori];
+    if(resKategori && resKategori.success && !CACHE.kategoriTambahan) CACHE.kategoriTambahan = resKategori.data;
+    bulanList.forEach(function(bulan){
+      var key = STATE.tahunAktif + '_' + bulan;
+      var i = idx[bulan];
+      var resRekap = hasil[i.rekap], resKunci = hasil[i.kunci], resBelumVerif = hasil[i.belumVerif],
+          resRiwayatVerif = hasil[i.riwayatVerif], resRekon = hasil[i.rekon], resTambahan = hasil[i.tambahan];
+      // "Isi kalau masih kosong" -- BUKAN paksa timpa -- kalau user sudah
+      // sempat buka halaman terkait duluan (lebih cepat dari preload ini),
+      // data yang sudah ada/lebih baru itu TIDAK boleh ketiban data preload
+      // yang mungkin sudah agak basi menunggu giliran di batch ini.
+      if(resRekap && resRekap.success && !CACHE.rekap[key]) CACHE.rekap[key] = resRekap.data;
+      if(resBelumVerif && resBelumVerif.success && !CACHE.belumVerifikasi[key]) CACHE.belumVerifikasi[key] = resBelumVerif.data;
+      if(resTambahan && resTambahan.success && !CACHE.tambahan[key]) CACHE.tambahan[key] = resTambahan.data;
+      if(resBelumVerif && resBelumVerif.success && resRiwayatVerif && resRiwayatVerif.success && !_vfCache[key]){
+        _vfCache[key] = { perlu:resBelumVerif.data, riwayat:resRiwayatVerif.data, locked: !!(resKunci && resKunci.locked) };
+      }
+      if(resRekap && resRekap.success && !_konsolidasiRawCache[key]){
+        _konsolidasiRawCache[key] = [resRekap, resRekon, resTambahan, resKategori];
+      }
+    });
+  }).catch(function(){ /* preload murni percepatan opsional -- gagal diam2, tidak mengganggu user */ });
 }
 function refreshViewSilently(name){
   if(name==='dashboard') loadDashboard();
