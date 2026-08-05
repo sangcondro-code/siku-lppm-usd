@@ -2226,6 +2226,23 @@ function _urutkanKodeUnit(daftarKode, sumberUrutan){
     return String(a).localeCompare(String(b));
   });
 }
+// PERBAIKAN BUG: sama seperti _urutkanKodeUnit di atas, tapi utk Pos DI
+// DALAM 1 Unit -- dipakai supaya urutan Pos di Rekap Konsolidasi (layar
+// maupun hasil Cetak) SELALU ikut urutan yang sama persis dengan kolom
+// "Urutan" di Kelola Unit & Pos, bukan urutan kemunculan transaksi pertama
+// kali di data (yang sebelumnya dipakai secara tidak sengaja lewat
+// Object.keys() -- itu sebabnya urutannya bisa beda-beda/tidak konsisten
+// tiap bulan, tergantung Pos mana yang transaksinya kebetulan lebih dulu
+// tercatat).
+function _urutkanKodePos(daftarKode, sumberUrutanPos){
+  var idx = {}; (sumberUrutanPos||[]).forEach(function(p,i){ idx[p.kodePos] = i; });
+  return daftarKode.slice().sort(function(a,b){
+    var ia = idx.hasOwnProperty(a) ? idx[a] : 9999;
+    var ib = idx.hasOwnProperty(b) ? idx[b] : 9999;
+    if(ia !== ib) return ia - ib;
+    return String(a).localeCompare(String(b));
+  });
+}
 var _inputLocked = false; // status kunci Jurnal Memorial bulan yg sedang dibuka di Input Rekap Bulanan
 function renderInputLockBanner(){
   var el = document.getElementById('input-lock-banner');
@@ -2402,7 +2419,11 @@ function renderTransaksiTable(){
     _urutkanKodeUnit(Object.keys(byUnit), STATE.myUnits).forEach(function(ku){
       var unit = byUnit[ku]; var unitD=0, unitK=0;
       var posHtml = '';
-      Object.keys(unit.pos).forEach(function(kp){
+      // PERBAIKAN BUG: urutan Pos di sini dulu ikut Object.keys() apa
+      // adanya (urutan kemunculan transaksi pertama di data), sekarang
+      // eksplisit diurutkan sesuai kolom "Urutan" di Kelola Unit & Pos --
+      // konsisten dgn Rekap Konsolidasi & hasil Cetak (lihat _urutkanKodePos).
+      _urutkanKodePos(Object.keys(unit.pos), STATE.myPos).forEach(function(kp){
         var grp = unit.pos[kp], d=0,k=0;
         var rows = _urutkanTx(grp.rows);
         var body = rows.map(function(r,i){ d+=r.debet; k+=r.kredit; return _renderTxRow(r, i, kp); }).join('');
@@ -4294,7 +4315,15 @@ function _renderKonsolidasi(bulan, hasil){
     _urutkanKodeUnit(Object.keys(byUnit), STATE.myUnits).forEach(function(ku){
       var unit = byUnit[ku]; var unitD=0, unitK=0;
       var posHtml = '';
-      Object.keys(unit.pos).forEach(function(kp){
+      // PERBAIKAN BUG: urutan Pos di sini dulu ikut Object.keys() apa
+      // adanya (urutan kemunculan transaksi pertama di data, BUKAN urutan
+      // di Kelola Unit & Pos) -- sekarang eksplisit diurutkan pakai
+      // _urutkanKodePos supaya konsisten dgn kolom "Urutan" di Kelola Unit &
+      // Pos, di layar MAUPUN di hasil Cetak (ringkasanPos di bawah dibangun
+      // dari loop yang SAMA ini, jadi otomatis ikut urut yang sama juga;
+      // cetakKonsolidasi juga diurut ulang dari c.detailByUnit -- lihat
+      // catatan di sana).
+      _urutkanKodePos(Object.keys(unit.pos), res.unitPos || STATE.myPos).forEach(function(kp){
         var grp = unit.pos[kp], d=0,k=0;
         // SENGAJA dipisah 2 jalur (bukan 1 fungsi dgn kondisi if/else di
         // tengah): Unit boleh Edit transaksinya sendiri, Admin CUMA lihat
@@ -4344,7 +4373,7 @@ function _renderKonsolidasi(bulan, hasil){
       isiAngkaFormatted('rk-total-kredit-bank', rek.totalKreditBank || 0);
     }
 
-    _konsolidasiCache = { bulan:bulan, unitList:STATE.myUnits, ringkasanPos:ringkasanPos, gtD:gtD, gtK:gtK,
+    _konsolidasiCache = { bulan:bulan, unitList:STATE.myUnits, unitPosList:(res.unitPos || STATE.myPos), ringkasanPos:ringkasanPos, gtD:gtD, gtK:gtK,
       kategoriAtas:[], kategoriBawah:[], byKategori:{},
       saldoAwal:rek.saldoAwal||0, totalDebetBank:rek.totalDebetBank||0, totalKreditBank:rek.totalKreditBank||0,
       detailByUnit:byUnit };
@@ -4879,7 +4908,11 @@ function cetakKonsolidasi(){
     halaman2 += '<div class="unit-wrap'+(perluBreak ? ' pb' : '')+'">';
     if(idxUnit===0) halaman2 += '<div class="doc-title">REKAP REKENING GIRO '+namaBank.toUpperCase()+' BULAN '+namaBulan.toUpperCase()+' '+STATE.tahunAktif+'</div>';
     halaman2 += '<div class="unit-h">'+unit.namaUnit+'</div>';
-    Object.keys(unit.pos).forEach(function(kp){
+    // PERBAIKAN BUG: sebelumnya ikut Object.keys() apa adanya (bisa beda
+    // urutan dari tampilan layarnya sendiri) -- sekarang diurutkan SAMA
+    // PERSIS seperti di layar Rekap Konsolidasi, pakai daftar urutan Pos
+    // yang sudah dibawa dari _renderKonsolidasi (c.unitPosList).
+    _urutkanKodePos(Object.keys(unit.pos), c.unitPosList || STATE.myPos).forEach(function(kp){
       var grp = unit.pos[kp], d=0, k=0;
       var rowsHtml = grp.rows.map(function(r,i){ d+=r.debet; k+=r.kredit; adaDetail = true;
         return '<tr><td class="c">'+(i+1)+'</td><td>'+r.tanggal+'</td><td>'+_gcEsc(r.keterangan||'')+'</td><td class="r">'+fmt2(r.debet)+'</td><td class="r">'+fmt2(r.kredit)+'</td></tr>'; }).join('');
