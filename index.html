@@ -6856,29 +6856,64 @@ function pdGantiUkuranHalaman(sel){
 // tersebar di banyak tempat (tiap kali habis 1 aksi: setuju/tolak/revisi/
 // verifikasi/dst). Kalau batch-nya sendiri gagal total (jaringan dsb),
 // JATUH BALIK ke cara lama (3 panggilan terpisah) -- fitur tetap jalan.
-function pdMuatRingkasanDanDaftar(){
-  gasCallBatch([
+// Dipakai bersama oleh pdMuatRingkasanDanDaftar() DAN pdJalankanAksi() (lihat
+// catatan performa besar di pdJalankanAksi di bawah) -- 3 panggilan baca yang
+// SELALU ditarik bersamaan sesudah apa pun yang mengubah status pengajuan.
+function _pdCallsRingkasanDanDaftar(){
+  return [
     { fn:'getRingkasanPengajuan', args:[STATE.token] },
     { fn:'getJumlahPengajuanPerluPerhatian', args:[STATE.token] },
     { fn:'getDaftarPengajuan', args:[PD.filterStatus, PD.filterUnit, 'SEMUA', STATE.token] }
-  ]).then(function(hasil){
-    var resRingkasan = hasil[0], resBadge = hasil[1], resDaftar = hasil[2];
-    if(resRingkasan && resRingkasan.success){
-      PD.ringkasan = resRingkasan;
-      document.getElementById('pd-r-baru').textContent = resRingkasan.jumlahBaru;
-      document.getElementById('pd-r-proses').textContent = resRingkasan.jumlahProses;
-      document.getElementById('pd-r-selesai').textContent = resRingkasan.jumlahSelesai;
-      document.getElementById('pd-r-total').textContent = 'Rp ' + fmtRp(resRingkasan.totalTahunIni);
+  ];
+}
+function _pdTerapkanRingkasanDanDaftar(resRingkasan, resBadge, resDaftar){
+  if(resRingkasan && resRingkasan.success){
+    PD.ringkasan = resRingkasan;
+    document.getElementById('pd-r-baru').textContent = resRingkasan.jumlahBaru;
+    document.getElementById('pd-r-proses').textContent = resRingkasan.jumlahProses;
+    document.getElementById('pd-r-selesai').textContent = resRingkasan.jumlahSelesai;
+    document.getElementById('pd-r-total').textContent = 'Rp ' + fmtRp(resRingkasan.totalTahunIni);
+  }
+  if(resBadge && resBadge.success){
+    var elBadge = document.getElementById('pengajuan-badge');
+    if(elBadge){
+      if(resBadge.jumlah > 0){ elBadge.textContent = resBadge.jumlah > 99 ? '99+' : resBadge.jumlah; elBadge.classList.remove('d-none'); }
+      else elBadge.classList.add('d-none');
     }
-    if(resBadge && resBadge.success){
-      var elBadge = document.getElementById('pengajuan-badge');
-      if(elBadge){
-        if(resBadge.jumlah > 0){ elBadge.textContent = resBadge.jumlah > 99 ? '99+' : resBadge.jumlah; elBadge.classList.remove('d-none'); }
-        else elBadge.classList.add('d-none');
-      }
-    }
-    if(resDaftar && resDaftar.success){ PD.daftar = resDaftar.data; pdRenderDaftarTable(); }
-    else if(resDaftar){ toast('error', resDaftar.message); }
+  }
+  if(resDaftar && resDaftar.success){ PD.daftar = resDaftar.data; pdRenderDaftarTable(); }
+  else if(resDaftar){ toast('error', resDaftar.message); }
+}
+// PERBAIKAN PERFORMA BESAR (Pengajuan Dana -- "simpan/verifikasi/dsb masih
+// lama"): SETIAP tombol aksi (Setujui/Tolak/Revisi/Cairkan/Kirim LPJ/
+// Verifikasi/Kirim Ulang, dst, baik sisi Admin maupun Unit) sebelumnya
+// menembak 2 round-trip TERPISAH ke server tiap kali diklik -- 1) aksi itu
+// sendiri, 2) pdMuatRingkasanDanDaftar() menyusul SESUDAHNYA utk refresh
+// ringkasan+badge+daftar (yang itu sendiri sudah digabung jadi 1 batch,
+// tapi tetap round-trip KE-2 yang TERPISAH dari aksi). Backend menjalankan
+// semua panggilan di dalam 1 batch SECARA BERURUTAN dalam SATU eksekusi yang
+// sama (lihat mode batch di doPost, Code.gs) -- jadi AMAN menaruh aksi TULIS
+// sebagai panggilan PERTAMA, diikuti panggilan BACA (ringkasan/badge/daftar)
+// SESUDAHNYA dalam batch yang SAMA: baca itu dijamin melihat data yang SUDAH
+// ditulis aksi pertama (berjalan sekuensial di server yang sama, bukan
+// paralel/race). Hasilnya: 1 round-trip jaringan per aksi, bukan 2 -- inilah
+// yang paling terasa waktu Simpan/Setujui/Tolak/Cairkan/Verifikasi.
+function pdJalankanAksi(fnName, args, btn, pesanSukses){
+  btnBusy(btn, true);
+  var calls = [{ fn:fnName, args:args }].concat(_pdCallsRingkasanDanDaftar());
+  return gasCallBatch(calls).then(function(hasil){
+    btnBusy(btn, false);
+    var res = hasil[0];
+    if(!res || !res.success){ toast('error', res && res.message); return null; }
+    if(pesanSukses) toast('success', pesanSukses);
+    _pdTerapkanRingkasanDanDaftar(hasil[1], hasil[2], hasil[3]);
+    if(res.header) pdTerapkanDetailDariAksi(res);
+    return res;
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); return null; });
+}
+function pdMuatRingkasanDanDaftar(){
+  gasCallBatch(_pdCallsRingkasanDanDaftar()).then(function(hasil){
+    _pdTerapkanRingkasanDanDaftar(hasil[0], hasil[1], hasil[2]);
   }).catch(function(){
     // PERBAIKAN BUG: sebelumnya baris ini memanggil pdMuatRingkasanDanDaftar()
     // LAGI setiap kali batch-nya gagal -- TANPA batas jumlah percobaan dan
@@ -7480,16 +7515,18 @@ function pdSubmitPermohonanDana(btn){
   if(!rab.length){ toast('error','RAB minimal 1 komponen dengan nominal > 0'); return; }
   if(!PD.suratFile){ toast('error','Surat pengajuan (PDF) wajib diunggah'); return; }
   var kodeUnitAdmin = pdKodeUnitAdminTerpilih('muka');
+  // PERBAIKAN PERFORMA: kirim pengajuan + refresh ringkasan/badge/daftar
+  // digabung jadi 1 round-trip lewat pdJalankanAksi (lihat catatan performa
+  // besar di definisinya) -- sebelumnya 2 round-trip terpisah tiap kali
+  // submit (kirim pengajuan, lalu pdMuatRingkasanDanDaftar() menyusul).
   pdCekSerupaLaluLanjut(judul, 'MUKA', function(){
-    btnBusy(btn, true);
     var idKey = _idemKey('ajukan_muka', {judul:judul,tgl:tgl,rab:rab,kodeUnit:kodeUnitAdmin,nonce:PD.formNonce});
-    gasCall('ajukanPermohonanDanaKegiatan', {judul:judul, tglPengajuan:tgl, rab:rab, suratFile:PD.suratFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey).then(function(res){
-      btnBusy(btn, false);
-      if(!res || !res.success){ toast('error', res.message); return; }
+    pdJalankanAksi('ajukanPermohonanDanaKegiatan', [{judul:judul, tglPengajuan:tgl, rab:rab, suratFile:PD.suratFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey], btn, null).then(function(res){
+      if(!res) return;
       toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
       gasCall('hapusDraftPengajuan', 'baru_muka', STATE.token).catch(function(){});
-      pdMuatRingkasanDanDaftar(); pdSub('daftar');
-    }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
+      pdSub('daftar');
+    });
   });
 }
 // Toggle Tunai/Transfer di form Ajukan Baru (Penggantian Biaya & Tagihan) --
@@ -7512,15 +7549,13 @@ function pdSubmitPenggantianBiaya(btn){
   if(metode==='TRANSFER' && (!noRekening || !namaRekening || !namaBank)){ toast('error','No. Rekening, Nama Pemilik Rekening, dan Nama Bank wajib diisi kalau metode Transfer'); return; }
   var kodeUnitAdminSk = pdKodeUnitAdminTerpilih('sekaligus');
   pdCekSerupaLaluLanjut(judul, 'SEKALIGUS', function(){
-    btnBusy(btn, true);
     var idKey = _idemKey('ajukan_sekaligus', {judul:judul,tgl:tgl,realisasi:realisasi,kodeUnit:kodeUnitAdminSk,nonce:PD.formNonce});
-    gasCall('ajukanPenggantianBiaya', {judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminSk}, STATE.token, idKey).then(function(res){
-      btnBusy(btn, false);
-      if(!res || !res.success){ toast('error', res.message); return; }
+    pdJalankanAksi('ajukanPenggantianBiaya', [{judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminSk}, STATE.token, idKey], btn, null).then(function(res){
+      if(!res) return;
       toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
       gasCall('hapusDraftPengajuan', 'baru_sekaligus', STATE.token).catch(function(){});
-      pdMuatRingkasanDanDaftar(); pdSub('daftar');
-    }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim pengajuan'); });
+      pdSub('daftar');
+    });
   });
 }
 function pdSubmitTagihan(btn){
@@ -7538,15 +7573,13 @@ function pdSubmitTagihan(btn){
   if(metode==='TRANSFER' && (!noRekening || !namaRekening || !namaBank)){ toast('error','No. Rekening, Nama Pemilik Rekening, dan Nama Bank wajib diisi kalau metode Transfer'); return; }
   var kodeUnitAdminTg = pdKodeUnitAdminTerpilih('tagihan');
   pdCekSerupaLaluLanjut(judul, 'TAGIHAN', function(){
-    btnBusy(btn, true);
     var idKey = _idemKey('ajukan_tagihan', {judul:judul,kepada:kepada,nominal:nominal,kodeUnit:kodeUnitAdminTg,nonce:PD.formNonce});
-    gasCall('ajukanTagihan', {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminTg}, STATE.token, idKey).then(function(res){
-      btnBusy(btn, false);
-      if(!res || !res.success){ toast('error', res.message); return; }
+    pdJalankanAksi('ajukanTagihan', [{judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminTg}, STATE.token, idKey], btn, null).then(function(res){
+      if(!res) return;
       toast('success','Tagihan '+res.idPengajuan+' berhasil diajukan');
       gasCall('hapusDraftPengajuan', 'baru_tagihan', STATE.token).catch(function(){});
-      pdMuatRingkasanDanDaftar(); pdSub('daftar');
-    }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengajukan tagihan'); });
+      pdSub('daftar');
+    });
   });
 }
 function pdSubmitLaporanUnit(btn){
@@ -7558,15 +7591,13 @@ function pdSubmitLaporanUnit(btn){
   if(!PD.laporanBuktiFile){ toast('error','Bukti pendukung (PDF) wajib diunggah'); return; }
   var kodeUnitAdmin = pdKodeUnitAdminTerpilih('laporan');
   if(STATE.role==='ADMIN' && !kodeUnitAdmin){ toast('error','Pilih Unit yang laporannya mau diajukan'); return; }
-  btnBusy(btn, true);
   var idKey = _idemKey('ajukan_laporan', {bulan:bulan,tahun:tahun,pemasukan:pemasukan,pengeluaran:pengeluaran,kodeUnit:kodeUnitAdmin,nonce:PD.formNonce});
-  gasCall('ajukanLaporanUnit', {bulan:bulan, tahun:tahun, pemasukan:pemasukan, pengeluaran:pengeluaran, buktiFile:PD.laporanBuktiFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
+  pdJalankanAksi('ajukanLaporanUnit', [{bulan:bulan, tahun:tahun, pemasukan:pemasukan, pengeluaran:pengeluaran, buktiFile:PD.laporanBuktiFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey], btn, null).then(function(res){
+    if(!res) return;
     toast('success','Laporan '+res.idPengajuan+' berhasil dikirim');
     gasCall('hapusDraftPengajuan', 'baru_laporan', STATE.token).catch(function(){});
-    pdMuatRingkasanDanDaftar(); pdSub('daftar');
-  }).catch(function(){ btnBusy(btn,false); toast('error','Gagal mengirim laporan'); });
+    pdSub('daftar');
+  });
 }
 
 // ============================================================
@@ -7636,10 +7667,17 @@ function pdKirimKomentar(idPengajuan, btn){
   var teks = input.value.trim();
   if(!teks) return;
   btnBusy(btn, true);
+  // PERBAIKAN BUG PERFORMA: sebelumnya sesudah komentar berhasil terkirim,
+  // fungsi ini memanggil pdBukaDetail(idPengajuan) LAGI -- 1 permintaan
+  // jaringan TERPISAH cuma utk menampilkan detail yang SEBENARNYA SUDAH ada
+  // di respons tambahKomentarPengajuan itu sendiri (backend-nya sudah
+  // menyertakan detail terbaru sekalian, sama seperti semua aksi lain --
+  // lihat pdTerapkanDetailDariAksi). Sekarang dipakai langsung dari respons
+  // yang sudah ada di tangan, tanpa round-trip tambahan.
   gasCall('tambahKomentarPengajuan', idPengajuan, teks, STATE.token).then(function(res){
     btnBusy(btn, false);
     if(!res || !res.success){ toast('error', res.message); return; }
-    pdBukaDetail(idPengajuan);
+    pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim komentar'); });
 }
 function pdFileChip(f){
@@ -7940,46 +7978,26 @@ function pdRenderDetailSingkat(res){
 // ============================================================
 function pdAksiSetujui(id, btn){
   var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
-  btnBusy(btn, true);
-  gasCall('setujuiPermohonanDana', id, catatan, STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan disetujui'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+  pdJalankanAksi('setujuiPermohonanDana', [id, catatan, STATE.token], btn, 'Pengajuan disetujui');
 }
 // Admin minta REVISI di tahap Persetujuan awal -- tahap 1 (Pengajuan) akan
 // terbuka lagi utk Unit perbaiki & kirim ulang (menimpa, bukan menyimpan versi).
 function pdAksiRevisi(id, btn){
   var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
   if(!catatan){ toast('error','Isi dulu catatan alasan revisi di kotak di atas'); return; }
-  btnBusy(btn, true);
-  gasCall('revisiPengajuan', id, catatan, STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan dikembalikan untuk direvisi'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+  pdJalankanAksi('revisiPengajuan', [id, catatan, STATE.token], btn, 'Pengajuan dikembalikan untuk direvisi');
 }
 function pdAksiTolak(id, btn){
   var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
   if(!catatan){ toast('error','Isi dulu catatan alasan penolakan di kotak di atas'); return; }
-  btnBusy(btn, true);
-  gasCall('tolakPermohonanDana', id, catatan, STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan ditolak'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+  pdJalankanAksi('tolakPermohonanDana', [id, catatan, STATE.token], btn, 'Pengajuan ditolak');
 }
 // Unit kirim ULANG pengajuan (RAB + surat) sesudah diminta revisi di tahap
 // Persetujuan awal -- MENIMPA data lama, bukan menyimpan sbg versi baru.
 function pdAksiKirimUlang(id, btn){
   var rab = PD.rab.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
   if(!rab.length){ toast('error','RAB minimal 1 komponen dengan nominal > 0'); return; }
-  btnBusy(btn, true);
-  gasCall('kirimUlangPengajuan', id, {rab:rab, suratFile:PD.suratFile}, STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Pengajuan dikirim ulang'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim ulang'); });
+  pdJalankanAksi('kirimUlangPengajuan', [id, {rab:rab, suratFile:PD.suratFile}, STATE.token], btn, 'Pengajuan dikirim ulang');
 }
 // Hapus pengajuan (khusus Admin) -- WAJIB konfirmasi dulu karena ireversibel
 // (data di sheet aktif dihapus permanen; file yg sudah terunggah ke Drive
@@ -7991,58 +8009,37 @@ function pdAksiHapus(id, judul, btn){
     icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Hapus', confirmButtonColor:'#dc2626', cancelButtonText:'Batal'
   }).then(function(r){
     if(!r.isConfirmed) return;
-    btnBusy(btn, true);
-    gasCall('hapusPengajuan', id, STATE.token).then(function(res){
-      btnBusy(btn, false);
-      if(!res || !res.success){ toast('error', res.message); return; }
-      toast('success','Pengajuan dihapus'); pdMuatRingkasanDanDaftar();
-    }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menghapus'); });
+    pdJalankanAksi('hapusPengajuan', [id, STATE.token], btn, 'Pengajuan dihapus');
   });
 }
 function pdAksiCairkan(id, btn){
   var tgl = (document.getElementById('pd-tgl-cair-'+id)||{}).value || new Date().toISOString().slice(0,10);
   var noBukti = (document.getElementById('pd-bukti-cair-'+id)||{}).value || '';
   if(!noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
-  btnBusy(btn, true);
-  gasCall('cairkanDana', id, tgl, noBukti, STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Dana ditandai sudah dicairkan'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+  pdJalankanAksi('cairkanDana', [id, tgl, noBukti, STATE.token], btn, 'Dana ditandai sudah dicairkan');
 }
 function pdAksiKirimLpj(id, btn){
   var realisasi = PD.realisasiEdit.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
   if(!realisasi.length){ toast('error','Realisasi minimal 1 komponen dengan nominal > 0'); return; }
   if(!PD.lpjFileEdit){ toast('error','Bukti LPJ (PDF) wajib diunggah'); return; }
-  btnBusy(btn, true);
-  gasCall('kirimLpjPengajuan', id, realisasi, PD.lpjFileEdit, '', STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','LPJ terkirim'); gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim LPJ'); });
+  pdJalankanAksi('kirimLpjPengajuan', [id, realisasi, PD.lpjFileEdit, '', STATE.token], btn, 'LPJ terkirim').then(function(res){
+    if(res) gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){});
+  });
 }
 function pdAksiVerifikasiLpj(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-verif-'+id)||{}).value || '';
   if(keputusan==='PERLU_REVISI' && !catatan){ toast('error','Catatan wajib diisi kalau meminta revisi'); return; }
   var noBukti = (document.getElementById('pd-bukti-verif-'+id)||{}).value || '';
   if(keputusan==='SELESAI' && document.getElementById('pd-bukti-verif-'+id) && !noBukti){ toast('error','No. Bukti Kas wajib diisi'); return; }
-  btnBusy(btn, true);
-  gasCall('verifikasiLpjPengajuan', id, keputusan, catatan, noBukti, null, STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Verifikasi tersimpan'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+  pdJalankanAksi('verifikasiLpjPengajuan', [id, keputusan, catatan, noBukti, null, STATE.token], btn, 'Verifikasi tersimpan');
 }
 function pdAksiKirimRevisiSekaligus(id, btn){
   var realisasi = PD.realisasiEdit.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
   if(!realisasi.length){ toast('error','Rincian minimal 1 komponen dengan nominal > 0'); return; }
   if(!PD.lpjFileEdit){ toast('error','Bukti (PDF) wajib diunggah'); return; }
-  btnBusy(btn, true);
-  gasCall('kirimPenggantianBiayaRevisi', id, realisasi, PD.lpjFileEdit, '', STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Terkirim ulang'); gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim'); });
+  pdJalankanAksi('kirimPenggantianBiayaRevisi', [id, realisasi, PD.lpjFileEdit, '', STATE.token], btn, 'Terkirim ulang').then(function(res){
+    if(res) gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){});
+  });
 }
 function pdAksiVerifikasiSekaligus(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-verif-'+id)||{}).value || '';
@@ -8058,12 +8055,7 @@ function pdAksiVerifikasiSekaligus(id, keputusan, btn){
       if(!noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
     }
   }
-  btnBusy(btn, true);
-  gasCall('verifikasiPenggantianBiaya', id, keputusan, catatan, noBukti, buktiTransferFile, STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Verifikasi tersimpan'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+  pdJalankanAksi('verifikasiPenggantianBiaya', [id, keputusan, catatan, noBukti, buktiTransferFile, STATE.token], btn, 'Verifikasi tersimpan');
 }
 function pdAksiVerifikasiTagihan(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-tagihan-'+id)||{}).value || '';
@@ -8075,12 +8067,7 @@ function pdAksiVerifikasiTagihan(id, keputusan, btn){
     if(!noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
   }
   if(keputusan==='DITOLAK' && !catatan){ toast('error','Catatan alasan penolakan wajib diisi'); return; }
-  btnBusy(btn, true);
-  gasCall('verifikasiTagihan', id, keputusan, catatan, PD.buktiBayarFile, noBukti, STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Tersimpan'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+  pdJalankanAksi('verifikasiTagihan', [id, keputusan, catatan, PD.buktiBayarFile, noBukti, STATE.token], btn, 'Tersimpan');
 }
 
 // ============================================================
@@ -8211,24 +8198,16 @@ function pdAksiKirimUlangLaporanUnit(id, btn){
   var pemasukan = PD.laporanEditMasuk.filter(function(r){ return r.keterangan && r.tanggal && Number(r.nominal)>0; });
   var pengeluaran = PD.laporanEditKeluar.filter(function(r){ return r.keterangan && r.tanggal && Number(r.nominal)>0; });
   if(!pemasukan.length && !pengeluaran.length){ toast('error','Isi minimal 1 baris Pemasukan atau Pengeluaran'); return; }
-  btnBusy(btn, true);
-  gasCall('kirimUlangLaporanUnit', id, pemasukan, pengeluaran, PD.laporanEditBuktiFile, '', STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Laporan terkirim ulang'); gasCall('hapusDraftPengajuan', 'lapedit_'+id, STATE.token).catch(function(){}); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal mengirim ulang'); });
+  pdJalankanAksi('kirimUlangLaporanUnit', [id, pemasukan, pengeluaran, PD.laporanEditBuktiFile, '', STATE.token], btn, 'Laporan terkirim ulang').then(function(res){
+    if(res) gasCall('hapusDraftPengajuan', 'lapedit_'+id, STATE.token).catch(function(){});
+  });
 }
 function pdAksiVerifikasiLaporanUnit(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-verif-'+id)||{}).value || '';
   if(keputusan!=='SELESAI' && !catatan){ toast('error','Catatan wajib diisi kalau Minta Revisi/Tolak'); return; }
   var noBuktiMasuk = (document.getElementById('pd-bukti-masuk-'+id)||{}).value || '';
   var noBuktiKeluar = (document.getElementById('pd-bukti-keluar-'+id)||{}).value || '';
-  btnBusy(btn, true);
-  gasCall('verifikasiLaporanUnit', id, keputusan, catatan, noBuktiMasuk, noBuktiKeluar, STATE.token).then(function(res){
-    btnBusy(btn, false);
-    if(!res || !res.success){ toast('error', res.message); return; }
-    toast('success','Tersimpan'); pdMuatRingkasanDanDaftar(); pdTerapkanDetailDariAksi(res);
-  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+  pdJalankanAksi('verifikasiLaporanUnit', [id, keputusan, catatan, noBuktiMasuk, noBuktiKeluar, STATE.token], btn, 'Tersimpan');
 }
 
 // ============================================================
