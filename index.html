@@ -5921,13 +5921,24 @@ function _prosesDataMentahMemorial(rekap, tb, kategoriList, daftarUnitTerbaru, d
     // aturan Debet/Ambang di bawah.
     var selaluPisahPos = {}; posList.forEach(function(p){ if(p.selaluPisahMemorial) selaluPisahPos[p.kodePos] = true; });
     MEMORIAL_STATE.pisahIds = {};
+    // PERBAIKAN (atas permintaan): pemisahan OTOMATIS (Debet & Ambang Kredit)
+    // HANYA berlaku untuk transaksi Unit (sumber==='pos') -- Item Non-Unit
+    // (Kategori, mis. Biaya Admin/Jasa Giro/Pajak Jasa Giro) SENGAJA SELALU
+    // diakumulasi jadi 1 memo per Kategori per bulan, TIDAK PERNAH otomatis
+    // dipisah per transaksi, baik sisi Debet MAUPUN Kredit-nya, apapun
+    // nominalnya. Sebelumnya "Debet selalu otomatis pisah" berlaku ke SEMUA
+    // sumber (termasuk Kategori) -- itu yang bikin Item Non-Unit ikut
+    // terpecah sendiri-sendiri padahal seharusnya tetap 1 baris akumulasi.
+    // Jadi cuma 2 aturan pemisahan otomatis yang tersisa, KEDUANYA khusus
+    // Unit: (1) Debet Unit -- selalu pisah apa pun nominalnya, (2) Kredit
+    // Unit yang lewat Ambang Rp. "Selalu Pisah Otomatis" (per-Pos, diatur
+    // di Pengaturan) tetap seperti semula -- itu juga sudah khusus Unit saja.
     rows.forEach(function(r){
-      var wajibPisah = r.sumber==='pos' && selaluPisahPos[r.kode];
-      // Transaksi Debet SELALU otomatis diusulkan pisah, apa pun nominalnya
-      // (beda dari Kredit yang baru diusulkan pisah kalau lewat Ambang Rp).
+      if(r.sumber !== 'pos'){ return; } // Item Non-Unit: tidak pernah diusulkan pisah otomatis, tetap akumulasi
+      var wajibPisah = selaluPisahPos[r.kode];
       var debetOtomatis = r.debet > 0;
-      var lewatAmbang = ambang > 0 && Math.max(r.debet, r.kredit) >= ambang;
-      if(wajibPisah || debetOtomatis || lewatAmbang) MEMORIAL_STATE.pisahIds[r.id] = true;
+      var lewatAmbangKredit = ambang > 0 && r.kredit >= ambang;
+      if(wajibPisah || debetOtomatis || lewatAmbangKredit) MEMORIAL_STATE.pisahIds[r.id] = true;
     });
 
     renderMemorialChecklist();
