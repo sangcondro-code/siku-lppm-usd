@@ -807,7 +807,10 @@
 
       <div class="card mb-3 d-none" id="memorial-preview-card">
         <div class="card-body">
-        <div class="section-title mb-2"><i class="fas fa-file-invoice"></i>Preview Bukti Memorial</div>
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+          <div class="section-title mb-0"><i class="fas fa-file-invoice"></i>Preview Bukti Memorial</div>
+          <div class="no-print" id="memorial-nomor-aksi"></div>
+        </div>
         <div id="memorial-list"></div>
       </div></div>
 
@@ -5757,7 +5760,7 @@ function submitSetup(e){
 //    memorial fisik (No., Tanggal, Keterangan, Jumlah+terbilang, kotak
 //    Debet/Kredit rekening, kolom tanda tangan), kop sama seperti cetakan lain.
 // ============================================================
-var MEMORIAL_STATE = { rawRows:[], pisahIds:{}, nomorMap:{}, rekeningByPos:{}, rekeningByKategori:{}, rekeningKasBank:'', locked:false, lockInfo:null, frozenMemo:[] };
+var MEMORIAL_STATE = { rawRows:[], pisahIds:{}, nomorMap:{}, nomorMapTersimpan:{}, editModeNomor:false, rekeningByPos:{}, rekeningByKategori:{}, rekeningKasBank:'', locked:false, lockInfo:null, frozenMemo:[] };
 var MEMORIAL_TAMBAHAN_STATE = { list:[], locked:false };
 
 function initMemorialView(){
@@ -5817,6 +5820,16 @@ function _terapkanDataMemorial(hasil){
   renderMemorialTambahanTable();
   MEMORIAL_STATE.locked = statusRes.locked;
   MEMORIAL_STATE.lockInfo = statusRes;
+  // PERBAIKAN BUG "No. Memorial tidak bisa save": sebelumnya nomorMap CUMA
+  // hidup di memori browser, tidak pernah dibaca ulang dari server -- jadi
+  // begitu halaman ini dibuka lagi (refresh, ganti bulan lalu balik lagi,
+  // dst), semua No. Memorial yang sudah diketik sebelumnya (tapi belum
+  // sempat "Kunci") hilang tanpa jejak. Sekarang dimuat dari draft
+  // tersimpan di server (lihat simpanNomorMemorialDraft/getStatusJurnalMemorial
+  // di Code.gs) setiap kali data bulan ini dimuat/disegarkan.
+  MEMORIAL_STATE.nomorMap = Object.assign({}, statusRes.nomorDraft || {});
+  MEMORIAL_STATE.nomorMapTersimpan = Object.assign({}, statusRes.nomorDraft || {});
+  MEMORIAL_STATE.editModeNomor = false;
   if(statusRes.locked){
     MEMORIAL_STATE.frozenMemo = statusRes.memoData || [];
     renderMemorialLockBanner();
@@ -6075,14 +6088,21 @@ function _bangunDaftarMemo(){
 function renderMemorialList(){
   var memo = _bangunDaftarMemo();
   var el = document.getElementById('memorial-list');
+  _renderAksiNomorMemorial();
   if(!memo.length){ el.innerHTML = '<p class="text-muted small">Belum ada data bulan ini.</p>'; return; }
   var locked = MEMORIAL_STATE.locked;
+  // No. Memorial TIDAK LAGI selalu editable inline -- defaultnya statis
+  // (aman dari kepencet/kehapus tidak sengaja), baru jadi input beneran
+  // kalau tombol "Edit No. Memorial" (di pojok kanan atas, lihat
+  // _renderAksiNomorMemorial) diklik. Lihat juga catatan performa/bug di
+  // simpanNomorMemorialUI & _terapkanDataMemorial.
+  var editMode = !locked && MEMORIAL_STATE.editModeNomor;
   el.innerHTML = memo.map(function(m){
     var rekBermasalah = !m.debetRek || !m.kreditRek;
     var noVal = locked ? (m.noMemorial || '') : (MEMORIAL_STATE.nomorMap[m.id] || '');
-    var noInput = locked
-      ? '<input class="form-control form-control-sm" value="'+noVal+'" disabled>'
-      : '<input class="form-control form-control-sm" placeholder="No. memorial" value="'+noVal+'" onchange="setNoMemorial(\''+m.id+'\', this.value)">';
+    var noInput = editMode
+      ? '<input class="form-control form-control-sm" placeholder="No. memorial" value="'+noVal+'" onchange="setNoMemorial(\''+m.id+'\', this.value)">'
+      : '<div class="small py-1" style="'+(noVal?'':'color:#9ca3af;font-style:italic;')+'">'+(noVal ? _gcEsc(noVal) : '(belum diisi)')+'</div>';
     return '<div class="card mb-2'+(rekBermasalah?' border-danger':'')+'"><div class="card-body py-2">'
       +'<div class="row g-2 align-items-center">'
       +'<div class="col-md-5"><b>'+_gcEsc(m.keterangan)+'</b><div class="text-muted small">'+m.tanggal+'</div></div>'
@@ -6094,6 +6114,45 @@ function renderMemorialList(){
       +'<div class="col-md-2">'+noInput+'</div>'
       +'</div></div></div>';
   }).join('');
+}
+// Tombol aksi di pojok kanan atas kartu "Preview Bukti Memorial", sejajar
+// dengan kolom No. Memorial -- Edit utk mulai menyunting (No. Memorial
+// berubah dari tampilan statis jadi input), Simpan+Batal muncul selama mode
+// edit aktif. Tersembunyi total kalau bulan sudah terkunci (nomornya sudah
+// final, dibekukan di frozenMemo, tidak bisa diubah lagi dari sini).
+function _renderAksiNomorMemorial(){
+  var el = document.getElementById('memorial-nomor-aksi');
+  if(!el) return;
+  if(MEMORIAL_STATE.locked){ el.innerHTML = ''; return; }
+  el.innerHTML = MEMORIAL_STATE.editModeNomor
+    ? '<button class="btn btn-sm btn-outline-secondary me-1" onclick="batalEditNomorMemorial()">Batal</button>'
+      + '<button class="btn btn-sm" id="btn-simpan-nomor-memorial" style="background:var(--maroon);color:#fff;" onclick="simpanNomorMemorialUI()"><i class="fas fa-save me-1"></i>Simpan No. Memorial</button>'
+    : '<button class="btn btn-sm btn-outline-secondary" onclick="mulaiEditNomorMemorial()"><i class="fas fa-edit me-1"></i>Edit No. Memorial</button>';
+}
+function mulaiEditNomorMemorial(){
+  MEMORIAL_STATE.editModeNomor = true;
+  renderMemorialList();
+}
+// Batal -- buang perubahan yang BELUM disimpan (kembalikan nomorMap ke
+// salinan yang terakhir kali benar2 tersimpan di server), supaya konsisten:
+// klik "Batal" berarti benar2 batal, bukan cuma menyembunyikan input.
+function batalEditNomorMemorial(){
+  MEMORIAL_STATE.nomorMap = Object.assign({}, MEMORIAL_STATE.nomorMapTersimpan || {});
+  MEMORIAL_STATE.editModeNomor = false;
+  renderMemorialList();
+}
+function simpanNomorMemorialUI(){
+  var bulan = document.getElementById('sel-bulan-memorial').value;
+  var btn = document.getElementById('btn-simpan-nomor-memorial');
+  btnBusy(btn, true);
+  gasCall('simpanNomorMemorialDraft', STATE.tahunAktif, bulan, MEMORIAL_STATE.nomorMap, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res.success){ toast('error', res.message); return; }
+    toast('success','No. Memorial tersimpan');
+    MEMORIAL_STATE.nomorMapTersimpan = Object.assign({}, MEMORIAL_STATE.nomorMap);
+    MEMORIAL_STATE.editModeNomor = false;
+    renderMemorialList(); // kembali statis begitu berhasil tersimpan
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal menyimpan, coba lagi.'); });
 }
 
 // ============================================================
