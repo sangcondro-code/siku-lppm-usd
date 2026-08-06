@@ -7684,6 +7684,46 @@ function pdBlock(icon, judul, state, badgeHtml, bodyHtml){
     + bodyHtml + '</div></div></div>';
 }
 function pdLockedBody(teks){ return '<div class="pd-locked-note"><i class="fas fa-lock"></i>'+teks+'</div>'; }
+// FITUR BARU: dulu No. Bukti Kas Masuk/Keluar (BKM/BKK) yang SUDAH tercatat
+// (dari Cairkan Dana / Verifikasi LPJ / Verifikasi Tagihan / Verifikasi
+// Laporan Unit) TIDAK BISA dikoreksi lagi kalau ternyata salah ketik --
+// satu-satunya jalan sebelumnya cuma ubah manual di spreadsheet. Sekarang
+// ada pensil kecil di sampingnya (khusus ADMIN) yang membuka form edit
+// ringan (Swal input + Simpan, dgn spinner selagi proses) -- dipakai sama
+// di 4 jenis pengajuan sekaligus (MUKA/SEKALIGUS/TAGIHAN/LAPORAN_UNIT),
+// supaya baris "No. Bukti ..." konsisten bisa dikoreksi di mana pun tampil.
+function pdBaristNoBuktiEdit(field, labelField, nilai){
+  if(!nilai) return '';
+  var tombolEdit = STATE.role==='ADMIN'
+    ? ' <button type="button" class="btn btn-link btn-sm p-0 no-print" style="vertical-align:baseline;line-height:1;" onclick="pdBukaEditNoBuktiKas(\''+field+'\',\''+labelField+'\')" title="Edit '+labelField+'"><i class="fas fa-pen" style="font-size:.7rem;"></i></button>'
+    : '';
+  return '<div class="small text-muted mt-1">'+labelField+': <b>'+esc(nilai)+'</b>'+tombolEdit+'</div>';
+}
+function pdBukaEditNoBuktiKas(field, labelField){
+  var h = PD.detail && PD.detail.header;
+  if(!h) return;
+  var idPengajuan = h.idPengajuan;
+  var nilaiSaatIni = h[field] || '';
+  Swal.fire({
+    title:'Edit ' + labelField,
+    input:'text', inputValue: nilaiSaatIni, inputPlaceholder: labelField,
+    showCancelButton:true, confirmButtonText:'Simpan', cancelButtonText:'Batal',
+    allowOutsideClick:false, allowEscapeKey:false,
+    preConfirm: function(nilaiBaru){
+      nilaiBaru = (nilaiBaru || '').trim();
+      if(!nilaiBaru){ Swal.showValidationMessage(labelField + ' tidak boleh kosong'); return false; }
+      Swal.showLoading();
+      return gasCall('editNoBuktiKas', idPengajuan, field, nilaiBaru, STATE.token).then(function(res){
+        if(!res || !res.success){ Swal.showValidationMessage(res && res.message); return false; }
+        return res;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menyimpan, coba lagi.'); return false; });
+    }
+  }).then(function(r){
+    if(!r.isConfirmed) return;
+    toast('success', labelField + ' diperbarui');
+    pdTerapkanDetailDariAksi(r.value);
+  });
+}
 function pdCatatanTunggu(teks){ return '<div class="pd-locked-note" style="background:#f8fafc;border:1px solid #cbd5e1;"><i class="fas fa-hourglass-half"></i>'+teks+'</div>'; }
 function pdKomentarThreadHtml(idPengajuan, komentar){
   var list = komentar.map(function(k){
@@ -7726,6 +7766,22 @@ function pdFileVersiTerakhir(fileArr, tipe){
 
 function pdRenderDetail(res){
   var h = res.header;
+  // PERBAIKAN BUG PENTING ("kalau Tunai jadi narik upload dari yang lain"):
+  // PD.buktiBayarFile (bukti bayar Tagihan) & PD.buktiTransferSekaligus
+  // (bukti transfer Penggantian Biaya) SEBELUMNYA cuma di-null-kan SEKALI
+  // waktu halaman pertama dimuat -- begitu Admin sempat memilih file di 1
+  // pengajuan (mis. upload bukti bayar utk pengajuan A), variabel itu TETAP
+  // terisi file itu selamanya di memori browser. Kalau Admin lalu membuka
+  // pengajuan LAIN (mis. pengajuan B, metode Tunai) dan langsung klik
+  // "Selesai" TANPA mengunggah file baru khusus utk B, kode ini sebelumnya
+  // tidak menyadari file itu bukan milik B -- akibatnya file bukti bayar
+  // pengajuan A ikut "ketarik"/terpasang ke pengajuan B yang berbeda.
+  // Sekarang di-reset TIAP KALI detail pengajuan mana pun dirender (dibuka
+  // baru ATAUPUN disegarkan sesudah aksi) -- jadi Admin WAJIB pilih file
+  // baru yang benar-benar khusus utk pengajuan yang sedang dibuka, tidak
+  // bisa lagi kebawa dari pengajuan lain yang sempat dibuka sebelumnya.
+  PD.buktiBayarFile = null;
+  PD.buktiTransferSekaligus = null;
   document.getElementById('pd-d-judul').textContent = h.idPengajuan + ' \u00b7 ' + h.judul;
   document.getElementById('pd-d-sub').textContent = 'Diajukan oleh ' + (h.diajukanOlehNama || h.diajukanOleh) + ' \u00b7 ' + (h.tglPengajuan ? new Date(h.tglPengajuan).toLocaleDateString('id-ID') : '-');
   var bs = PD_BADGE_STATUS[h.status] || ['badge-pd', h.status];
@@ -7812,7 +7868,7 @@ function pdRenderDetailMuka(res){
   } else if(st(3)==='done'){
     html += pdBlock('fa-sack-dollar','3. Pencairan Dana','done','<span class="badge-pd badge-pd-dicairkan">Dicairkan</span>',
       '<div class="fw-bold small" style="color:#1d4ed8;">Dicairkan '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' \u00b7 Rp '+fmtRp(h.totalDiajukan)+'</div>'
-      + (h.noBuktiKasKeluar ? '<div class="small text-muted mt-1">No. Bukti Kas Keluar: <b>'+esc(h.noBuktiKasKeluar)+'</b></div>' : ''));
+      + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
   } else {
     html += pdBlock('fa-sack-dollar','3. Pencairan Dana','locked','', pdLockedBody('Menunggu persetujuan Admin.'));
   }
@@ -7858,8 +7914,8 @@ function pdRenderDetailMuka(res){
       + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi (bersih)</div><div class="fw-bold">Rp '+fmtRp(netRealisasi_)+'</div></div></div>'
       + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisih===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisih))+(selisih>0?' (dikembalikan)':(selisih<0?' (kurang)':' (sesuai)'))+'</div></div></div></div>'
       + '<div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(lpjFile)
-      + (h.noBuktiKasMasuk ? '<div class="small text-muted mt-2">No. Bukti Kas Masuk (surplus dikembalikan): <b>'+esc(h.noBuktiKasMasuk)+'</b></div>' : '')
-      + (h.noBuktiKasKeluarTambahan ? '<div class="small text-muted mt-2">No. Bukti Kas Keluar (kekurangan dibayar): <b>'+esc(h.noBuktiKasKeluarTambahan)+'</b></div>' : ''));
+      + pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk (surplus dikembalikan)', h.noBuktiKasMasuk)
+      + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar (kekurangan dibayar)', h.noBuktiKasKeluarTambahan));
   } else {
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','locked','', pdLockedBody('Menunggu dana dicairkan.'));
   }
@@ -7990,13 +8046,13 @@ function pdRenderDetailSingkat(res){
       html += pdBlock('fa-flag-checkered', judul3, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
         '<div class="fw-bold small mb-2" style="color:#166534;">Dibayar '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' \u00b7 Rp '+fmtRp(h.totalRealisasi)+'</div>'
         + '<div class="small fw-bold mb-1 text-muted">BUKTI BAYAR (diunggah Admin)</div>'+pdFileChip(buktiBayar)
-        + (h.noBuktiKasKeluar ? '<div class="small text-muted mt-2">No. Bukti Kas Keluar: <b>'+esc(h.noBuktiKasKeluar)+'</b></div>' : ''));
+        + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
     } else {
       var selisih2 = h.totalDiajukan - h.totalRealisasi;
       html += pdBlock('fa-flag-checkered', judul3, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
         '<div class="row g-2 mb-2"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
         + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih2===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold">Rp '+fmtRp(Math.abs(selisih2))+'</div></div></div></div>'
-        + (h.noBuktiKasKeluar ? '<div class="small text-muted mt-1">No. Bukti Kas Keluar: <b>'+esc(h.noBuktiKasKeluar)+'</b></div>' : ''));
+        + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
     }
   } else {
     html += pdBlock('fa-flag-checkered', judul3, 'locked', '', pdLockedBody('Menunggu tahap Verifikasi selesai.'));
@@ -8218,8 +8274,8 @@ function pdRenderDetailLaporanUnit(res){
       '<div class="row g-2 mb-2"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Pemasukan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
       + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Pengeluaran</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
       + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisihLap>=0?'ok':'warn')+'"><div class="small text-muted">Selisih (Laba/Rugi Bulan Ini)</div><div class="fw-bold">Rp '+fmtRp(Math.abs(selisihLap))+'</div></div></div></div>'
-      + (h.noBuktiKasMasuk ? '<div class="small text-muted mt-1">No. Bukti Kas Masuk: <b>'+esc(h.noBuktiKasMasuk)+'</b></div>' : '')
-      + (h.noBuktiKasKeluar ? '<div class="small text-muted mt-1">No. Bukti Kas Keluar: <b>'+esc(h.noBuktiKasKeluar)+'</b></div>' : ''));
+      + pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk', h.noBuktiKasMasuk)
+      + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
   } else {
     html += pdBlock('fa-flag-checkered', '3. Selesai', 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
   }
