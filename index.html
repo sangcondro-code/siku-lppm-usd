@@ -8008,10 +8008,19 @@ function pdRenderDetailSingkat(res){
       // CUKUP jadi bukti -- No. Bukti Kas Keluar TIDAK perlu ditampilkan sama
       // sekali (bukan pergerakan kas fisik). Kalau TUNAI: tetap wajib diisi.
       var inputBuktiKasTagihan = h.metodePembayaran==='TRANSFER' ? '' : ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>');
+      // PERBAIKAN (atas permintaan): utk Tunai, unggah bukti bayar (PDF)
+      // sekarang OPSIONAL -- memo/invoice/surat penyerta sudah diunggah
+      // sejak pengajuan, dan No. Bukti Kas Keluar (nomor BKK fisik) di
+      // bawah sudah cukup jadi bukti resminya (sama seperti Penggantian
+      // Biaya). Tetap boleh dilampirkan kalau Admin mau sertakan foto/scan
+      // BKK-nya, tapi tidak lagi jadi syarat wajib -- cuma wajib kalau
+      // Transfer (di situ itu satu-satunya buktinya).
+      var judulUnggahBukti = h.metodePembayaran==='TRANSFER' ? 'UNGGAH BUKTI TRANSFER (oleh Admin)' : 'UNGGAH BUKTI BAYAR (oleh Admin, opsional)';
+      var placeholderUnggahBukti = h.metodePembayaran==='TRANSFER' ? 'Klik atau seret bukti transfer (PDF) ke sini' : 'Klik atau seret bukti bayar (PDF) ke sini -- boleh dilewati';
       html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
         isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-tagihan-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Tolak)"></textarea>'
-          + '<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI '+(h.metodePembayaran==='TRANSFER'?'TRANSFER':'BAYAR')+' (oleh Admin)</div>'
-          + '<div class="pd-drop mb-2" id="pd-drop-bukti-bayar" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-bayar\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret bukti '+(h.metodePembayaran==='TRANSFER'?'transfer':'bayar')+' (PDF) ke sini</div><input type="file" id="pd-file-bukti-bayar" accept="application/pdf" class="d-none" data-drop-id="pd-drop-bukti-bayar" onchange="pdPilihFile(this,\'buktiBayarFile\')"></div>'
+          + '<div class="small fw-bold mb-1 text-muted">'+judulUnggahBukti+'</div>'
+          + '<div class="pd-drop mb-2" id="pd-drop-bukti-bayar" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-bayar\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">'+placeholderUnggahBukti+'</div><input type="file" id="pd-file-bukti-bayar" accept="application/pdf" class="d-none" data-drop-id="pd-drop-bukti-bayar" onchange="pdPilihFile(this,\'buktiBayarFile\')"></div>'
           + inputBuktiKasTagihan
           + '<button class="btn btn-sm" id="btn-tagihan-selesai-'+h.idPengajuan+'" onclick="pdAksiVerifikasiTagihan(\''+h.idPengajuan+'\',\'SELESAI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Setujui & Tandai Sudah Dibayar</button> '
           + '<button class="btn btn-sm btn-outline-danger" id="btn-tagihan-tolak-'+h.idPengajuan+'" onclick="pdAksiVerifikasiTagihan(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
@@ -8045,7 +8054,7 @@ function pdRenderDetailSingkat(res){
       var buktiBayar = pdFileVersiTerakhir(res.file,'BUKTI_BAYAR');
       html += pdBlock('fa-flag-checkered', judul3, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
         '<div class="fw-bold small mb-2" style="color:#166534;">Dibayar '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' \u00b7 Rp '+fmtRp(h.totalRealisasi)+'</div>'
-        + '<div class="small fw-bold mb-1 text-muted">BUKTI BAYAR (diunggah Admin)</div>'+pdFileChip(buktiBayar)
+        + (buktiBayar ? ('<div class="small fw-bold mb-1 text-muted">BUKTI BAYAR (diunggah Admin)</div>'+pdFileChip(buktiBayar)) : '') // opsional utk Tunai -- kalau tidak diunggah, bagian ini disembunyikan saja (tidak nampilkan label tanpa isi)
         + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
     } else {
       var selisih2 = h.totalDiajukan - h.totalRealisasi;
@@ -8148,8 +8157,11 @@ function pdAksiVerifikasiSekaligus(id, keputusan, btn){
 }
 function pdAksiVerifikasiTagihan(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-tagihan-'+id)||{}).value || '';
-  if(keputusan==='SELESAI' && !PD.buktiBayarFile){ toast('error','Bukti bayar (PDF) wajib diunggah'); return; }
   var metodeTransfer = PD.detail && PD.detail.header && PD.detail.header.metodePembayaran==='TRANSFER';
+  // PERBAIKAN (atas permintaan): Bukti Bayar (PDF) sekarang cuma wajib
+  // kalau metode Transfer -- kalau Tunai, No. Bukti Kas Keluar di bawah
+  // sudah cukup (sama seperti Penggantian Biaya), upload PDF jadi opsional.
+  if(keputusan==='SELESAI' && metodeTransfer && !PD.buktiBayarFile){ toast('error','Bukti transfer (PDF) wajib diunggah'); return; }
   var noBukti = '';
   if(keputusan==='SELESAI' && !metodeTransfer){
     noBukti = (document.getElementById('pd-bukti-kas-'+id)||{}).value || '';
