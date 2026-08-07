@@ -1094,7 +1094,7 @@
                  memblokir laporan ke-2 utk kombinasi Unit+Bulan yg sama). -->
             <div class="row g-2">
               <div class="col-12"><label class="form-label small mb-1">Nama Kegiatan / Keperluan</label>
-                <input class="form-control form-control-sm" id="pd-judul-laporan" placeholder="mis. Kursus Bahasa, Bookshop, dsb -- boleh sama tiap bulan kalau usahanya cuma 1"></div>
+                <input class="form-control form-control-sm" id="pd-judul-laporan" placeholder="Nama Kegiatan/Proyek"></div>
             </div>
             <div class="row g-2 mt-1">
               <div class="col-md-4"><label class="form-label small mb-1">Bulan</label>
@@ -7090,7 +7090,18 @@ function pdRenderDaftarTable(){
       + '<td class="text-end">Rp '+fmtRp(p.totalDiajukan)+'</td>'
       + '<td><span class="badge-pd '+bs[0]+'">'+bs[1]+'</span></td>'
       + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick="pdBukaDetail(\''+p.idPengajuan+'\', this)" title="Lihat Detail"><i class="fas fa-list"></i></button>'
-      + '<button class="btn btn-sm btn-outline-danger admin-only'+(STATE.role==='ADMIN'?'':' d-none')+'" onclick="pdAksiHapus(\''+p.idPengajuan+'\',\''+esc(p.judul)+'\', this)" title="Hapus Pengajuan"><i class="fas fa-trash"></i></button></td>'
+      // PERBAIKAN BUG NYATA: sebelumnya judul disisipkan LANGSUNG ke dalam
+      // atribut onclick sebagai string JS berpagar kutip satu -- esc() cuma
+      // meng-escape &/</> (aman utk HTML), TIDAK meng-escape tanda kutip
+      // satu ('). Kalau nama kegiatan mengandung apostrof (mis. "Rapat
+      // Prodi's..." atau ada kutipan di judulnya), string JS di onclick
+      // itu terputus di tengah -> browser gagal mem-parsing, tombol Hapus
+      // jadi TIDAK BEREAKSI SAMA SEKALI saat diklik (tanpa pesan error
+      // apa pun, cuma diam). Sekarang onclick cuma bawa idPengajuan (ID
+      // sistem, selalu aman, tidak pernah mengandung kutip) -- judulnya
+      // dicari dari PD.daftar yang sudah ada di memori, bukan disisipkan
+      // ke atribut HTML sama sekali.
+      + '<button class="btn btn-sm btn-outline-danger admin-only'+(STATE.role==='ADMIN'?'':' d-none')+'" onclick="pdAksiHapus(\''+p.idPengajuan+'\', this)" title="Hapus Pengajuan"><i class="fas fa-trash"></i></button></td>'
       + '</tr>';
     }).join('');
   } catch (eRender) {
@@ -8116,7 +8127,12 @@ function pdAksiKirimUlang(id, btn){
 // Hapus pengajuan (khusus Admin) -- WAJIB konfirmasi dulu karena ireversibel
 // (data di sheet aktif dihapus permanen; file yg sudah terunggah ke Drive
 // TIDAK ikut terhapus, cuma catatannya di sistem yang hilang).
-function pdAksiHapus(id, judul, btn){
+function pdAksiHapus(id, btn){
+  // judul dicari dari PD.daftar (sudah di memori) -- BUKAN diterima lewat
+  // parameter dari atribut onclick, supaya aman dari judul yang mengandung
+  // tanda kutip satu (lihat catatan di pdRenderDaftarTable).
+  var p = PD.daftar.filter(function(x){ return x.idPengajuan===id; })[0];
+  var judul = p ? p.judul : id;
   Swal.fire({
     title:'Hapus pengajuan ini?',
     html:'<b>'+id+'</b> &mdash; '+esc(judul)+'<br><span class="text-muted small">Tindakan ini tidak bisa dibatalkan. Data pengajuan akan dihapus permanen dari sistem (file yang sudah terlanjur diunggah ke Drive tidak ikut terhapus).</span>',
