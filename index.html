@@ -1084,7 +1084,19 @@
         <div id="pd-panel-jenis-laporan" class="d-none">
           <div class="card mb-3"><div class="card-body">
             <div class="section-title"><i class="fas fa-store"></i>Periode Laporan</div>
+            <!-- FITUR BARU (atas permintaan): 1 Unit bisa punya beberapa
+                 kegiatan/usaha berbeda (mis. Kursus Bahasa & Bookshop) yang
+                 masing2 perlu dilaporkan TERPISAH walau bulan & Unit-nya
+                 sama -- sebelumnya tidak ada field ini, judul laporan
+                 selalu digenerate otomatis cuma dari Bulan+Tahun saja,
+                 sehingga 1 Unit cuma bisa punya 1 laporan per bulan (lihat
+                 juga perubahan di ajukanLaporanUnit, Code.gs, yg dulu
+                 memblokir laporan ke-2 utk kombinasi Unit+Bulan yg sama). -->
             <div class="row g-2">
+              <div class="col-12"><label class="form-label small mb-1">Nama Kegiatan / Keperluan</label>
+                <input class="form-control form-control-sm" id="pd-judul-laporan" placeholder="mis. Kursus Bahasa, Bookshop, dsb -- boleh sama tiap bulan kalau usahanya cuma 1"></div>
+            </div>
+            <div class="row g-2 mt-1">
               <div class="col-md-4"><label class="form-label small mb-1">Bulan</label>
                 <select class="form-select form-select-sm" id="pd-bulan-laporan"></select></div>
               <div class="col-md-4"><label class="form-label small mb-1">Tahun</label>
@@ -7122,6 +7134,7 @@ function pdResetForm(){
   document.getElementById('pd-judul-tagihan').value = '';
   document.getElementById('pd-kepada-tagihan').value = '';
   document.getElementById('pd-nominal-tagihan').value = '';
+  document.getElementById('pd-judul-laporan').value = '';
   var selBulanLaporan = document.getElementById('pd-bulan-laporan');
   if(selBulanLaporan && !selBulanLaporan.options.length) selBulanLaporan.innerHTML = BULAN_NAMA.map(function(n,i){ return '<option value="'+(i+1)+'">'+n+'</option>'; }).join('');
   if(selBulanLaporan) selBulanLaporan.value = String(PD.laporanBulan);
@@ -7176,7 +7189,7 @@ function pdKumpulkanDraftBaru(jenis){
       noRekening:document.getElementById('pd-no-rek-sekaligus').value, namaRekening:document.getElementById('pd-nama-rek-sekaligus').value, namaBank:document.getElementById('pd-nama-bank-sekaligus').value };
   }
   if(jenis==='laporan'){
-    return { jenis:'laporan', bulan:document.getElementById('pd-bulan-laporan').value, pemasukan:PD.laporanPemasukan, pengeluaran:PD.laporanPengeluaran };
+    return { jenis:'laporan', namaKegiatan:document.getElementById('pd-judul-laporan').value, bulan:document.getElementById('pd-bulan-laporan').value, pemasukan:PD.laporanPemasukan, pengeluaran:PD.laporanPengeluaran };
   }
   return { jenis:'tagihan', judul:document.getElementById('pd-judul-tagihan').value, kepada:document.getElementById('pd-kepada-tagihan').value, nominal:document.getElementById('pd-nominal-tagihan').value,
     metode:document.querySelector('#pd-metode-tagihan-toggle .pos-tab.active').dataset.metode,
@@ -7199,6 +7212,7 @@ function pdTerapkanDraftBaru(data){
     document.getElementById('pd-nama-rek-sekaligus').value = data.namaRekening || '';
     document.getElementById('pd-nama-bank-sekaligus').value = data.namaBank || '';
   } else if(data.jenis==='laporan'){
+    document.getElementById('pd-judul-laporan').value = data.namaKegiatan || '';
     if(data.bulan) { PD.laporanBulan = Number(data.bulan); document.getElementById('pd-bulan-laporan').value = data.bulan; }
     if(data.pemasukan && data.pemasukan.length) PD.laporanPemasukan = data.pemasukan;
     if(data.pengeluaran && data.pengeluaran.length) PD.laporanPengeluaran = data.pengeluaran;
@@ -7616,6 +7630,8 @@ function pdSubmitTagihan(btn){
   });
 }
 function pdSubmitLaporanUnit(btn){
+  var namaKegiatan = document.getElementById('pd-judul-laporan').value.trim();
+  if(!namaKegiatan){ toast('error','Nama Kegiatan / Keperluan wajib diisi'); return; }
   var bulan = document.getElementById('pd-bulan-laporan').value;
   var tahun = STATE.tahunSistemAktif; // BUKAN STATE.tahunAktif -- lihat catatan di pdRentangTanggalLaporan. Backend tetap jadi penentu akhir (mengabaikan nilai ini), dikirim cuma utk konsistensi idKey.
   var pemasukan = PD.laporanPemasukan.filter(function(r){ return r.keterangan && r.tanggal && Number(r.nominal)>0; });
@@ -7624,8 +7640,8 @@ function pdSubmitLaporanUnit(btn){
   if(!PD.laporanBuktiFile){ toast('error','Bukti pendukung (PDF) wajib diunggah'); return; }
   var kodeUnitAdmin = pdKodeUnitAdminTerpilih('laporan');
   if(STATE.role==='ADMIN' && !kodeUnitAdmin){ toast('error','Pilih Unit yang laporannya mau diajukan'); return; }
-  var idKey = _idemKey('ajukan_laporan', {bulan:bulan,tahun:tahun,pemasukan:pemasukan,pengeluaran:pengeluaran,kodeUnit:kodeUnitAdmin,nonce:PD.formNonce});
-  pdJalankanAksi('ajukanLaporanUnit', [{bulan:bulan, tahun:tahun, pemasukan:pemasukan, pengeluaran:pengeluaran, buktiFile:PD.laporanBuktiFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey], btn, null).then(function(res){
+  var idKey = _idemKey('ajukan_laporan', {namaKegiatan:namaKegiatan,bulan:bulan,tahun:tahun,pemasukan:pemasukan,pengeluaran:pengeluaran,kodeUnit:kodeUnitAdmin,nonce:PD.formNonce});
+  pdJalankanAksi('ajukanLaporanUnit', [{namaKegiatan:namaKegiatan, bulan:bulan, tahun:tahun, pemasukan:pemasukan, pengeluaran:pengeluaran, buktiFile:PD.laporanBuktiFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey], btn, null).then(function(res){
     if(!res) return;
     toast('success','Laporan '+res.idPengajuan+' berhasil dikirim');
     gasCall('hapusDraftPengajuan', 'baru_laporan', STATE.token).catch(function(){});
