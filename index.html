@@ -174,6 +174,7 @@
 .badge-pd-menunggu-verifikasi{ background:#ede9fe; color:#5b21b6; }
 .badge-pd-perlu-revisi{ background:#fed7aa; color:#9a3412; }
 .badge-pd-selesai{ background:#dcfce7; color:#166534; }
+.badge-pd-draft{ background:#f3f4f6; color:#374151; border:1px dashed #9ca3af; } /* garis putus-putus -- pembeda visual jelas dari status resmi lain, menandakan "belum benar-benar terkirim" */
 
 .pd-back{ color:#6b7280; font-size:.82rem; font-weight:600; cursor:pointer; }
 .pd-back:hover{ color:var(--maroon); }
@@ -893,7 +894,6 @@
             <div class="pos-tab" data-kat="PROSES" onclick="pdSetKategori('PROSES')"><i class="fas fa-arrows-rotate"></i>Proses</div>
             <div class="pos-tab" data-kat="SELESAI" onclick="pdSetKategori('SELESAI')"><i class="fas fa-circle-check"></i>Selesai</div>
             <div class="pos-tab" data-kat="SEMUA" onclick="pdSetKategori('SEMUA')">Semua</div>
-            <div class="pos-tab" data-kat="DRAFT" onclick="pdSetKategori('DRAFT')"><i class="fas fa-pen-to-square"></i>Draft</div>
           </div>
           <div class="table-responsive"><table class="table tbl mb-0">
             <thead><tr><th>No. Pengajuan / Jenis</th><th>Kegiatan</th><th>Diajukan Oleh</th><th>Tanggal</th><th class="text-end">Nominal</th><th>Status</th><th></th></tr></thead>
@@ -6848,34 +6848,48 @@ function pdSetKategori(kat){
   PD.kategori = kat;
   PD.halaman = 1;
   document.querySelectorAll('#pd-kategori-tabs .pos-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.kat===kat); });
-  // FITUR BARU: tab "Draft" numpang di tabel Daftar Pengajuan yang sama,
-  // tapi isinya beda sumbernya (PD.daftarDraft, bukan PD.daftar) -- perlu
-  // ditarik dulu dari server tiap kali tab ini dibuka (draft bisa berubah
-  // kapan saja dari form manapun), baru dirender.
-  // Export CSV/Cetak tidak relevan utk draft (belum jadi pengajuan resmi) --
-  // sembunyikan sementara selagi di tab Draft supaya tidak salah kira
-  // mengekspor/mencetak isi draft.
-  var elCsv = document.getElementById('pd-btn-export-csv'); if(elCsv) elCsv.classList.toggle('d-none', kat==='DRAFT');
-  var elCetak = document.getElementById('pd-btn-cetak-daftar'); if(elCetak) elCetak.classList.toggle('d-none', kat==='DRAFT');
-  if(kat==='DRAFT'){ pdMuatDaftarDraft(); return; }
   pdRenderDaftarTable();
 }
 // Detail arsip -- READ-ONLY, dipakai dari menu Rollover Tahun kalau
 // suatu saat Admin perlu cek isi arsip langsung (bukan lewat Daftar
 // Pengajuan -- arsip sengaja TIDAK ada tampilan terpisah di sana, murni
 // urusan backend/performa, tidak terlihat beda sama sekali oleh user).
-var PD_KATEGORI_LABEL = { BARU:'Pengajuan Baru', PROSES:'Proses', SELESAI:'Selesai', SEMUA:'Semua', DRAFT:'Draft' };
+var PD_KATEGORI_LABEL = { BARU:'Pengajuan Baru', PROSES:'Proses', SELESAI:'Selesai', SEMUA:'Semua' };
 var PD_KATEGORI_STATUS = {
   BARU:['DIAJUKAN','MENUNGGU_VERIFIKASI'],
   PROSES:['DISETUJUI','DICAIRKAN','PERLU_REVISI'],
   SELESAI:['SELESAI','DITOLAK']
 };
+// FITUR DRAFT (atas permintaan -- disederhanakan dari versi tab terpisah
+// sebelumnya): draft "Ajukan Baru" yang belum terkirim ditampilkan sbg
+// BARIS BERSTATUS "Draft" di tab "Pengajuan Baru" yang sama, BUKAN
+// tab/tabel terpisah -- lebih nyatu & tidak aneh dibanding versi
+// sebelumnya. Cuma draft jenis "Ajukan Baru" (MUKA/SEKALIGUS/TAGIHAN/
+// LAPORAN_UNIT) yang dimunculkan di sini -- draft LPJ/Revisi Laporan
+// (tipe LANJUTAN) sudah otomatis ditawarkan sendiri begitu Detail
+// pengajuan terkait itu dibuka, jadi tidak perlu dobel ditampilkan lagi.
+function _pdDraftBaruSebagaiPseudoRow(){
+  var JENIS_MAP = { muka:'MUKA', sekaligus:'SEKALIGUS', tagihan:'TAGIHAN', laporan:'LAPORAN_UNIT' };
+  return (PD.daftarDraft || []).filter(function(d){ return d.ringkasan && d.ringkasan.tipe==='BARU'; }).map(function(d){
+    var r = d.ringkasan;
+    return {
+      idPengajuan:'', jenis:JENIS_MAP[r.jenis] || r.jenis, judul:r.judul || '(belum diberi judul)',
+      diajukanOlehNama:'', diajukanOleh:'', kodeUnit:'', dibayarkanKepada:'',
+      tglPengajuan:d.waktuUpdate, totalDiajukan:0, status:'DRAFT', jumlahKomentar:0,
+      __isDraft:true, __draftKey:d.draftKey
+    };
+  });
+}
 function pdDaftarTersaring(){
   var hasil = PD.daftar;
   if(PD.kategori!=='SEMUA'){
     var daftarStatus = PD_KATEGORI_STATUS[PD.kategori] || [];
     hasil = hasil.filter(function(p){ return daftarStatus.indexOf(p.status)!==-1; });
   }
+  // Draft "Ajukan Baru" HANYA muncul di tab "Pengajuan Baru" -- ditaruh
+  // paling atas (draft = pekerjaan yg paling butuh dilanjutkan), lalu ikut
+  // difilter Jenis/Bulan/Kata kunci yang SAMA seperti baris biasa di bawah.
+  if(PD.kategori==='BARU') hasil = _pdDraftBaruSebagaiPseudoRow().concat(hasil);
   if(PD.filterJenis && PD.filterJenis!=='SEMUA'){
     hasil = hasil.filter(function(p){ return p.jenis===PD.filterJenis; });
   }
@@ -6943,10 +6957,16 @@ function _pdCallsRingkasanDanDaftar(){
   return [
     { fn:'getRingkasanPengajuan', args:[STATE.token] },
     { fn:'getJumlahPengajuanPerluPerhatian', args:[STATE.token] },
-    { fn:'getDaftarPengajuan', args:[PD.filterStatus, PD.filterUnit, 'SEMUA', STATE.token] }
+    { fn:'getDaftarPengajuan', args:[PD.filterStatus, PD.filterUnit, 'SEMUA', STATE.token] },
+    // FITUR DRAFT (disederhanakan atas permintaan): tidak lagi tab
+    // terpisah -- draft milik user ditarik SEKALIAN di sini (1 batch yang
+    // sama, tanpa round-trip tambahan) supaya bisa disisipkan sbg baris
+    // berstatus "Draft" langsung di tab "Pengajuan Baru", nyatu dgn
+    // pengajuan yang sudah resmi terkirim (bukan tabel/tab terpisah lagi).
+    { fn:'getDaftarDraftSaya', args:[STATE.token] }
   ];
 }
-function _pdTerapkanRingkasanDanDaftar(resRingkasan, resBadge, resDaftar){
+function _pdTerapkanRingkasanDanDaftar(resRingkasan, resBadge, resDaftar, resDraft){
   if(resRingkasan && resRingkasan.success){
     PD.ringkasan = resRingkasan;
     document.getElementById('pd-r-baru').textContent = resRingkasan.jumlahBaru;
@@ -6961,6 +6981,10 @@ function _pdTerapkanRingkasanDanDaftar(resRingkasan, resBadge, resDaftar){
       else elBadge.classList.add('d-none');
     }
   }
+  // resDraft BUKAN dianggap gagal keras kalau error/kosong -- draft murni
+  // pemanis tampilan, tidak boleh sampai bikin seluruh daftar pengajuan
+  // gagal tampil cuma gara-gara baris draft gagal ditarik.
+  PD.daftarDraft = (resDraft && resDraft.success) ? resDraft.data : [];
   if(resDaftar && resDaftar.success){ PD.daftar = resDaftar.data; pdRenderDaftarTable(); }
   else if(resDaftar){ toast('error', resDaftar.message); }
 }
@@ -6986,14 +7010,14 @@ function pdJalankanAksi(fnName, args, btn, pesanSukses){
     var res = hasil[0];
     if(!res || !res.success){ toast('error', res && res.message); return null; }
     if(pesanSukses) toast('success', pesanSukses);
-    _pdTerapkanRingkasanDanDaftar(hasil[1], hasil[2], hasil[3]);
+    _pdTerapkanRingkasanDanDaftar(hasil[1], hasil[2], hasil[3], hasil[4]);
     if(res.header) pdTerapkanDetailDariAksi(res);
     return res;
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); return null; });
 }
 function pdMuatRingkasanDanDaftar(){
   gasCallBatch(_pdCallsRingkasanDanDaftar()).then(function(hasil){
-    _pdTerapkanRingkasanDanDaftar(hasil[0], hasil[1], hasil[2]);
+    _pdTerapkanRingkasanDanDaftar(hasil[0], hasil[1], hasil[2], hasil[3]);
   }).catch(function(){
     // PERBAIKAN BUG: sebelumnya baris ini memanggil pdMuatRingkasanDanDaftar()
     // LAGI setiap kali batch-nya gagal -- TANPA batas jumlah percobaan dan
@@ -7080,7 +7104,8 @@ function pdCetakDaftar(){
 var PD_BADGE_STATUS = {
   DIAJUKAN:['badge-pd-diajukan','Menunggu ACC'], DISETUJUI:['badge-pd-disetujui','Disetujui'],
   DICAIRKAN:['badge-pd-dicairkan','Dicairkan'], MENUNGGU_VERIFIKASI:['badge-pd-menunggu-verifikasi','Menunggu Verifikasi'],
-  PERLU_REVISI:['badge-pd-perlu-revisi','Perlu Revisi'], SELESAI:['badge-pd-selesai','Selesai'], DITOLAK:['badge-pd-ditolak','Ditolak']
+  PERLU_REVISI:['badge-pd-perlu-revisi','Perlu Revisi'], SELESAI:['badge-pd-selesai','Selesai'], DITOLAK:['badge-pd-ditolak','Ditolak'],
+  DRAFT:['badge-pd-draft','Draft'] // FITUR BARU: draft "Ajukan Baru" yang belum terkirim, ditampilkan sbg baris di tab Pengajuan Baru
 };
 var PD_BADGE_JENIS = { MUKA:['#dbeafe','#1d4ed8','Dana Kegiatan'], SEKALIGUS:['#e0e7ff','#3730a3','Penggantian Biaya'], TAGIHAN:['#fef9c3','#854d0e','Tagihan'], LAPORAN_UNIT:['#dcfce7','#166534','Laporan Unit'] };
 // Label dokumen per tipe file -- dipakai di EXPORT CSV & CETAK (BUKAN di
@@ -7093,47 +7118,10 @@ function pdDokumenCsvText(dokumen){
   if(!dokumen || !dokumen.length) return '';
   return dokumen.map(function(d){ return (PD_TIPE_FILE_LABEL[d.tipe]||d.tipe)+': '+d.url; }).join('\n');
 }
-// FITUR BARU: render daftar Draft -- numpang tabel/pagination yang sama
-// dgn Daftar Pengajuan biasa (kolom dipakai ulang dgn makna berbeda),
-// supaya tidak perlu markup baru. Draft SELALU ditampilkan SEMUA sekaligus
-// tanpa paginasi (jumlahnya wajar kecil -- per orang, per jenis/pengajuan).
-function pdRenderDaftarDraftTable(){
-  var daftar = PD.daftarDraft || [];
-  document.getElementById('pd-halaman-info').textContent = daftar.length ? (daftar.length+' draft') : 'Tidak ada draft';
-  document.getElementById('pd-btn-prev').disabled = true;
-  document.getElementById('pd-btn-next').disabled = true;
-  var tbody = document.getElementById('pd-tbody');
-  if(!daftar.length){
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Belum ada draft tersimpan. Draft otomatis muncul di sini begitu Anda klik "Simpan Draft" di form Ajukan Baru, LPJ, atau Revisi Laporan.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = daftar.map(function(d){
-    var r = d.ringkasan || {};
-    var waktu = d.waktuUpdate ? new Date(d.waktuUpdate).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
-    var tombolLanjut = r.tipe==='BARU'
-      ? '<button class="btn btn-sm btn-outline-secondary me-1" onclick="pdLanjutkanDraftBaru(\''+d.draftKey+'\')" title="Lanjutkan mengedit"><i class="fas fa-pen"></i></button>'
-      : (r.idTerkait ? '<button class="btn btn-sm btn-outline-secondary me-1" onclick="pdBukaDetail(\''+r.idTerkait+'\', this)" title="Buka Pengajuan"><i class="fas fa-list"></i></button>' : '');
-    return '<tr>'
-      + '<td class="text-nowrap"><span class="badge-pd" style="background:#f3f4f6;color:#374151;">'+esc(r.label||'Draft')+'</span></td>'
-      + '<td>'+(r.judul ? esc(r.judul) : '<span class="text-muted">(belum diberi judul)</span>')+'</td>'
-      + '<td class="text-muted small">&mdash; belum dikirim &mdash;</td>'
-      + '<td>'+waktu+'</td>'
-      + '<td class="text-end">-</td>'
-      + '<td><span class="badge-pd" style="background:#fef3c7;color:#92400e;">Draft</span></td>'
-      + '<td class="text-nowrap">'+tombolLanjut
-      + '<button class="btn btn-sm btn-outline-danger" onclick="pdHapusDraftUI(\''+d.draftKey+'\', this)" title="Hapus Draft"><i class="fas fa-trash"></i></button></td>'
-      + '</tr>';
-  }).join('');
-}
-function pdMuatDaftarDraft(){
-  var tbody = document.getElementById('pd-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Memuat...</td></tr>';
-  gasCall('getDaftarDraftSaya', STATE.token).then(function(res){
-    if(!res.success){ toast('error', res.message); return; }
-    PD.daftarDraft = res.data;
-    pdRenderDaftarDraftTable();
-  }).catch(function(err){ toast('error', (err && err.message) || 'Gagal memuat daftar draft.'); });
-}
+// (pdRenderDaftarDraftTable/pdMuatDaftarDraft versi tab terpisah SUDAH
+// DIHAPUS -- digantikan oleh baris berstatus "Draft" langsung di tab
+// "Pengajuan Baru", lihat _pdDraftBaruSebagaiPseudoRow di pdDaftarTersaring
+// & percabangan p.__isDraft di pdRenderDaftarTable.)
 // Lanjutkan draft "Ajukan Baru" (MUKA/SEKALIGUS/TAGIHAN/LAPORAN_UNIT) dari
 // tab Draft -- buka form jenis yang sesuai, isi ulang field-nya dari draft,
 // dan tandai draftKeyAktif supaya "Simpan Draft" berikutnya menimpa draft
@@ -7166,12 +7154,11 @@ function pdHapusDraftUI(draftKey, btn){
   }).then(function(r){
     if(!r.isConfirmed) return;
     toast('success','Draft dihapus');
-    pdMuatDaftarDraft();
+    pdMuatRingkasanDanDaftar(); // refresh gabungan (ringkasan+badge+daftar+draft) -- baris draft yang dihapus otomatis hilang dari tab Pengajuan Baru
   });
 }
 function pdRenderDaftarTable(){
   try {
-    if(PD.kategori==='DRAFT'){ pdRenderDaftarDraftTable(); return; }
     var tersaring = pdDaftarTersaring();
     var totalBaris = tersaring.length;
     var totalHalaman = Math.max(1, Math.ceil(totalBaris / PD.ukuranHalaman));
@@ -7193,6 +7180,22 @@ function pdRenderDaftarTable(){
       tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">'+pesanKosong+'</td></tr>'; return;
     }
     tbody.innerHTML = potongan.map(function(p){
+    // FITUR DRAFT: baris draft (lihat _pdDraftBaruSebagaiPseudoRow) dirender
+    // beda dari baris pengajuan resmi -- belum punya No. Pengajuan/nominal
+    // sungguhan, dan aksinya "Lanjutkan" (buka form terisi ulang) + "Hapus
+    // Draft", BUKAN "Lihat Detail" (belum ada detail resminya sama sekali).
+    if(p.__isDraft){
+      var bjD = PD_BADGE_JENIS[p.jenis] || ['#eee','#333',p.jenis];
+      var tglD = p.tglPengajuan ? new Date(p.tglPengajuan).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
+      return '<tr>'
+        + '<td class="text-nowrap"><span class="text-muted small">&mdash;</span><br><span class="badge-pd" style="background:'+bjD[0]+';color:'+bjD[1]+';">'+bjD[2]+'</span></td>'
+        + '<td>'+esc(p.judul)+'</td><td class="text-muted small">&mdash; belum dikirim &mdash;</td><td>'+tglD+'</td>'
+        + '<td class="text-end">-</td>'
+        + '<td><span class="badge-pd badge-pd-draft">Draft</span></td>'
+        + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick="pdLanjutkanDraftBaru(\''+p.__draftKey+'\')" title="Lanjutkan mengedit"><i class="fas fa-pen"></i></button>'
+        + '<button class="btn btn-sm btn-outline-danger" onclick="pdHapusDraftUI(\''+p.__draftKey+'\', this)" title="Hapus Draft"><i class="fas fa-trash"></i></button></td>'
+        + '</tr>';
+    }
     var bj = PD_BADGE_JENIS[p.jenis] || ['#eee','#333',p.jenis];
     var bs = PD_BADGE_STATUS[p.status] || ['badge-pd', p.status];
     var tgl = p.tglPengajuan ? new Date(p.tglPengajuan).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-';
