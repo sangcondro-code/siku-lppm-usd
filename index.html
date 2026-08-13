@@ -7126,8 +7126,14 @@ function pdDokumenCsvText(dokumen){
 // tab Draft -- buka form jenis yang sesuai, isi ulang field-nya dari draft,
 // dan tandai draftKeyAktif supaya "Simpan Draft" berikutnya menimpa draft
 // YANG SAMA ini (bukan bikin draft baru terpisah).
-function pdLanjutkanDraftBaru(draftKey){
+function pdLanjutkanDraftBaru(draftKey, btn){
+  // PERBAIKAN BUG NYATA: sebelumnya tombol "Lanjutkan" TIDAK PERNAH dikasih
+  // status sibuk (btnBusy) sama sekali -- beda dari tombol lain di seluruh
+  // Pengajuan Dana yang konsisten pakai spinner selagi menunggu server.
+  // Klik tombol ini kelihatan "diam saja" selagi getDraftPengajuan berjalan.
+  btnBusy(btn, true);
   gasCall('getDraftPengajuan', draftKey, STATE.token).then(function(res){
+    btnBusy(btn, false);
     if(!res.success || !res.ada){ toast('error','Draft tidak ditemukan (mungkin sudah dihapus).'); return; }
     var data = res.data;
     var jenis = data.jenis;
@@ -7137,7 +7143,7 @@ function pdLanjutkanDraftBaru(draftKey){
     pdIsiUnitAdminDropdown();
     pdJenisPengajuan(jenis);
     pdTerapkanDraftBaru(data);
-  }).catch(function(){ toast('error','Gagal memuat draft, coba lagi.'); });
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal memuat draft, coba lagi.'); });
 }
 function pdHapusDraftUI(draftKey, btn){
   Swal.fire({
@@ -7192,7 +7198,7 @@ function pdRenderDaftarTable(){
         + '<td>'+esc(p.judul)+'</td><td class="text-muted small">&mdash; belum dikirim &mdash;</td><td>'+tglD+'</td>'
         + '<td class="text-end">-</td>'
         + '<td><span class="badge-pd badge-pd-draft">Draft</span></td>'
-        + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick="pdLanjutkanDraftBaru(\''+p.__draftKey+'\')" title="Lanjutkan mengedit"><i class="fas fa-pen"></i></button>'
+        + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick="pdLanjutkanDraftBaru(\''+p.__draftKey+'\', this)" title="Lanjutkan mengedit"><i class="fas fa-pen"></i></button>'
         + '<button class="btn btn-sm btn-outline-danger" onclick="pdHapusDraftUI(\''+p.__draftKey+'\', this)" title="Hapus Draft"><i class="fas fa-trash"></i></button></td>'
         + '</tr>';
     }
@@ -7374,6 +7380,14 @@ function pdSimpanDraftBaru(jenis, btn){
     btnBusy(btn, false);
     if(!res.success){ toast('error', res.message); return; }
     toast('success','Draft tersimpan');
+    // PERBAIKAN BUG NYATA: sebelumnya sesudah draft berhasil tersimpan di
+    // SERVER, PD.daftarDraft di memori TIDAK ikut disegarkan -- jadi kalau
+    // user langsung pindah ke tab "Pengajuan Baru", draft yang baru saja
+    // disimpan itu TIDAK MUNCUL (baru muncul kalau kebetulan ada refresh
+    // lain yang tidak ke-debounce, bisa telat sampai 20 detik). Sekarang
+    // langsung disegarkan seketika begitu draft tersimpan, sama seperti
+    // pola refresh yang sudah dipakai di aksi-aksi lain (pdJalankanAksi).
+    pdMuatRingkasanDanDaftar();
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal menyimpan draft'); });
 }
 // SUDAH TIDAK DIPANGGIL LAGI (atas permintaan): draft "Ajukan Baru" dulu
