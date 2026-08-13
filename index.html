@@ -885,7 +885,7 @@
                 <option value="SEMUA">Semua Unit</option>
               </select>
               <button class="btn btn-sm btn-outline-secondary admin-only" id="pd-btn-export-csv" onclick="pdExportCsv()"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
-              <button class="btn btn-sm btn-outline-secondary admin-only" onclick="pdCetakDaftar()"><i class="fas fa-print me-1"></i>Cetak</button>
+              <button class="btn btn-sm btn-outline-secondary admin-only" id="pd-btn-cetak-daftar" onclick="pdCetakDaftar()"><i class="fas fa-print me-1"></i>Cetak</button>
             </div>
           </div>
           <div class="d-flex gap-2 mb-3 flex-wrap" id="pd-kategori-tabs">
@@ -893,6 +893,7 @@
             <div class="pos-tab" data-kat="PROSES" onclick="pdSetKategori('PROSES')"><i class="fas fa-arrows-rotate"></i>Proses</div>
             <div class="pos-tab" data-kat="SELESAI" onclick="pdSetKategori('SELESAI')"><i class="fas fa-circle-check"></i>Selesai</div>
             <div class="pos-tab" data-kat="SEMUA" onclick="pdSetKategori('SEMUA')">Semua</div>
+            <div class="pos-tab" data-kat="DRAFT" onclick="pdSetKategori('DRAFT')"><i class="fas fa-pen-to-square"></i>Draft</div>
           </div>
           <div class="table-responsive"><table class="table tbl mb-0">
             <thead><tr><th>No. Pengajuan / Jenis</th><th>Kegiatan</th><th>Diajukan Oleh</th><th>Tanggal</th><th class="text-end">Nominal</th><th>Status</th><th></th></tr></thead>
@@ -6771,6 +6772,11 @@ var PD = {
   lpjFileSekaligus:null,
   tagihanJudul:'', tagihanKepada:'', tagihanNominal:0, memoFileTagihan:null,
   laporanBulan:_bulanLaporanDefault(), laporanPemasukan:[{tanggal:'',keterangan:'',nominal:0}], laporanPengeluaran:[{tanggal:'',keterangan:'',nominal:0}], laporanBuktiFile:null,
+  // FITUR BARU: kunci draft AKTIF per jenis form "Ajukan Baru" -- null berarti
+  // belum pernah disimpan sbg draft di sesi ini (klik "Simpan Draft" akan
+  // membuat kunci acak baru); kalau diisi (dari "Lanjutkan" di tab Draft),
+  // "Simpan Draft" berikutnya akan MENIMPA draft yg sama itu, bukan bikin baru.
+  draftKeyAktif:{ muka:null, sekaligus:null, tagihan:null, laporan:null }, daftarDraft:[],
   laporanEditMasuk:[], laporanEditKeluar:[], laporanEditBuktiFile:null,
   detail:null,
   realisasiEdit:[], lpjFileEdit:null, buktiBayarFile:null, buktiTransferSekaligus:null,
@@ -6842,13 +6848,23 @@ function pdSetKategori(kat){
   PD.kategori = kat;
   PD.halaman = 1;
   document.querySelectorAll('#pd-kategori-tabs .pos-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.kat===kat); });
+  // FITUR BARU: tab "Draft" numpang di tabel Daftar Pengajuan yang sama,
+  // tapi isinya beda sumbernya (PD.daftarDraft, bukan PD.daftar) -- perlu
+  // ditarik dulu dari server tiap kali tab ini dibuka (draft bisa berubah
+  // kapan saja dari form manapun), baru dirender.
+  // Export CSV/Cetak tidak relevan utk draft (belum jadi pengajuan resmi) --
+  // sembunyikan sementara selagi di tab Draft supaya tidak salah kira
+  // mengekspor/mencetak isi draft.
+  var elCsv = document.getElementById('pd-btn-export-csv'); if(elCsv) elCsv.classList.toggle('d-none', kat==='DRAFT');
+  var elCetak = document.getElementById('pd-btn-cetak-daftar'); if(elCetak) elCetak.classList.toggle('d-none', kat==='DRAFT');
+  if(kat==='DRAFT'){ pdMuatDaftarDraft(); return; }
   pdRenderDaftarTable();
 }
 // Detail arsip -- READ-ONLY, dipakai dari menu Rollover Tahun kalau
 // suatu saat Admin perlu cek isi arsip langsung (bukan lewat Daftar
 // Pengajuan -- arsip sengaja TIDAK ada tampilan terpisah di sana, murni
 // urusan backend/performa, tidak terlihat beda sama sekali oleh user).
-var PD_KATEGORI_LABEL = { BARU:'Pengajuan Baru', PROSES:'Proses', SELESAI:'Selesai', SEMUA:'Semua' };
+var PD_KATEGORI_LABEL = { BARU:'Pengajuan Baru', PROSES:'Proses', SELESAI:'Selesai', SEMUA:'Semua', DRAFT:'Draft' };
 var PD_KATEGORI_STATUS = {
   BARU:['DIAJUKAN','MENUNGGU_VERIFIKASI'],
   PROSES:['DISETUJUI','DICAIRKAN','PERLU_REVISI'],
@@ -7077,8 +7093,85 @@ function pdDokumenCsvText(dokumen){
   if(!dokumen || !dokumen.length) return '';
   return dokumen.map(function(d){ return (PD_TIPE_FILE_LABEL[d.tipe]||d.tipe)+': '+d.url; }).join('\n');
 }
+// FITUR BARU: render daftar Draft -- numpang tabel/pagination yang sama
+// dgn Daftar Pengajuan biasa (kolom dipakai ulang dgn makna berbeda),
+// supaya tidak perlu markup baru. Draft SELALU ditampilkan SEMUA sekaligus
+// tanpa paginasi (jumlahnya wajar kecil -- per orang, per jenis/pengajuan).
+function pdRenderDaftarDraftTable(){
+  var daftar = PD.daftarDraft || [];
+  document.getElementById('pd-halaman-info').textContent = daftar.length ? (daftar.length+' draft') : 'Tidak ada draft';
+  document.getElementById('pd-btn-prev').disabled = true;
+  document.getElementById('pd-btn-next').disabled = true;
+  var tbody = document.getElementById('pd-tbody');
+  if(!daftar.length){
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Belum ada draft tersimpan. Draft otomatis muncul di sini begitu Anda klik "Simpan Draft" di form Ajukan Baru, LPJ, atau Revisi Laporan.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = daftar.map(function(d){
+    var r = d.ringkasan || {};
+    var waktu = d.waktuUpdate ? new Date(d.waktuUpdate).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
+    var tombolLanjut = r.tipe==='BARU'
+      ? '<button class="btn btn-sm btn-outline-secondary me-1" onclick="pdLanjutkanDraftBaru(\''+d.draftKey+'\')" title="Lanjutkan mengedit"><i class="fas fa-pen"></i></button>'
+      : (r.idTerkait ? '<button class="btn btn-sm btn-outline-secondary me-1" onclick="pdBukaDetail(\''+r.idTerkait+'\', this)" title="Buka Pengajuan"><i class="fas fa-list"></i></button>' : '');
+    return '<tr>'
+      + '<td class="text-nowrap"><span class="badge-pd" style="background:#f3f4f6;color:#374151;">'+esc(r.label||'Draft')+'</span></td>'
+      + '<td>'+(r.judul ? esc(r.judul) : '<span class="text-muted">(belum diberi judul)</span>')+'</td>'
+      + '<td class="text-muted small">&mdash; belum dikirim &mdash;</td>'
+      + '<td>'+waktu+'</td>'
+      + '<td class="text-end">-</td>'
+      + '<td><span class="badge-pd" style="background:#fef3c7;color:#92400e;">Draft</span></td>'
+      + '<td class="text-nowrap">'+tombolLanjut
+      + '<button class="btn btn-sm btn-outline-danger" onclick="pdHapusDraftUI(\''+d.draftKey+'\', this)" title="Hapus Draft"><i class="fas fa-trash"></i></button></td>'
+      + '</tr>';
+  }).join('');
+}
+function pdMuatDaftarDraft(){
+  var tbody = document.getElementById('pd-tbody');
+  tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Memuat...</td></tr>';
+  gasCall('getDaftarDraftSaya', STATE.token).then(function(res){
+    if(!res.success){ toast('error', res.message); return; }
+    PD.daftarDraft = res.data;
+    pdRenderDaftarDraftTable();
+  }).catch(function(err){ toast('error', (err && err.message) || 'Gagal memuat daftar draft.'); });
+}
+// Lanjutkan draft "Ajukan Baru" (MUKA/SEKALIGUS/TAGIHAN/LAPORAN_UNIT) dari
+// tab Draft -- buka form jenis yang sesuai, isi ulang field-nya dari draft,
+// dan tandai draftKeyAktif supaya "Simpan Draft" berikutnya menimpa draft
+// YANG SAMA ini (bukan bikin draft baru terpisah).
+function pdLanjutkanDraftBaru(draftKey){
+  gasCall('getDraftPengajuan', draftKey, STATE.token).then(function(res){
+    if(!res.success || !res.ada){ toast('error','Draft tidak ditemukan (mungkin sudah dihapus).'); return; }
+    var data = res.data;
+    var jenis = data.jenis;
+    pdResetForm();
+    PD.draftKeyAktif[jenis] = draftKey;
+    gotoView('pengajuanform');
+    pdIsiUnitAdminDropdown();
+    pdJenisPengajuan(jenis);
+    pdTerapkanDraftBaru(data);
+  }).catch(function(){ toast('error','Gagal memuat draft, coba lagi.'); });
+}
+function pdHapusDraftUI(draftKey, btn){
+  Swal.fire({
+    title:'Hapus draft ini?', text:'Isian yang sudah diketik di draft ini akan hilang permanen.', icon:'warning',
+    showCancelButton:true, confirmButtonText:'Ya, Hapus', confirmButtonColor:'#dc2626', cancelButtonText:'Batal',
+    allowOutsideClick:false, allowEscapeKey:false,
+    preConfirm: function(){
+      Swal.showLoading();
+      return gasCall('hapusDraftPengajuan', draftKey, STATE.token).then(function(res){
+        if(!res.success){ Swal.showValidationMessage(res.message); return false; }
+        return true;
+      }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal menghapus, coba lagi.'); return false; });
+    }
+  }).then(function(r){
+    if(!r.isConfirmed) return;
+    toast('success','Draft dihapus');
+    pdMuatDaftarDraft();
+  });
+}
 function pdRenderDaftarTable(){
   try {
+    if(PD.kategori==='DRAFT'){ pdRenderDaftarDraftTable(); return; }
     var tersaring = pdDaftarTersaring();
     var totalBaris = tersaring.length;
     var totalHalaman = Math.max(1, Math.ceil(totalBaris / PD.ukuranHalaman));
@@ -7136,7 +7229,7 @@ function pdSub(nama){
   ['daftar','form','detail'].forEach(function(s){ document.getElementById('pd-sub-'+s).classList.toggle('d-none', s!==nama); });
   window.scrollTo({top:0, behavior:'smooth'});
 }
-function pdBukaFormBaru(){ pdResetForm(); gotoView('pengajuanform'); pdCekDraftBaru('muka'); pdIsiUnitAdminDropdown(); }
+function pdBukaFormBaru(){ pdResetForm(); gotoView('pengajuanform'); pdIsiUnitAdminDropdown(); }
 function pdResetForm(){
   PD.jenisForm = 'MUKA';
   // Nonce BARU tiap kali form ini dibuka dari awal (bukan tiap render ulang)
@@ -7147,7 +7240,13 @@ function pdResetForm(){
   // Double-klik tombol Simpan pada form yang SAMA masih tetap terlindungi
   // (nonce belum berubah karena form belum di-reset ulang).
   PD.formNonce = String(Date.now()) + '_' + Math.random().toString(36).slice(2);
-  PD_DRAFT_DICEK.baru_muka = false; PD_DRAFT_DICEK.baru_sekaligus = false; PD_DRAFT_DICEK.baru_tagihan = false; PD_DRAFT_DICEK.baru_laporan = false; // izinkan tawaran "lanjutkan draft?" muncul lagi tiap kali form ini dibuka dari awal
+  // FITUR BARU: draft "Ajukan Baru" tidak lagi ditawarkan lewat pop-up
+  // (lihat tab "Draft" di Daftar Pengajuan) -- form ini SELALU mulai
+  // kosong/baru setiap dibuka dari menu, draftKeyAktif direset supaya
+  // "Simpan Draft" nanti membuat draft BARU, bukan menimpa draft lama yang
+  // kebetulan masih ada (kalau memang mau lanjutkan draft lama, itu lewat
+  // tombol "Lanjutkan" di tab Draft, bukan dengan membuka form ini).
+  PD.draftKeyAktif = { muka:null, sekaligus:null, tagihan:null, laporan:null };
   PD.rab = [{namaKomponen:'',keterangan:'',nominal:0}]; PD.suratFile = null;
   PD.realisasiSekaligus = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.lpjFileSekaligus = null;
   PD.tagihanJudul=''; PD.tagihanKepada=''; PD.tagihanNominal=0; PD.memoFileTagihan = null;
@@ -7199,7 +7298,6 @@ function pdJenisPengajuan(v){
   document.getElementById('pd-panel-jenis-sekaligus').classList.toggle('d-none', v!=='sekaligus');
   document.getElementById('pd-panel-jenis-tagihan').classList.toggle('d-none', v!=='tagihan');
   document.getElementById('pd-panel-jenis-laporan').classList.toggle('d-none', v!=='laporan');
-  pdCekDraftBaru(v);
 }
 
 // ============================================================
@@ -7258,7 +7356,15 @@ function pdTerapkanDraftBaru(data){
   }
 }
 function pdSimpanDraftBaru(jenis, btn){
-  var draftKey = 'baru_' + jenis;
+  // FITUR BARU: dulu draft "Ajukan Baru" disimpan dgn kunci TETAP per jenis
+  // ("baru_<jenis>") -- cuma muat 1 draft per jenis, draft ke-2 akan
+  // MENIMPA draft pertama. Sekarang tiap draft baru dapat kunci ACAK
+  // sendiri (dibuat sekali lalu dipakai ulang utk penyimpanan berikutnya
+  // di kunjungan form yang sama), supaya Unit bisa menyiapkan BEBERAPA
+  // draft berbeda sekaligus (mis. beberapa Laporan Unit utk kegiatan
+  // berbeda) tanpa saling menimpa -- lihat tab "Draft" di Daftar Pengajuan.
+  if(!PD.draftKeyAktif[jenis]) PD.draftKeyAktif[jenis] = 'baru_' + jenis + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  var draftKey = PD.draftKeyAktif[jenis];
   var data = pdKumpulkanDraftBaru(jenis);
   btnBusy(btn, true);
   gasCall('simpanDraftPengajuan', draftKey, data, STATE.token).then(function(res){
@@ -7267,6 +7373,14 @@ function pdSimpanDraftBaru(jenis, btn){
     toast('success','Draft tersimpan');
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal menyimpan draft'); });
 }
+// SUDAH TIDAK DIPANGGIL LAGI (atas permintaan): draft "Ajukan Baru" dulu
+// ditawarkan lewat pop-up ini setiap form dibuka -- sekarang draft
+// dikelola lewat tab "Draft" di Daftar Pengajuan (lihat pdMuatDaftarDraft/
+// pdLanjutkanDraftBaru), supaya Unit yang punya BEBERAPA draft berbeda
+// (mis. beberapa Laporan Unit) bisa melihat & memilih sendiri draft mana
+// yang mau dilanjutkan, bukan cuma ditawari 1 draft lewat pop-up. Fungsi
+// ini SENGAJA dibiarkan (tidak dihapus) sebagai cadangan, tidak berbahaya
+// kalau tidak terpakai.
 function pdCekDraftBaru(jenis){
   var draftKey = 'baru_' + jenis;
   if(PD_DRAFT_DICEK[draftKey]) return;
@@ -7620,7 +7734,7 @@ function pdSubmitPermohonanDana(btn){
     pdJalankanAksi('ajukanPermohonanDanaKegiatan', [{judul:judul, tglPengajuan:tgl, rab:rab, suratFile:PD.suratFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey], btn, null).then(function(res){
       if(!res) return;
       toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
-      gasCall('hapusDraftPengajuan', 'baru_muka', STATE.token).catch(function(){});
+      if(PD.draftKeyAktif.muka) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.muka, STATE.token).catch(function(){});
       pdSub('daftar');
     });
   });
@@ -7649,7 +7763,7 @@ function pdSubmitPenggantianBiaya(btn){
     pdJalankanAksi('ajukanPenggantianBiaya', [{judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminSk}, STATE.token, idKey], btn, null).then(function(res){
       if(!res) return;
       toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
-      gasCall('hapusDraftPengajuan', 'baru_sekaligus', STATE.token).catch(function(){});
+      if(PD.draftKeyAktif.sekaligus) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.sekaligus, STATE.token).catch(function(){});
       pdSub('daftar');
     });
   });
@@ -7673,7 +7787,7 @@ function pdSubmitTagihan(btn){
     pdJalankanAksi('ajukanTagihan', [{judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminTg}, STATE.token, idKey], btn, null).then(function(res){
       if(!res) return;
       toast('success','Tagihan '+res.idPengajuan+' berhasil diajukan');
-      gasCall('hapusDraftPengajuan', 'baru_tagihan', STATE.token).catch(function(){});
+      if(PD.draftKeyAktif.tagihan) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.tagihan, STATE.token).catch(function(){});
       pdSub('daftar');
     });
   });
@@ -7693,7 +7807,7 @@ function pdSubmitLaporanUnit(btn){
   pdJalankanAksi('ajukanLaporanUnit', [{namaKegiatan:namaKegiatan, bulan:bulan, tahun:tahun, pemasukan:pemasukan, pengeluaran:pengeluaran, buktiFile:PD.laporanBuktiFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey], btn, null).then(function(res){
     if(!res) return;
     toast('success','Laporan '+res.idPengajuan+' berhasil dikirim');
-    gasCall('hapusDraftPengajuan', 'baru_laporan', STATE.token).catch(function(){});
+    if(PD.draftKeyAktif.laporan) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.laporan, STATE.token).catch(function(){});
     pdSub('daftar');
   });
 }
