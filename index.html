@@ -853,7 +853,7 @@
               <option value="MUKA">Dana Kegiatan</option>
               <option value="SEKALIGUS">Penggantian Biaya</option>
               <option value="TAGIHAN">Tagihan</option>
-              <option value="LAPORAN_UNIT">Laporan Usaha Unit</option>
+              <option value="LAPORAN_UNIT">Laporan Unit (Usaha/Proyek/Penelitian/dll)</option>
             </select>
             <button class="btn btn-sm" style="background:var(--maroon);color:#fff;" onclick="pdBukaFormBaru()"><i class="fas fa-plus me-1"></i>Ajukan Baru</button>
           </div>
@@ -929,7 +929,7 @@
             <div class="pos-tab active" data-jenis="muka" onclick="pdJenisPengajuan('muka')"><i class="fas fa-hand-holding-dollar"></i>Permohonan Dana Kegiatan</div>
             <div class="pos-tab" data-jenis="sekaligus" onclick="pdJenisPengajuan('sekaligus')"><i class="fas fa-receipt"></i>Penggantian Biaya (Reimbursement)</div>
             <div class="pos-tab" data-jenis="tagihan" onclick="pdJenisPengajuan('tagihan')"><i class="fas fa-file-invoice-dollar"></i>Permintaan Pembayaran Tagihan</div>
-            <div class="pos-tab" data-jenis="laporan" onclick="pdJenisPengajuan('laporan')"><i class="fas fa-store"></i>Laporan Usaha Unit</div>
+            <div class="pos-tab" data-jenis="laporan" onclick="pdJenisPengajuan('laporan')"><i class="fas fa-store"></i>Laporan Unit</div>
           </div>
         </div></div>
 
@@ -1080,7 +1080,7 @@
           <button class="btn btn-outline-secondary" onclick="pdSub('daftar')">Batal</button>
         </div>
 
-        <!-- PANEL: LAPORAN USAHA UNIT (bulanan, Unit yang jual barang/buku) -->
+        <!-- PANEL: LAPORAN UNIT -- bisa laporan usaha, proyek, penelitian, atau laporan lain apa pun milik Unit; "Nama Kegiatan/Proyek" di bawah yang membedakan tiap laporan, bukan jenisnya. -->
         <div id="pd-panel-jenis-laporan" class="d-none">
           <div class="card mb-3"><div class="card-body">
             <div class="section-title"><i class="fas fa-store"></i>Periode Laporan</div>
@@ -1097,11 +1097,19 @@
                 <input class="form-control form-control-sm" id="pd-judul-laporan" placeholder="Nama Kegiatan/Proyek"></div>
             </div>
             <div class="row g-2 mt-1">
-              <div class="col-md-4"><label class="form-label small mb-1">Bulan</label>
-                <select class="form-select form-select-sm" id="pd-bulan-laporan"></select></div>
+              <div class="col-md-4"><label class="form-label small mb-1">Bulan (periode kegiatan yang dilaporkan)</label>
+                <select class="form-select form-select-sm" id="pd-bulan-laporan" onchange="pdGantiBulanLaporan(this.value)"></select></div>
               <div class="col-md-4"><label class="form-label small mb-1">Tahun</label>
                 <input class="form-control form-control-sm" id="pd-tahun-laporan" disabled></div>
             </div>
+            <!-- PERBAIKAN (atas permintaan): laporan Juli wajarnya baru
+                 selesai/diajukan di Agustus (bulan berjalan bisa saja belum
+                 usai) -- jadi bulan yang dipilih di sini SENGAJA boleh bulan
+                 apa pun yang sudah lewat, bukan cuma bulan berjalan. Baris
+                 pemasukan/pengeluaran di bawah otomatis menyesuaikan (lihat
+                 pdGantiBulanLaporan) supaya tanggal yang bisa dipilih ikut
+                 bulan yang dipilih di sini, bukan terkunci ke bulan hari ini. -->
+            <div class="small text-muted mt-1">Pilih bulan KEGIATANNYA (periode yang dilaporkan), bukan tanggal hari ini -- boleh bulan lalu, bulan lain yang belum sempat dilaporkan, dsb. Jadi wajar kalau di bulan Agustus ada beberapa laporan menyusul untuk Juni & Juli.</div>
             <div class="row g-2 mt-1 admin-only"><div class="col-md-6"><label class="form-label small mb-1">Laporan atas nama Unit</label>
               <select class="form-select form-select-sm" id="pd-unit-admin-laporan"><option value="">-- pilih Unit --</option></select></div></div>
           </div></div>
@@ -6742,6 +6750,17 @@ function loadLogView(){
 // tahap, bukti bayar diunggah ADMIN bukan Unit). Lihat komentar di Code.gs
 // bagian "MODUL: PENGAJUAN DANA & LPJ" untuk penjelasan skema & status.
 // ============================================================
+// PERBAIKAN UX (atas permintaan): begitu form Ajukan Laporan Usaha Unit
+// dibuka, defaultnya SEKARANG bulan LALU (bukan bulan berjalan) --
+// mencerminkan alur kerja sebenarnya: laporan Juli wajarnya baru
+// selesai/diajukan di Agustus (bulan berjalan itu sendiri belum tentu
+// usai), jadi lebih sering Unit sedang melaporkan bulan yang SUDAH LEWAT
+// ketimbang bulan yang sedang berjalan. Tetap cuma sekadar DEFAULT --
+// dropdown Bulan bebas diganti ke bulan mana pun (lihat pdGantiBulanLaporan).
+function _bulanLaporanDefault(){
+  var skrg = new Date().getMonth()+1; // 1-12
+  return skrg > 1 ? (skrg - 1) : 1; // Januari: tidak ada "bulan lalu" di tahun anggaran yang sama, pakai Januari sendiri
+}
 var PD = {
   daftar:[], ringkasan:null, filterStatus:'SEMUA', filterUnit:'SEMUA', cariTeks:'',
   kategori:'BARU', filterBulan:'SEMUA', filterJenis:'SEMUA', halaman:1, ukuranHalaman:25,
@@ -6751,7 +6770,7 @@ var PD = {
   realisasiSekaligus:[{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}],
   lpjFileSekaligus:null,
   tagihanJudul:'', tagihanKepada:'', tagihanNominal:0, memoFileTagihan:null,
-  laporanBulan:(new Date().getMonth()+1), laporanPemasukan:[{tanggal:'',keterangan:'',nominal:0}], laporanPengeluaran:[{tanggal:'',keterangan:'',nominal:0}], laporanBuktiFile:null,
+  laporanBulan:_bulanLaporanDefault(), laporanPemasukan:[{tanggal:'',keterangan:'',nominal:0}], laporanPengeluaran:[{tanggal:'',keterangan:'',nominal:0}], laporanBuktiFile:null,
   laporanEditMasuk:[], laporanEditKeluar:[], laporanEditBuktiFile:null,
   detail:null,
   realisasiEdit:[], lpjFileEdit:null, buktiBayarFile:null, buktiTransferSekaligus:null,
@@ -7047,7 +7066,7 @@ var PD_BADGE_STATUS = {
   DICAIRKAN:['badge-pd-dicairkan','Dicairkan'], MENUNGGU_VERIFIKASI:['badge-pd-menunggu-verifikasi','Menunggu Verifikasi'],
   PERLU_REVISI:['badge-pd-perlu-revisi','Perlu Revisi'], SELESAI:['badge-pd-selesai','Selesai'], DITOLAK:['badge-pd-ditolak','Ditolak']
 };
-var PD_BADGE_JENIS = { MUKA:['#dbeafe','#1d4ed8','Dana Kegiatan'], SEKALIGUS:['#e0e7ff','#3730a3','Penggantian Biaya'], TAGIHAN:['#fef9c3','#854d0e','Tagihan'], LAPORAN_UNIT:['#dcfce7','#166534','Laporan Usaha'] };
+var PD_BADGE_JENIS = { MUKA:['#dbeafe','#1d4ed8','Dana Kegiatan'], SEKALIGUS:['#e0e7ff','#3730a3','Penggantian Biaya'], TAGIHAN:['#fef9c3','#854d0e','Tagihan'], LAPORAN_UNIT:['#dcfce7','#166534','Laporan Unit'] };
 // Label dokumen per tipe file -- dipakai di EXPORT CSV & CETAK (BUKAN di
 // tampilan layar -- UI Daftar Pengajuan sengaja tetap seperti semula,
 // tanpa chip link tambahan di situ).
@@ -7132,7 +7151,7 @@ function pdResetForm(){
   PD.rab = [{namaKomponen:'',keterangan:'',nominal:0}]; PD.suratFile = null;
   PD.realisasiSekaligus = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.lpjFileSekaligus = null;
   PD.tagihanJudul=''; PD.tagihanKepada=''; PD.tagihanNominal=0; PD.memoFileTagihan = null;
-  PD.laporanBulan = new Date().getMonth()+1; PD.laporanPemasukan = [{tanggal:'',keterangan:'',nominal:0}]; PD.laporanPengeluaran = [{tanggal:'',keterangan:'',nominal:0}]; PD.laporanBuktiFile = null;
+  PD.laporanBulan = _bulanLaporanDefault(); PD.laporanPemasukan = [{tanggal:'',keterangan:'',nominal:0}]; PD.laporanPengeluaran = [{tanggal:'',keterangan:'',nominal:0}]; PD.laporanBuktiFile = null;
   document.querySelectorAll('#pd-jenis-toggle .pos-tab').forEach(function(el){ el.classList.toggle('active', el.dataset.jenis==='muka'); });
   document.getElementById('pd-panel-jenis-muka').classList.remove('d-none');
   document.getElementById('pd-panel-jenis-sekaligus').classList.add('d-none');
@@ -7448,6 +7467,25 @@ function pdRentangTanggalLaporan(){
   var tahun = Number(STATE.tahunSistemAktif)||new Date().getFullYear();
   var akhir = new Date(tahun, bulan, 0).getDate();
   return { min: tahun+'-'+('0'+bulan).slice(-2)+'-01', max: tahun+'-'+('0'+bulan).slice(-2)+'-'+('0'+akhir).slice(-2) };
+}
+// PERBAIKAN BUG PENTING ("unit tidak bisa memilih tanggal/bulan lampau"):
+// dropdown Bulan di form Laporan Usaha Unit SEBELUMNYA tidak punya
+// onchange sama sekali -- jadi walau dropdown-nya kelihatan bisa dipilih
+// bebas ke bulan apa pun, PD.laporanBulan (yang menentukan batas min/max
+// tanggal tiap baris Pemasukan/Pengeluaran lewat pdRentangTanggalLaporan)
+// TIDAK PERNAH ikut berubah, tetap terkunci ke bulan BERJALAN (bulan hari
+// ini). Akibatnya: begitu user pilih mis. "Juli" di dropdown padahal
+// sistemnya lagi Agustus, kotak tanggal di baris-baris di bawahnya TETAP
+// cuma menerima tanggal 1-31 AGUSTUS (browser menolak tanggal Juli karena
+// masih di luar min/max lama) -- persis seperti dikeluhkan: kelihatan bisa
+// pilih bulan lampau, tapi tanggalnya tetap tidak bisa diisi tanggal bulan
+// itu. Sekarang begitu Bulan diganti, PD.laporanBulan ikut diperbarui DAN
+// tabel Pemasukan/Pengeluaran di-render ulang supaya batas tanggal tiap
+// barisnya langsung menyesuaikan ke bulan yang baru dipilih.
+function pdGantiBulanLaporan(bulanBaru){
+  PD.laporanBulan = Number(bulanBaru);
+  pdRenderTabelLaporan('laporanPemasukan');
+  pdRenderTabelLaporan('laporanPengeluaran');
 }
 function pdBarisLaporanHtml(target, r, i){
   var rentang = pdRentangTanggalLaporan();
