@@ -5572,7 +5572,7 @@ function rtMuatDaftarArsip(){
       // Laporan Unit tampilkan Surplus/Defisit, bukan totalDiajukan mentah
       // (lihat catatan lengkap di pdRenderDaftarTable).
       var kolomNominal = p.jenis==='LAPORAN_UNIT'
-        ? (function(){ var s=(Number(p.totalDiajukan)||0)-(Number(p.totalRealisasi)||0); return '<td class="text-end" style="color:'+(s>=0?'#166534':'#9a3412')+';">'+(s>=0?'Surplus ':'Defisit ')+'Rp '+fmtRp(Math.abs(s))+'</td>'; })()
+        ? (function(){ var s=(Number(p.totalDiajukan)||0)-(Number(p.totalRealisasi)||0); return '<td class="text-end" style="color:'+(s>=0?'#166534':'#9a3412')+';">'+(s<0?'-':'')+'Rp '+fmtRp(Math.abs(s))+'</td>'; })()
         : ('<td class="text-end">Rp '+fmtRp(p.totalDiajukan)+'</td>');
       return '<tr><td class="text-nowrap">'+p.idPengajuan+'</td><td>'+esc(p.judul)+'</td><td>'+esc(p.kodeUnit)+'</td>'
         + '<td><span class="badge-pd '+bs[0]+'">'+bs[1]+'</span></td>'
@@ -6797,10 +6797,10 @@ var PD = {
 // supaya konsisten dgn pola yang sudah benar di Pencairan Dana awal
 // (Setujui dulu, BARU Cairkan terpisah dgn BKK). Berlaku di 4 jenis
 // pengajuan sekaligus.
-var PD_TAHAP_LABEL_MUKA = ['Pengajuan','Persetujuan','Pencairan','Realisasi & LPJ','Verifikasi LPJ','Pencatatan Kasir'];
-var PD_TAHAP_LABEL_SEKALIGUS = ['Pengajuan & LPJ','Verifikasi Dokumen','Pencatatan Kasir','Selesai'];
-var PD_TAHAP_LABEL_TAGIHAN = ['Pengajuan Tagihan','Verifikasi Dokumen','Pencatatan Kasir','Selesai'];
-var PD_TAHAP_LABEL_LAPORAN = ['Laporan Bulanan','Verifikasi Dokumen','Pencatatan Kasir (BKM/BKK)','Selesai'];
+var PD_TAHAP_LABEL_MUKA = ['Pengajuan','Persetujuan','Pencairan','Realisasi & LPJ','Verifikasi LPJ','Pencatatan BKK/BKM'];
+var PD_TAHAP_LABEL_SEKALIGUS = ['Pengajuan & LPJ','Verifikasi Pengajuan','Pencatatan BKK/BKM','Selesai'];
+var PD_TAHAP_LABEL_TAGIHAN = ['Pengajuan Tagihan','Verifikasi Pengajuan','Pencatatan BKK/BKM','Selesai'];
+var PD_TAHAP_LABEL_LAPORAN = ['Laporan Bulanan','Verifikasi Pengajuan','Pencatatan BKK/BKM','Selesai'];
 
 // Pemuat terpusat utk daftar Komponen Anggaran -- dipakai di SEMUA titik yang
 // menampilkan dropdown "Nama Komponen" (form Ajukan Baru, & saat tahap
@@ -7235,8 +7235,10 @@ function pdRenderDaftarTable(){
     // keduanya memakai tabel & fungsi render yang SAMA PERSIS ini.
     var kolomNominal;
     if(p.jenis==='LAPORAN_UNIT' && !p.__isDraft){
+      // Atas permintaan: cuma angkanya saja, tanpa tulisan "Surplus"/"Defisit"
+      // -- defisit dibedakan lewat tanda minus & warna saja (bukan teks).
       var selisihLu = (Number(p.totalDiajukan)||0) - (Number(p.totalRealisasi)||0);
-      kolomNominal = '<td class="text-end" style="color:'+(selisihLu>=0?'#166534':'#9a3412')+';">'+(selisihLu>=0?'Surplus ':'Defisit ')+'Rp '+fmtRp(Math.abs(selisihLu))+'</td>';
+      kolomNominal = '<td class="text-end" style="color:'+(selisihLu>=0?'#166534':'#9a3412')+';">'+(selisihLu<0?'-':'')+'Rp '+fmtRp(Math.abs(selisihLu))+'</td>';
     } else {
       kolomNominal = '<td class="text-end">Rp '+fmtRp(p.totalDiajukan)+'</td>';
     }
@@ -8183,18 +8185,18 @@ function pdRenderDetailMuka(res){
       : (selisihB < 0
         ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar <span class="text-muted">(dana kurang Rp '+fmtRp(Math.abs(selisihB))+', perlu dibayar tambahan)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-kasir-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>')
         : '<p class="small text-muted mb-2">Realisasi sudah pas dengan dana yang dicairkan -- tidak ada pergerakan kas tambahan, tidak perlu No. Bukti.</p>');
-    html += pdBlock('fa-cash-register','6. Pencatatan Kasir (BKM/BKK)','active', isAdmin?'<span class="badge-role badge-admin">KASIR</span>':'',
+    html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       isAdmin ? ('<p class="small text-muted mb-2">LPJ sudah disetujui. Catat No. Bukti Kas sesuai selisih di bawah untuk menyelesaikan pengajuan ini.</p>'
         + inputBuktiHtml
         + '<button class="btn btn-sm" id="btn-kasir-lpj-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Catat &amp; Selesaikan</button>')
         : pdCatatanTunggu('LPJ sudah disetujui, menunggu Kasir mencatat No. Bukti Kas.'));
   } else if(st(6)==='done'){
-    html += pdBlock('fa-cash-register','6. Pencatatan Kasir (BKM/BKK)','done','<span class="badge-pd badge-pd-selesai">Selesai</span>',
+    html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','done','<span class="badge-pd badge-pd-selesai">Selesai</span>',
       '<div class="fw-bold small mb-2" style="color:#166534;">Bukti kas sudah dicatat, pengajuan ini selesai.</div>'
       + pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk (surplus dikembalikan)', h.noBuktiKasMasuk)
       + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar (kekurangan dibayar)', h.noBuktiKasKeluarTambahan));
   } else {
-    html += pdBlock('fa-cash-register','6. Pencatatan Kasir (BKM/BKK)','locked','', pdLockedBody('Menunggu LPJ disetujui Admin.'));
+    html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','locked','', pdLockedBody('Menunggu LPJ disetujui Admin.'));
   }
 
   document.getElementById('pd-blocks').innerHTML = html;
@@ -8211,10 +8213,10 @@ function pdRenderDetailSingkat(res){
 
   var judul1 = h.jenis==='TAGIHAN' ? '1. Pengajuan Tagihan' : '1. Pengajuan Penggantian Biaya';
   // PERBAIKAN ALUR BESAR (atas permintaan): "Verifikasi Dokumen" (Admin) &
-  // "Pencatatan Kasir" (BKM/BKK) SEKARANG 2 tahap TERPISAH, bukan 1 tahap
+  // "Pencatatan BKK/BKM" SEKARANG 2 tahap TERPISAH, bukan 1 tahap
   // gabungan seperti sebelumnya -- lihat catatan lengkap di PD_TAHAP_LABEL_*.
-  var judul2 = '2. Verifikasi Dokumen';
-  var judul3 = '3. Pencatatan Kasir';
+  var judul2 = '2. Verifikasi Pengajuan';
+  var judul3 = '3. Pencatatan BKK/BKM';
   var judul4 = h.jenis==='TAGIHAN' ? '4. Selesai — Sudah Dibayar' : '4. Selesai';
   var fileUtama = pdFileVersiTerakhir(res.file, h.jenis==='TAGIHAN' ? 'MEMO' : 'LPJ');
   var html = '';
@@ -8294,7 +8296,7 @@ function pdRenderDetailSingkat(res){
       // seperti Penggantian Biaya). Cuma wajib kalau Transfer.
       var judulUnggahBukti = h.metodePembayaran==='TRANSFER' ? 'UNGGAH BUKTI TRANSFER (oleh Kasir)' : 'UNGGAH BUKTI BAYAR (oleh Kasir, opsional)';
       var placeholderUnggahBukti = h.metodePembayaran==='TRANSFER' ? 'Klik atau seret bukti transfer (PDF) ke sini' : 'Klik atau seret bukti bayar (PDF) ke sini -- boleh dilewati';
-      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">KASIR</span>':'',
+      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
         isAdmin ? ('<p class="small text-muted mb-2">Tagihan sudah disetujui. Catat bukti pembayaran untuk menyelesaikan pengajuan ini.</p>'
           + '<div class="small fw-bold mb-1 text-muted">'+judulUnggahBukti+'</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-bukti-bayar" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-bayar\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">'+placeholderUnggahBukti+'</div><input type="file" id="pd-file-bukti-bayar" accept="application/pdf" class="d-none" data-drop-id="pd-drop-bukti-bayar" onchange="pdPilihFile(this,\'buktiBayarFile\')"></div>'
@@ -8309,7 +8311,7 @@ function pdRenderDetailSingkat(res){
         ? ('<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI TRANSFER</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-bukti-transfer" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-transfer\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret bukti transfer (PDF/gambar) ke sini</div><input type="file" id="pd-file-bukti-transfer" accept="application/pdf,image/*" class="d-none" data-drop-id="pd-drop-bukti-transfer" onchange="pdPilihFile(this,\'buktiTransferSekaligus\')"></div>')
         : ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>');
-      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">KASIR</span>':'',
+      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
         isAdmin ? ('<p class="small text-muted mb-2">Penggantian Biaya sudah disetujui. Catat bukti penggantian dana untuk menyelesaikan pengajuan ini.</p>'
           + inputBayarSekaligus
           + '<button class="btn btn-sm" id="btn-sk-kasir-'+h.idPengajuan+'" onclick="pdAksiCatatKasirSekaligus(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Catat & Ganti Dana</button>')
@@ -8338,7 +8340,7 @@ function pdRenderDetailSingkat(res){
         + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
     }
   } else {
-    html += pdBlock('fa-flag-checkered', judul4, 'locked', '', pdLockedBody('Menunggu tahap Pencatatan Kasir selesai.'));
+    html += pdBlock('fa-flag-checkered', judul4, 'locked', '', pdLockedBody('Menunggu tahap Pencatatan BKK/BKM selesai.'));
   }
 
   document.getElementById('pd-blocks').innerHTML = html;
@@ -8549,8 +8551,21 @@ function pdRenderDetailLaporanUnit(res){
           + '<button class="btn btn-sm" id="btn-kirim-laporan-'+h.idPengajuan+'" onclick="pdAksiKirimUlangLaporanUnit(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang</button>')));
     if(!isAdmin) setTimeout(function(){ pdRenderTabelLaporan('laporanEditMasuk'); pdRenderTabelLaporan('laporanEditKeluar'); pdTawarkanDraftLaporanEdit(h.idPengajuan); }, 0);
   } else {
+    // PERBAIKAN BUG NYATA (atas laporan): sebelumnya begitu laporan sudah
+    // terkirim, tampilan "done" ini CUMA menampilkan 2 tabel Pemasukan &
+    // Pengeluaran terpisah -- selisihnya (Surplus/Defisit) TIDAK PERNAH
+    // ditampilkan sampai tahap 4 "Selesai" di paling akhir. Akibatnya
+    // Admin (dan siapa pun yang buka Detail sebelum tahap akhir) cuma
+    // lihat 2 total mentah, harus menghitung sendiri surplus/defisitnya --
+    // padahal Unit yang MENGISI laporan ini sudah lebih dulu melihat kotak
+    // Selisih yang sama persis (lihat pd-laporan-selisih-edit-box di form
+    // isi/revisi). Sekarang kotak Selisih yang SAMA ditampilkan di sini
+    // juga -- konsisten utk Admin MAUPUN Unit, dari awal, bukan cuma di
+    // akhir setelah semuanya diproses.
+    var selisihAwal = h.totalDiajukan - h.totalRealisasi;
     html += pdBlock('fa-store', '1. Laporan '+labelBulan, 'done', '',
       pdTabelLaporanReadonly(res.realisasi, 'MASUK') + pdTabelLaporanReadonly(res.realisasi, 'KELUAR')
+      + '<div class="pd-total-box '+(selisihAwal>=0?'ok':'warn')+' mb-3"><div class="small text-muted">Selisih (Pemasukan &minus; Pengeluaran)</div><div class="fw-bold" style="color:'+(selisihAwal>=0?'#166534':'#9a3412')+';">'+(selisihAwal<0?'-':'')+'Rp '+fmtRp(Math.abs(selisihAwal))+'</div></div>'
       + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI PENDUKUNG</div>'+pdFileChip(fileUtama)+'</div>'
       + pdKomentarThreadHtml(h.idPengajuan, res.komentar));
   }
@@ -8559,22 +8574,22 @@ function pdRenderDetailLaporanUnit(res){
   // ada input No. Bukti Kas Masuk/Keluar sama sekali di sini -- itu tugas
   // Kasir di tahap 3 terpisah (lihat di bawah), SETELAH disetujui di sini.
   if(map.ditolak===2){
-    html += pdBlock('fa-gavel', '2. Verifikasi Dokumen', 'done', '<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
+    html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'done', '<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
       '<div class="fw-bold small" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
     document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
   }
   if(st(2)==='active'){
-    html += pdBlock('fa-gavel', '2. Verifikasi Dokumen', 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+    html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-verif-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi/Tolak)"></textarea>'
         + '<button class="btn btn-sm" id="btn-lap-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLaporanUnit(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
         + '<button class="btn btn-sm btn-outline-danger" id="btn-lap-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLaporanUnit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
         + '<button class="btn btn-sm btn-outline-secondary" id="btn-lap-tolak-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLaporanUnit(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
         : pdCatatanTunggu('Menunggu diverifikasi Admin Pusat.'));
   } else if(st(2)==='done'){
-    html += pdBlock('fa-gavel', '2. Verifikasi Dokumen', 'done', '<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
+    html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'done', '<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
       '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>');
   } else {
-    html += pdBlock('fa-gavel', '2. Verifikasi Dokumen', 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
+    html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
   }
 
   // Tahap 3 (KASIR) -- Pencatatan No. Bukti Kas Masuk/Keluar, TERPISAH dari
@@ -8582,16 +8597,16 @@ function pdRenderDetailLaporanUnit(res){
   if(st(3)==='active'){
     var inputBuktiMasuk = h.totalDiajukan>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk (Pemasukan Rp '+fmtRp(h.totalDiajukan)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-masuk-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>') : '';
     var inputBuktiKeluar = h.totalRealisasi>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar (Pengeluaran Rp '+fmtRp(h.totalRealisasi)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-keluar-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>') : '';
-    html += pdBlock('fa-cash-register', '3. Pencatatan Kasir (BKM/BKK)', 'active', isAdmin?'<span class="badge-role badge-admin">KASIR</span>':'',
+    html += pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       isAdmin ? ('<p class="small text-muted mb-2">Laporan sudah disetujui. Catat No. Bukti Kas Masuk/Keluar untuk menyelesaikan pengajuan ini.</p>'
         + inputBuktiMasuk + inputBuktiKeluar
         + '<button class="btn btn-sm" id="btn-lap-kasir-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLaporanUnit(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Catat &amp; Selesaikan</button>')
         : pdCatatanTunggu('Laporan sudah disetujui, menunggu Kasir mencatat BKM/BKK.'));
   } else if(st(3)==='done'){
-    html += pdBlock('fa-cash-register', '3. Pencatatan Kasir (BKM/BKK)', 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
+    html += pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
       '<div class="fw-bold small" style="color:#166534;">Bukti kas sudah dicatat oleh Kasir.</div>');
   } else {
-    html += pdBlock('fa-cash-register', '3. Pencatatan Kasir (BKM/BKK)', 'locked', '', pdLockedBody('Menunggu dokumen disetujui Admin.'));
+    html += pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'locked', '', pdLockedBody('Menunggu dokumen disetujui Admin.'));
   }
 
   // Tahap 4 -- Selesai
@@ -8604,7 +8619,7 @@ function pdRenderDetailLaporanUnit(res){
       + pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk', h.noBuktiKasMasuk)
       + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
   } else {
-    html += pdBlock('fa-flag-checkered', '4. Selesai', 'locked', '', pdLockedBody('Menunggu tahap Pencatatan Kasir selesai diproses.'));
+    html += pdBlock('fa-flag-checkered', '4. Selesai', 'locked', '', pdLockedBody('Menunggu tahap Pencatatan BKK/BKM selesai diproses.'));
   }
 
   document.getElementById('pd-blocks').innerHTML = html;
