@@ -5568,6 +5568,7 @@ function rtMuatDaftarArsip(){
     if(!res.data.length){ tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">Tidak ada pengajuan yang siap diarsipkan saat ini.</td></tr>'; return; }
     tbody.innerHTML = res.data.map(function(p){
       var bs = PD_BADGE_STATUS[p.status] || ['badge-pd', p.status];
+      var labelStatusRt = pdLabelStatus(p);
       // Konsisten dgn kolom Nominal di Daftar Pengajuan utama -- utk
       // Laporan Unit tampilkan Surplus/Defisit, bukan totalDiajukan mentah
       // (lihat catatan lengkap di pdRenderDaftarTable).
@@ -5575,7 +5576,7 @@ function rtMuatDaftarArsip(){
         ? (function(){ var s=(Number(p.totalDiajukan)||0)-(Number(p.totalRealisasi)||0); return '<td class="text-end" style="color:'+(s>=0?'#166534':'#9a3412')+';">'+(s<0?'-':'')+'Rp '+fmtRp(Math.abs(s))+'</td>'; })()
         : ('<td class="text-end">Rp '+fmtRp(p.totalDiajukan)+'</td>');
       return '<tr><td class="text-nowrap">'+p.idPengajuan+'</td><td>'+esc(p.judul)+'</td><td>'+esc(p.kodeUnit)+'</td>'
-        + '<td><span class="badge-pd '+bs[0]+'">'+bs[1]+'</span></td>'
+        + '<td><span class="badge-pd '+bs[0]+'">'+labelStatusRt+'</span></td>'
         + kolomNominal
         + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary" onclick="rtArsipkanSatu(\''+p.idPengajuan+'\', this)" title="Arsipkan pengajuan ini saja"><i class="fas fa-box-archive"></i></button></td></tr>';
     }).join('');
@@ -7104,12 +7105,13 @@ function pdCetakDaftar(){
   var baris = tersaring.map(function(p,i){
     var bj = PD_BADGE_JENIS[p.jenis] || ['','',p.jenis];
     var bs = PD_BADGE_STATUS[p.status] || ['', p.status];
+    var labelStatusCetak = pdLabelStatus(p);
     var tgl = p.tglPengajuan ? new Date(p.tglPengajuan).toLocaleDateString('id-ID') : '-';
     // Kolom Dokumen -- link Drive langsung bisa diklik (dibuka di tab baru),
     // biar yang buka hasil cetak/PDF ini bisa langsung lompat ke file
     // Surat/LPJ/Memo/Bukti Bayar-nya tanpa perlu balik ke aplikasi dulu.
     var dokumenHtml = (p.dokumen||[]).map(function(d){ return '<a href="'+d.url+'" target="_blank" rel="noopener">'+(PD_TIPE_FILE_LABEL[d.tipe]||d.tipe)+'</a>'; }).join('') || '-';
-    return '<tr><td>'+(i+1)+'</td><td>'+p.idPengajuan+'</td><td>'+bj[2]+'</td><td>'+esc(p.judul)+'</td><td>'+esc(p.diajukanOlehNama||p.diajukanOleh||p.kodeUnit)+'</td><td>'+tgl+'</td><td class="r">Rp '+fmtRp(p.totalDiajukan)+'</td><td>'+bs[1]+'</td><td>'+dokumenHtml+'</td></tr>';
+    return '<tr><td>'+(i+1)+'</td><td>'+p.idPengajuan+'</td><td>'+bj[2]+'</td><td>'+esc(p.judul)+'</td><td>'+esc(p.diajukanOlehNama||p.diajukanOleh||p.kodeUnit)+'</td><td>'+tgl+'</td><td class="r">Rp '+fmtRp(p.totalDiajukan)+'</td><td>'+labelStatusCetak+'</td><td>'+dokumenHtml+'</td></tr>';
   }).join('');
   var judulKategori = PD.kategori==='SEMUA' ? '' : (' — ' + PD_KATEGORI_LABEL[PD.kategori]);
   var body = pdKopHtml()
@@ -7123,8 +7125,22 @@ var PD_BADGE_STATUS = {
   DICAIRKAN:['badge-pd-dicairkan','Dicairkan'], MENUNGGU_VERIFIKASI:['badge-pd-menunggu-verifikasi','Menunggu Verifikasi'],
   PERLU_REVISI:['badge-pd-perlu-revisi','Perlu Revisi'], SELESAI:['badge-pd-selesai','Selesai'], DITOLAK:['badge-pd-ditolak','Ditolak'],
   DRAFT:['badge-pd-draft','Draft'], // FITUR BARU: draft "Ajukan Baru" yang belum terkirim, ditampilkan sbg baris di tab Pengajuan Baru
-  MENUNGGU_PENCATATAN:['badge-pd-menunggu-pencatatan','Menunggu Pencatatan Kas'] // dokumen sudah disetujui Admin, tinggal menunggu Kasir mencatat BKM/BKK
+  MENUNGGU_PENCATATAN:['badge-pd-menunggu-pencatatan','Menunggu Pencatatan Kas'] // default -- lihat pdLabelStatus() utk kasus Transfer yg dibedakan
 };
+// PERBAIKAN (atas permintaan): status MENUNGGU_PENCATATAN dulu SELALU
+// berlabel "Menunggu Pencatatan Kas" apa pun metode pembayarannya --
+// padahal utk Tagihan/Penggantian Biaya via TRANSFER, tidak ada "kas" yang
+// bergerak sama sekali (bukti transfer sudah cukup, bukan BKK fisik),
+// jadi labelnya menyesatkan. Sekarang dibedakan: Transfer -> "Menunggu
+// Verifikasi Transfer", selain itu (Tunai, atau jenis yg memang selalu
+// berbasis kas seperti LPJ MUKA & Laporan Unit) tetap "Menunggu Pencatatan
+// Kas" seperti biasa. Dipakai di SEMUA tempat yang menampilkan label
+// status (Daftar Pengajuan, Cetak, Rollover, header Detail) supaya
+// konsisten -- satu sumber, bukan diulang-ulang per tempat.
+function pdLabelStatus(p){
+  if(p && p.status==='MENUNGGU_PENCATATAN' && p.metodePembayaran==='TRANSFER') return 'Menunggu Verifikasi Transfer';
+  return (PD_BADGE_STATUS[p && p.status] || ['badge-pd', p && p.status])[1];
+}
 var PD_BADGE_JENIS = { MUKA:['#dbeafe','#1d4ed8','Dana Kegiatan'], SEKALIGUS:['#e0e7ff','#3730a3','Penggantian Biaya'], TAGIHAN:['#fef9c3','#854d0e','Tagihan'], LAPORAN_UNIT:['#dcfce7','#166534','Laporan Unit'] };
 // Label dokumen per tipe file -- dipakai di EXPORT CSV & CETAK (BUKAN di
 // tampilan layar -- UI Daftar Pengajuan sengaja tetap seperti semula,
@@ -7222,6 +7238,7 @@ function pdRenderDaftarTable(){
     }
     var bj = PD_BADGE_JENIS[p.jenis] || ['#eee','#333',p.jenis];
     var bs = PD_BADGE_STATUS[p.status] || ['badge-pd', p.status];
+    var labelStatusUtama = pdLabelStatus(p);
     var tgl = p.tglPengajuan ? new Date(p.tglPengajuan).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-';
     // PERBAIKAN (atas permintaan): kolom Nominal utk Laporan Unit dulu
     // menampilkan totalDiajukan mentah (= total Pemasukan kotor saja) --
@@ -7246,7 +7263,7 @@ function pdRenderDaftarTable(){
       + '<td class="text-nowrap"><b>'+p.idPengajuan+'</b><br><span class="badge-pd" style="background:'+bj[0]+';color:'+bj[1]+';">'+bj[2]+'</span></td>'
       + '<td>'+esc(p.judul)+(p.jumlahKomentar>0 ? ' <span class="text-muted small" title="Ada '+p.jumlahKomentar+' komentar"><i class="fas fa-comment-dots"></i> '+p.jumlahKomentar+'</span>' : '')+'</td><td>'+esc(p.diajukanOlehNama || p.diajukanOleh || p.kodeUnit)+'</td><td>'+tgl+'</td>'
       + kolomNominal
-      + '<td><span class="badge-pd '+bs[0]+'">'+bs[1]+'</span></td>'
+      + '<td><span class="badge-pd '+bs[0]+'">'+labelStatusUtama+'</span></td>'
       + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick="pdBukaDetail(\''+p.idPengajuan+'\', this)" title="Lihat Detail"><i class="fas fa-list"></i></button>'
       // PERBAIKAN BUG NYATA: sebelumnya judul disisipkan LANGSUNG ke dalam
       // atribut onclick sebagai string JS berpagar kutip satu -- esc() cuma
@@ -8019,7 +8036,7 @@ function pdRenderDetail(res){
   document.getElementById('pd-d-sub').textContent = 'Diajukan oleh ' + (h.diajukanOlehNama || h.diajukanOleh) + ' \u00b7 ' + (h.tglPengajuan ? new Date(h.tglPengajuan).toLocaleDateString('id-ID') : '-');
   var bs = PD_BADGE_STATUS[h.status] || ['badge-pd', h.status];
   var badge = document.getElementById('pd-d-status-badge');
-  badge.className = 'badge-pd d-inline-block mt-1 ' + bs[0]; badge.textContent = bs[1];
+  badge.className = 'badge-pd d-inline-block mt-1 ' + bs[0]; badge.textContent = pdLabelStatus(h);
 
   if(h.jenis === 'MUKA') pdRenderDetailMuka(res);
   else if(h.jenis === 'LAPORAN_UNIT') pdRenderDetailLaporanUnit(res);
