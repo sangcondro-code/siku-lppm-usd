@@ -1918,8 +1918,22 @@ function refreshViewSilently(name){
   else if(name==='log') loadLogView();
   else if(name==='logunit') loadLogUnitView();
   else if(name==='pengajuan'){
+    // PERBAIKAN BUG NYATA ("Detail kadang tidak bisa diklik & lama"):
+    // sebelumnya baris ini memanggil pdMuatRingkasan()+pdMuatDaftar() --
+    // sepasang fungsi LAMA sebelum dioptimasi, yang menembak 2 round-trip
+    // jaringan TERPISAH (bukan 1 batch gabungan) SETIAP 5 menit selagi
+    // Admin/Unit diam di halaman Pengajuan Dana. Selain lebih lambat, ini
+    // juga TIDAK PERNAH menyegarkan draft (PD.daftarDraft) -- dan yang
+    // paling terasa: karena makan waktu lebih lama, jendela saat tabel
+    // #pd-tbody dibangun ulang (innerHTML diganti total) jadi lebih lebar,
+    // kadang pas bertepatan dengan user mengklik tombol "Detail" -- tombol
+    // yang diklik keburu diganti node baru oleh render ulang, jadi klik-nya
+    // seperti tidak bereaksi. Sekarang pakai pdMuatRingkasanDanDaftar() --
+    // 1 round-trip gabungan (ringkasan+badge+daftar+draft), jauh lebih
+    // cepat, jendela race-condition-nya jauh lebih sempit, DAN draft ikut
+    // tersegarkan juga.
     var subDaftar = document.getElementById('pd-sub-daftar');
-    if(subDaftar && !subDaftar.classList.contains('d-none')){ pdMuatRingkasan(); pdMuatDaftar(); }
+    if(subDaftar && !subDaftar.classList.contains('d-none')){ pdMuatRingkasanDanDaftar(); }
   }
 }
 
@@ -7076,7 +7090,9 @@ function pdFilterUbah(){
   PD.filterStatus = document.getElementById('pd-filter-status').value;
   PD.filterUnit = document.getElementById('pd-filter-unit').value;
   PD.halaman = 1;
-  pdMuatDaftar();
+  // PERBAIKAN: sama seperti refreshViewSilently -- pakai batch gabungan
+  // (1 round-trip, termasuk draft) ketimbang pdMuatDaftar() sendirian.
+  pdMuatRingkasanDanDaftar();
 }
 // Export CSV Daftar Pengajuan -- pola SAMA PERSIS dgn downloadCSVKonsolidasi
 // yang sudah ada (server bikin string CSV, browser cuma download Blob-nya).
@@ -8344,8 +8360,12 @@ function pdRenderDetailSingkat(res){
           : pdCatatanTunggu('Sudah disetujui, menunggu Admin mencatat penggantian dana.'));
     }
   } else if(st(3)==='done'){
+    // PERBAIKAN (atas permintaan): teks "done" ikut dibedakan sesuai
+    // metode pembayaran juga -- Transfer bukan "kas" (konsisten dgn judul3
+    // "Verifikasi Transfer" & label status "Menunggu Verifikasi Transfer").
+    var teksDicatat3 = h.metodePembayaran==='TRANSFER' ? 'Bukti transfer sudah diverifikasi oleh Admin.' : 'Bukti kas sudah dicatat oleh Admin.';
     html += pdBlock('fa-cash-register', judul3, 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
-      '<div class="fw-bold small" style="color:#166534;">Bukti kas sudah dicatat oleh Admin.</div>');
+      '<div class="fw-bold small" style="color:#166534;">'+teksDicatat3+'</div>');
   } else {
     html += pdBlock('fa-cash-register', judul3, 'locked', '', pdLockedBody('Menunggu dokumen disetujui Admin.'));
   }
