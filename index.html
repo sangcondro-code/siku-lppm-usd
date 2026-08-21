@@ -8393,83 +8393,55 @@ function pdRenderDetailMuka(res){
   var netRealisasiB = h.totalRealisasi - totalP21b - totalP23b;
   var selisihB = h.totalDiajukan - netRealisasiB;
   if(st(6)==='active'){
-    var buktiKasSudahAda = !!(h.noBuktiKasMasuk || h.noBuktiKasKeluarTambahan);
+    // PERBAIKAN ALUR (atas permintaan TERBARU): Data Penyetor SEKARANG
+    // selalu tersedia utk Unit isi SECEPATNYA begitu LPJ disetujui (TIDAK
+    // menunggu apa pun) -- supaya Nama Penyetor sudah termuat di Cetak
+    // Lampiran LPJ SEBELUM diserahkan fisik. BKK/BKM (kalau ada
+    // surplus/defisit) TIDAK LAGI tahap terpisah lebih awal -- sekarang
+    // dicatat Admin BERSAMAAN dgn tombol PALING AKHIR (Tandai Selesai),
+    // persis saat menerima LPJ fisik dari Unit -- SATU aksi, bukan dua
+    // langkah terpisah lagi. Satu-satunya syarat tombol akhir itu: Data
+    // Penyetor sudah diisi Unit (tandanya LPJ fisik sudah/segera diserahkan).
+    var perluBuktiKas = selisihB !== 0;
     var infoPenyetor = h.namaPenyetor ? ('<div class="small text-muted mb-2">Data Penyetor: <b>'+esc(h.namaPenyetor)+'</b> ('+esc(h.npmNimPenyetor)+') &middot; '+esc(h.noHpPenyetor)+'</div>') : '';
-    // PERBAIKAN ALUR BESAR (atas permintaan): urutannya DIBEDAKAN sesuai
-    // ada/tidaknya surplus/defisit --
-    // - BALANCE (selisih persis 0): TIDAK ada apa pun yg perlu dicatat
-    //   Admin, jadi Unit boleh langsung isi Data Penyetor kapan saja, lalu
-    //   Admin tinggal klik "Selesaikan LPJ". Urutan ini TIDAK BERUBAH dari
-    //   sebelumnya (sudah dikonfirmasi benar).
-    // - SURPLUS/DEFISIT: uangnya harus TERCATAT DULU oleh Admin (No. Bukti
-    //   Kas Masuk/Keluar), BARU SETELAH ITU Unit boleh mengisi Data
-    //   Penyetor & menyerahkan LPJ fisik -- KEBALIKAN dari urutan versi
-    //   sebelumnya (yg sempat meminta Data Penyetor lebih dulu utk semua
-    //   kasus, keliru utk kasus surplus/defisit).
-    if(selisihB === 0){
-      if(!h.namaPenyetor){
-        var bodyPenyetorBalance = isAdmin
-          ? pdCatatanTunggu('LPJ sudah disetujui. Tidak ada pergerakan kas (realisasi pas), menunggu Unit menyerahkan LPJ asli (hardcopy) ke Bagian Keuangan & mengisi Data Penyetor.')
-          : ('<p class="small text-muted mb-2">LPJ sudah disetujui, realisasi sudah pas (tidak ada surplus/defisit). Mohon segera serahkan LPJ ASLI (hardcopy) ke Bagian Keuangan, lalu isi data penyetor di bawah ini:</p>'
-            + '<div class="mb-2"><label class="form-label small mb-1">Nama Penyetor</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-nama-'+h.idPengajuan+'" style="max-width:320px;"></div>'
-            + '<div class="mb-2"><label class="form-label small mb-1">NPP/NIM</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-npm-'+h.idPengajuan+'" style="max-width:260px;"></div>'
-            + '<div class="mb-2"><label class="form-label small mb-1">No. HP</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-hp-'+h.idPengajuan+'" style="max-width:260px;"></div>'
-            + '<button class="btn btn-sm" id="btn-penyetor-'+h.idPengajuan+'" onclick="pdAksiIsiDataPenyetorLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Simpan Data Penyetor</button>');
-        html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'', bodyPenyetorBalance);
-      } else {
-        html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
-          isAdmin ? (infoPenyetor + '<p class="small text-muted mb-2">LPJ asli sudah diterima. Tidak ada pergerakan kas tambahan, tinggal selesaikan pengajuan ini.</p>'
-            + '<button class="btn btn-sm" id="btn-kasir-lpj-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Selesaikan LPJ</button>')
-            : (infoPenyetor + pdCatatanTunggu('Data Penyetor sudah tersimpan, menunggu Admin menyelesaikan pengajuan ini.')));
-      }
-    } else if(!buktiKasSudahAda){
-      // Ada surplus/defisit, TAPI belum dicatat Admin -- Unit BELUM boleh
-      // isi Data Penyetor sama sekali di tahap ini (dicegah backend juga,
-      // lihat isiDataPenyetorLpj).
-      var inputBuktiAwal = selisihB > 0
-        ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk <span class="text-muted">(ada surplus Rp '+fmtRp(selisihB)+' dikembalikan ke kas)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-awal-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>')
-        : ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar <span class="text-muted">(dana kurang Rp '+fmtRp(Math.abs(selisihB))+', perlu dibayar tambahan)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-awal-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>');
-      html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
-        isAdmin ? ('<p class="small text-muted mb-2">Ada '+(selisihB>0?'surplus':'defisit')+' dari realisasi LPJ ini. Catat No. Bukti Kas di bawah ini DULU -- baru setelah itu Unit bisa menyerahkan LPJ fisik & mengisi Data Penyetor.</p>'
-          + inputBuktiAwal
-          + '<button class="btn btn-sm" id="btn-bukti-kas-awal-'+h.idPengajuan+'" onclick="pdAksiCatatBuktiKasLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Catat Bukti Kas</button>')
-          : pdCatatanTunggu('LPJ sudah disetujui. Ada '+(selisihB>0?'surplus':'defisit')+' yang harus dicatat Admin dulu, sebelum Anda bisa menyerahkan LPJ fisik & mengisi Data Penyetor.'));
-    } else if(!h.namaPenyetor){
-      // Bukti kas SUDAH dicatat Admin -- sekarang giliran Unit menyerahkan
-      // LPJ fisik & mengisi Data Penyetor.
-      // PERBAIKAN (atas permintaan): No. Bukti Kas di sini SEKARANG pakai
-      // pdBaristNoBuktiEdit (sama persis pola yang sudah dipakai di tahap
-      // "3. Pencairan Dana") -- Admin bisa langsung koreksi lewat ikon
-      // pensil kalau ternyata salah ketik, TANPA perlu balik ke Sheet
-      // manual. Sebelumnya cuma teks statis, tidak bisa diedit sama sekali.
-      var infoBuktiSudah = pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk', h.noBuktiKasMasuk)
-        + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar', h.noBuktiKasKeluarTambahan);
-      var bodyPenyetorSetelahBukti = isAdmin
-        ? (infoBuktiSudah + pdCatatanTunggu('Bukti kas Rp '+fmtRp(Math.abs(selisihB))+' sudah dicatat, menunggu Unit menyerahkan LPJ asli (hardcopy) ke Bagian Keuangan & mengisi Data Penyetor.'))
-        : (infoBuktiSudah + '<p class="small text-muted mb-2">Bukti kas Rp '+fmtRp(Math.abs(selisihB))+' sudah dicatat Admin. Mohon segera serahkan LPJ ASLI (hardcopy) ke Bagian Keuangan, lalu isi data penyetor di bawah ini:</p>'
-          + '<div class="mb-2"><label class="form-label small mb-1">Nama Penyetor</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-nama-'+h.idPengajuan+'" style="max-width:320px;"></div>'
-          + '<div class="mb-2"><label class="form-label small mb-1">NPP/NIM</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-npm-'+h.idPengajuan+'" style="max-width:260px;"></div>'
-          + '<div class="mb-2"><label class="form-label small mb-1">No. HP</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-hp-'+h.idPengajuan+'" style="max-width:260px;"></div>'
-          + '<button class="btn btn-sm" id="btn-penyetor-'+h.idPengajuan+'" onclick="pdAksiIsiDataPenyetorLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Simpan Data Penyetor</button>');
-      html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'', bodyPenyetorSetelahBukti);
+
+    // BAGIAN 1: Data Penyetor -- selalu tersedia begitu LPJ disetujui.
+    var bagianPenyetor;
+    if(h.namaPenyetor){
+      bagianPenyetor = infoPenyetor;
+    } else if(isAdmin){
+      bagianPenyetor = pdCatatanTunggu('Menunggu Unit menyerahkan LPJ asli (hardcopy) ke Bagian Keuangan & mengisi Data Penyetor.');
     } else {
-      // Bukti kas SUDAH dicatat DAN Data Penyetor SUDAH diisi -- tinggal
-      // Admin menandai selesai. PERBAIKAN (atas permintaan): No. Bukti Kas
-      // SEBELUMNYA tidak ditampilkan sama sekali di tahap ini (cuma Data
-      // Penyetor) -- sekarang ikut ditampilkan (bisa diedit lewat pensil,
-      // sama seperti tahap Pencairan Dana), supaya semua data yg relevan
-      // terlihat jelas & sinkron sebelum ditandai selesai.
-      // Angka Rp-nya SEKARANG ikut disebut eksplisit di kalimatnya (bukan
-      // cuma "bukti kas sudah tercatat" tanpa angka) -- konsisten dgn
-      // permintaan supaya tanggal & jumlahnya jelas di semua tahap.
-      var infoBuktiSelesai = pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk', h.noBuktiKasMasuk)
-        + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar', h.noBuktiKasKeluarTambahan);
-      var kalimatBuktiSelesai = 'Bukti kas Rp '+fmtRp(Math.abs(selisihB))+' sudah tercatat & LPJ asli sudah diterima. Tinggal tandai selesai.';
-      html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
-        isAdmin ? (infoPenyetor + infoBuktiSelesai + '<p class="small text-muted mb-2">'+kalimatBuktiSelesai+'</p>'
-          + '<button class="btn btn-sm" id="btn-kasir-lpj-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Tandai Selesai</button>')
-          : (infoPenyetor + infoBuktiSelesai + pdCatatanTunggu('Bukti kas Rp '+fmtRp(Math.abs(selisihB))+' sudah tercatat & Data Penyetor sudah tersimpan, menunggu Admin menandai pengajuan ini selesai.')));
+      bagianPenyetor = '<p class="small text-muted mb-2">LPJ sudah disetujui. Mohon segera serahkan LPJ ASLI (hardcopy) ke Bagian Keuangan, lalu isi data penyetor di bawah ini supaya termuat di Cetak Lampiran LPJ:</p>'
+        + '<div class="mb-2"><label class="form-label small mb-1">Nama Penyetor</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-nama-'+h.idPengajuan+'" style="max-width:320px;"></div>'
+        + '<div class="mb-2"><label class="form-label small mb-1">NPP/NIM</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-npm-'+h.idPengajuan+'" style="max-width:260px;"></div>'
+        + '<div class="mb-2"><label class="form-label small mb-1">No. HP</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-hp-'+h.idPengajuan+'" style="max-width:260px;"></div>'
+        + '<button class="btn btn-sm" id="btn-penyetor-'+h.idPengajuan+'" onclick="pdAksiIsiDataPenyetorLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Simpan Data Penyetor</button>';
     }
+
+    // BAGIAN 2: tombol/input PENUTUP -- baru muncul setelah Data Penyetor
+    // terisi. Kalau ada surplus/defisit, input No. Bukti Kas muncul DI
+    // SINI JUGA, disatukan dengan tombol Tandai Selesai (SATU klik, bukan
+    // 2 langkah terpisah).
+    var bagianPenutup;
+    if(h.namaPenyetor){
+      if(isAdmin){
+        var inputBuktiAkhir = !perluBuktiKas ? '' : (selisihB > 0
+          ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk <span class="text-muted">(ada surplus Rp '+fmtRp(selisihB)+' dikembalikan ke kas)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-kasir-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>')
+          : ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar <span class="text-muted">(dana kurang Rp '+fmtRp(Math.abs(selisihB))+', perlu dibayar tambahan)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-kasir-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>'));
+        var tombolSelesaiTeks = perluBuktiKas ? 'Catat &amp; Tandai Selesai' : 'Selesaikan LPJ';
+        bagianPenutup = '<p class="small text-muted mb-2">LPJ asli sudah diterima. '+(perluBuktiKas ? ('Ada '+(selisihB>0?'surplus':'defisit')+' Rp '+fmtRp(Math.abs(selisihB))+' -- catat No. Bukti Kas sekalian menandai selesai.') : 'Tidak ada pergerakan kas tambahan, tinggal selesaikan.')+'</p>'
+          + inputBuktiAkhir
+          + '<button class="btn btn-sm" id="btn-kasir-lpj-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>'+tombolSelesaiTeks+'</button>';
+      } else {
+        bagianPenutup = pdCatatanTunggu('Data Penyetor sudah tersimpan, menunggu Admin menandai pengajuan ini selesai.');
+      }
+    } else {
+      bagianPenutup = '';
+    }
+
+    html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+      bagianPenyetor + (bagianPenutup ? ('<hr class="my-3">' + bagianPenutup) : ''));
   } else if(st(6)==='done'){
     // PERBAIKAN (atas permintaan "tanggal & jumlahnya belum jelas &
     // konsisten"): SEBELUMNYA cuma tulisan "LPJ selesai" tanpa tanggal
@@ -8760,21 +8732,10 @@ function pdAksiIsiDataPenyetorLpj(id, btn){
     pdTerapkanDetailDariAksi(res);
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal menyimpan, coba lagi.'); });
 }
-// FITUR BARU (atas permintaan, ALUR DIBALIK): kalau ada surplus/defisit,
-// Admin mencatat No. Bukti Kas DI SINI DULU -- SEBELUM Unit boleh mengisi
-// Data Penyetor (lihat pdAksiIsiDataPenyetorLpj di atas & gerbangnya di
-// isiDataPenyetorLpj Code.gs). Kasus balance (selisih 0) TIDAK memakai
-// fungsi ini sama sekali -- langsung ke pdAksiIsiDataPenyetorLpj lalu
-// pdAksiCatatKasirLpj (tanpa bukti kas apa pun).
-function pdAksiCatatBuktiKasLpj(id, btn){
-  var noBukti = (document.getElementById('pd-bukti-kas-awal-'+id)||{}).value || '';
-  if(!noBukti){ toast('error','No. Bukti Kas wajib diisi'); return; }
-  pdJalankanAksi('catatBuktiKasLpj', [id, noBukti, STATE.token, _idemKey('bukti_kas_lpj', {id:id, noBukti:noBukti})], btn, 'Bukti kas tercatat');
-}
-// TAHAP TERAKHIR (ADMIN): menandai LPJ MUKA selesai -- Data Penyetor SUDAH
-// diisi Unit, dan (kalau ada surplus/defisit) bukti kasnya SUDAH dicatat
-// lebih dulu lewat pdAksiCatatBuktiKasLpj di atas -- di sini TIDAK LAGI
-// ada input bukti kas baru utk MUKA, murni tombol konfirmasi selesai.
+// TAHAP AKHIR (ADMIN): mencatat No. Bukti Kas (kalau ada surplus/defisit)
+// SEKALIGUS menandai LPJ MUKA selesai, dalam 1 klik -- atas permintaan
+// TERBARU, BKK/BKM tidak lagi tahap terpisah lebih awal, sekarang
+// disatukan di sini, bersamaan saat Admin menerima LPJ fisik dari Unit.
 function pdAksiCatatKasirLpj(id, btn){
   var noBukti = (document.getElementById('pd-bukti-kasir-'+id)||{}).value || '';
   if(document.getElementById('pd-bukti-kasir-'+id) && !noBukti){ toast('error','No. Bukti Kas wajib diisi'); return; }
