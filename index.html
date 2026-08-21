@@ -7971,7 +7971,15 @@ function pdSubmitPermohonanDana(btn){
     pdJalankanAksi('ajukanPermohonanDanaKegiatan', [{judul:judul, tglPengajuan:tgl, rab:rab, suratFile:PD.suratFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey], btn, null).then(function(res){
       if(!res) return;
       toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
-      if(PD.draftKeyAktif.muka) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.muka, STATE.token).catch(function(){});
+      // PERBAIKAN BUG NYATA (atas laporan "jadi double submit" -- draft
+      // masih nongol berdampingan dgn pengajuan resmi yg baru terkirim):
+      // draft berhasil DIHAPUS di server, tapi PD.daftarDraft di memori
+      // browser SEBELUMNYA tidak pernah ikut disegarkan sesudahnya --
+      // baris draft "hantu" itu terus tampil sampai ada refresh lain yg
+      // kebetulan lewat, padahal bukan submit dobel sungguhan (cuma 1
+      // pengajuan asli yg tercipta). Sama persis di 3 jenis lain
+      // (Penggantian Biaya/Tagihan/Laporan Unit) -- polanya identik.
+      if(PD.draftKeyAktif.muka) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.muka, STATE.token).then(function(){ _pdMuatDraftSajaDiamDiam(); }).catch(function(){});
       pdSub('daftar');
     });
   });
@@ -8000,7 +8008,7 @@ function pdSubmitPenggantianBiaya(btn){
     pdJalankanAksi('ajukanPenggantianBiaya', [{judul:judul, tglPengeluaran:tgl, realisasi:realisasi, lpjFile:PD.lpjFileSekaligus, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminSk}, STATE.token, idKey], btn, null).then(function(res){
       if(!res) return;
       toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
-      if(PD.draftKeyAktif.sekaligus) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.sekaligus, STATE.token).catch(function(){});
+      if(PD.draftKeyAktif.sekaligus) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.sekaligus, STATE.token).then(function(){ _pdMuatDraftSajaDiamDiam(); }).catch(function(){});
       pdSub('daftar');
     });
   });
@@ -8024,7 +8032,7 @@ function pdSubmitTagihan(btn){
     pdJalankanAksi('ajukanTagihan', [{judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminTg}, STATE.token, idKey], btn, null).then(function(res){
       if(!res) return;
       toast('success','Tagihan '+res.idPengajuan+' berhasil diajukan');
-      if(PD.draftKeyAktif.tagihan) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.tagihan, STATE.token).catch(function(){});
+      if(PD.draftKeyAktif.tagihan) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.tagihan, STATE.token).then(function(){ _pdMuatDraftSajaDiamDiam(); }).catch(function(){});
       pdSub('daftar');
     });
   });
@@ -8044,7 +8052,7 @@ function pdSubmitLaporanUnit(btn){
   pdJalankanAksi('ajukanLaporanUnit', [{namaKegiatan:namaKegiatan, bulan:bulan, tahun:tahun, pemasukan:pemasukan, pengeluaran:pengeluaran, buktiFile:PD.laporanBuktiFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey], btn, null).then(function(res){
     if(!res) return;
     toast('success','Laporan '+res.idPengajuan+' berhasil dikirim');
-    if(PD.draftKeyAktif.laporan) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.laporan, STATE.token).catch(function(){});
+    if(PD.draftKeyAktif.laporan) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.laporan, STATE.token).then(function(){ _pdMuatDraftSajaDiamDiam(); }).catch(function(){});
     pdSub('daftar');
   });
 }
@@ -8056,6 +8064,21 @@ function pdSubmitLaporanUnit(btn){
 // manual) -- backend tetap validasi ulang semua hak akses, ini cuma UI.
 // ============================================================
 function pdBukaDetail(idPengajuan, btn){
+  // PERBAIKAN BUG NYATA (atas laporan "simpan draft di Realisasi/LPJ,
+  // buka lagi kosong"): PD_DRAFT_DICEK SEBELUMNYA cuma sekali "pakai
+  // habis" per PENGAJUAN untuk SELURUH sesi browser -- begitu Detail
+  // pengajuan ini dibuka SEKALI (mis. saat BELUM ada draft sama sekali),
+  // flagnya langsung terkunci "sudah dicek", dan TIDAK PERNAH dicek ulang
+  // lagi walau user KEMUDIAN menyimpan draft & membuka detail yang SAMA
+  // lagi -- tawaran "Lanjutkan Draft?" tidak pernah muncul lagi, form
+  // selalu tampil kosong seolah draft-nya tidak tersimpan (padahal
+  // tersimpan, cuma tidak pernah ditawarkan lagi). Sekarang flag utk
+  // pengajuan INI (baik draft LPJ "lpj_<id>" maupun draft revisi Laporan
+  // "lapedit_<id>") direset SETIAP kali detail-nya dibuka -- setiap
+  // "kunjungan" ke Detail dianggap kesempatan baru utk dicek ulang,
+  // bukan cuma sekali seumur sesi.
+  delete PD_DRAFT_DICEK['lpj_' + idPengajuan];
+  delete PD_DRAFT_DICEK['lapedit_' + idPengajuan];
   btnBusy(btn, true);
   gasCall('getDetailPengajuan', idPengajuan, STATE.token).then(function(res){
     btnBusy(btn, false);
