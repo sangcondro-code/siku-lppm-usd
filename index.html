@@ -888,7 +888,7 @@
                 <option value="SEMUA">Semua Unit</option>
               </select>
               <button class="btn btn-sm btn-outline-secondary admin-only" id="pd-btn-export-csv" onclick="pdExportCsv()"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
-              <button class="btn btn-sm btn-outline-secondary admin-only" id="pd-btn-cetak-daftar" onclick="pdCetakDaftar()"><i class="fas fa-print me-1"></i>Cetak</button>
+              <button class="btn btn-sm btn-outline-secondary admin-only" id="pd-btn-cetak-daftar" onclick="pdCetakDaftar(this)"><i class="fas fa-print me-1"></i>Cetak</button>
             </div>
           </div>
           <div class="d-flex gap-2 mb-3 flex-wrap" id="pd-kategori-tabs">
@@ -1720,6 +1720,12 @@ function afterLogin(){
   }
   gasCallBatch(_callsAwal).then(function(res){
     hideLoading(); hideBar();
+    // PERBAIKAN BUG NYATA (systemik -- "hasil is null"): batch login ini
+    // yang paling kompleks (bisa sampai 7 panggilan sekaligus) -- kalau
+    // sampai gagal diserialisasi balik oleh google.script.run, res bisa
+    // null. Dicegat di sini dgn pesan jelas + saran refresh manual, bukan
+    // crash mentah pas halaman baru saja login.
+    if(!res){ toast('error','Gagal memuat data awal, silakan refresh halaman ini.'); return; }
     var thn = res[0], pos = res[1], setup = res[2], resPesan = res[3], resPengajuan = res[4];
     STATE.daftarTahun = thn.data || []; STATE.tahunAktif = thn.tahunAktif || (STATE.daftarTahun[STATE.daftarTahun.length-1]);
     // PERBAIKAN BUG: STATE.tahunAktif adalah variabel GLOBAL yang dipakai
@@ -2091,8 +2097,13 @@ function loadDashboard(){
     { fn:'getRingkasanTahun', args:[STATE.tahunAktif, STATE.token] },
     { fn:'getRingkasanPengajuan', args:[STATE.token] }
   ]).then(function(hasil){
-    var res = hasil[0], resPengajuan = hasil[1];
     if(!cached) hideBar();
+    // PERBAIKAN BUG NYATA (systemik -- "hasil is null"): sama seperti
+    // pdJalankanAksi, batch ini kadang bisa gagal diserialisasi balik oleh
+    // google.script.run (payload besar dsb) dan resolve dgn null. Dicegat
+    // di sini supaya jatuh balik ke cache lama diam2, bukan crash mentah.
+    if(!hasil){ if(!cached) toast('error','Gagal memuat data, coba lagi.'); return; }
+    var res = hasil[0], resPengajuan = hasil[1];
     if(!res || !res.success){ if(!cached) toast('error', res && res.message); }
     else {
       _dashboardCache[STATE.tahunAktif] = res;
@@ -2330,6 +2341,7 @@ function _muatInputGabungan(){
 
   gasCallBatch(calls).then(function(hasil){
     hideBar();
+    if(!hasil){ if(!CACHE.rekap[key]) toast('error','Gagal memuat data, coba lagi.'); return; } // lihat catatan systemik di pdJalankanAksi
     var resRekap = hasil[0], resKunci = hasil[1], resBelumJelas = hasil[2];
     var masihSamaBulan = (key === _rekapCacheKey());
     if(!resRekap || !resRekap.success){ if(!CACHE.rekap[key]) toast('error', resRekap && resRekap.message); }
@@ -2383,6 +2395,7 @@ function loadRekapBulan(){
     { fn:'getTransaksiBelumVerifikasi', args:[STATE.tahunAktif, bulan, STATE.token] }
   ]).then(function(hasil){
     hideBar();
+    if(!hasil){ if(!CACHE.rekap[key]) toast('error','Gagal memuat data, coba lagi.'); return; } // lihat catatan systemik di pdJalankanAksi
     var resRekap = hasil[0], resKunci = hasil[1], resBelumJelas = hasil[2];
     var masihSamaBulan = (key === _rekapCacheKey());
     if(!resRekap || !resRekap.success){ if(!CACHE.rekap[key]) toast('error', resRekap && resRekap.message); }
@@ -2730,6 +2743,7 @@ function loadRekapRekeningKoran(){
     { fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] }
   ]).then(function(hasil){
     hideBar();
+    if(!hasil){ toast('error','Gagal memuat data, coba lagi.'); return; } // lihat catatan systemik di pdJalankanAksi
     var res = hasil[0], resKunci = hasil[1];
     var masihSamaBulan = (bulan === document.getElementById('sel-bulan-rekkoran').value);
     if(!res || !res.success){ toast('error', res && res.message); return; }
@@ -4070,6 +4084,7 @@ function muatBadgeGabungan(){
     { fn:'getJumlahPesanBelumDibaca', args:[STATE.token] },
     { fn:'getJumlahPengajuanPerluPerhatian', args:[STATE.token] }
   ]).then(function(hasil){
+    if(!hasil) return; // badge murni pemanis, gagal senyap saja -- lihat catatan systemik di pdJalankanAksi
     var resPesan = hasil[0], resPengajuan = hasil[1];
     if(resPesan && resPesan.success){
       var elP = document.getElementById('pesan-badge');
@@ -4311,6 +4326,7 @@ function loadKonsolidasi(){
     { fn:'getKategoriTambahanList', args:[STATE.token] },
     { fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] }
   ]).then(function(hasil){
+    if(!hasil){ if(!cached) toast('error','Gagal memuat data, coba lagi.'); return; } // lihat catatan systemik di pdJalankanAksi
     if(!hasil[0].success){ if(!cached) toast('error', hasil[0].message); return; }
     _konsolidasiRawCache[key] = hasil;
     _renderKonsolidasi(bulan, hasil);
@@ -5043,6 +5059,7 @@ function loadUnitPos(){
     { fn:'getKategoriTambahanList', args:[STATE.token] }
   ]).then(function(hasil){
     hideBar();
+    if(!hasil){ if(!_unitPosData) toast('error','Gagal memuat data, coba lagi.'); return; } // lihat catatan systemik di pdJalankanAksi
     var res = hasil[0], katRes = hasil[1];
     if(!res.success){ if(!_unitPosData) toast('error', res.message); return; }
     _unitPosData = res;
@@ -6799,7 +6816,7 @@ var PD = {
   // belum pernah disimpan sbg draft di sesi ini (klik "Simpan Draft" akan
   // membuat kunci acak baru); kalau diisi (dari "Lanjutkan" di tab Draft),
   // "Simpan Draft" berikutnya akan MENIMPA draft yg sama itu, bukan bikin baru.
-  draftKeyAktif:{ muka:null, sekaligus:null, tagihan:null, laporan:null }, daftarDraft:[],
+  draftKeyAktif:{ muka:null, sekaligus:null, tagihan:null, laporan:null }, daftarDraft:[], _tahunDaftarTerakhir:null,
   laporanEditMasuk:[], laporanEditKeluar:[], laporanEditBuktiFile:null,
   detail:null,
   realisasiEdit:[], lpjFileEdit:null, buktiBayarFile:null, buktiTransferSekaligus:null,
@@ -6850,13 +6867,24 @@ function loadPengajuanDana(){
       }).catch(function(){});
     }
   }
-  // Kalau daftar sudah pernah disegarkan dlm 20 detik terakhir, cukup pakai
-  // versi yg sudah ada -- LEWATI permintaan baru ke server sama sekali
-  // (termasuk pemanasan cache di bawah), supaya pindah2 menu dgn cepat
-  // tidak memicu request berulang-ulang. Kalau memang belum pernah dimuat
-  // sama sekali (PD.daftar masih kosong), tetap SELALU muat spt biasa.
-  if(PD.daftar.length && !_bolehSegarkan('pengajuan_daftar')) return;
+  // PERBAIKAN BUG (konsekuensi dari perbaikan year-scoping di atas): daftar
+  // Pengajuan Dana SEKARANG dibatasi ke STATE.tahunAktif (sebelumnya selalu
+  // 'SEMUA' tahun) -- kalau user ganti Tahun di pojok kanan atas SAAT masih
+  // di dalam jendela "tenang" 20 detik, debounce di bawah bisa MELEWATI
+  // refresh & tetap menampilkan data tahun LAMA yang sudah basi/salah
+  // tahun. Sekarang perubahan tahun SELALU memaksa refresh, apa pun status
+  // debounce-nya -- debounce cuma berlaku kalau tahunnya memang SAMA.
+  var tahunBerubah = (PD._tahunDaftarTerakhir !== STATE.tahunAktif);
+  PD._tahunDaftarTerakhir = STATE.tahunAktif;
+  // Kalau daftar sudah pernah disegarkan dlm 20 detik terakhir DAN tahunnya
+  // tidak berubah, cukup pakai versi yg sudah ada -- LEWATI permintaan baru
+  // ke server sama sekali (termasuk pemanasan cache di bawah), supaya
+  // pindah2 menu dgn cepat tidak memicu request berulang-ulang. Kalau
+  // memang belum pernah dimuat sama sekali (PD.daftar masih kosong) atau
+  // tahunnya baru saja diganti, tetap SELALU muat spt biasa.
+  if(PD.daftar.length && !tahunBerubah && !_bolehSegarkan('pengajuan_daftar')) return;
   pdMuatRingkasanDanDaftar(); // 1 round-trip gabungan (ringkasan+badge+daftar), gantikan pdMuatRingkasan()+pdMuatDaftar() terpisah
+  _pdMuatDraftSajaDiamDiam(); // draft ditarik terpisah (lihat catatan di _pdCallsRingkasanDanDaftar) -- gagal di sini tidak pernah mengganggu daftar resmi
   // Pemanasan cache sheet anak Pengajuan (Detail/Realisasi/File/Komentar)
   // DIAM-DIAM di latar belakang (fire-and-forget, hasilnya tidak
   // dipedulikan) -- supaya begitu user benar-benar klik tombol Detail
@@ -6943,6 +6971,28 @@ function pdDaftarTersaring(){
         || (p.dibayarkanKepada||'').toLowerCase().indexOf(kataKunci)!==-1;
     });
   }
+  // PERBAIKAN (atas permintaan): tab "Selesai" SEBELUMNYA ikut urutan
+  // bawaan dari server (selalu berdasar tglPengajuan -- kapan pengajuan
+  // AWALNYA diajukan) -- membingungkan di tab ini, karena pengajuan yang
+  // BARU SAJA selesai (LPJ baru saja diserahkan/dicatat) bisa saja
+  // pengajuan LAMA yang tglPengajuan-nya jauh di belakang, jadi tidak
+  // muncul di atas walau baru saja tuntas. Khusus tab ini, diurutkan ULANG
+  // berdasar tglDicairkan (field ini ditulis ulang tiap kali pengajuan
+  // benar2 diselesaikan -- lihat catatKasirLpj/catatKasirTagihan/
+  // catatKasirLaporanUnit/catatKasirPenggantianBiaya di Code.gs) -- jadi
+  // yang PALING BARU selesai selalu di paling atas, bukan yang paling baru
+  // diajukan.
+  if(PD.kategori==='SELESAI'){
+    // Fallback ke tglKeputusan (relevan utk DITOLAK, yang juga masuk
+    // kategori "Selesai" tapi tidak pernah punya tglDicairkan), lalu
+    // tglPengajuan sbg jaga-jaga terakhir.
+    var waktuSelesai = function(p){ return (p.tglDicairkan || p.tglKeputusan || p.tglPengajuan); };
+    hasil = hasil.slice().sort(function(a,b){
+      var ta = waktuSelesai(a) ? new Date(waktuSelesai(a)).getTime() : 0;
+      var tb = waktuSelesai(b) ? new Date(waktuSelesai(b)).getTime() : 0;
+      return tb - ta;
+    });
+  }
   return hasil;
 }
 // Filter Bulan & Jenis Pengajuan (di samping tombol Ajukan Baru) -- SENGAJA
@@ -6988,18 +7038,33 @@ function pdGantiUkuranHalaman(sel){
 // SELALU ditarik bersamaan sesudah apa pun yang mengubah status pengajuan.
 function _pdCallsRingkasanDanDaftar(){
   return [
-    { fn:'getRingkasanPengajuan', args:[STATE.token] },
+    { fn:'getRingkasanPengajuan', args:[STATE.token, STATE.tahunAktif] },
     { fn:'getJumlahPengajuanPerluPerhatian', args:[STATE.token] },
-    { fn:'getDaftarPengajuan', args:[PD.filterStatus, PD.filterUnit, 'SEMUA', STATE.token] },
-    // FITUR DRAFT (disederhanakan atas permintaan): tidak lagi tab
-    // terpisah -- draft milik user ditarik SEKALIAN di sini (1 batch yang
-    // sama, tanpa round-trip tambahan) supaya bisa disisipkan sbg baris
-    // berstatus "Draft" langsung di tab "Pengajuan Baru", nyatu dgn
-    // pengajuan yang sudah resmi terkirim (bukan tabel/tab terpisah lagi).
-    { fn:'getDaftarDraftSaya', args:[STATE.token] }
+    // PERBAIKAN PERFORMA PENTING ("loading Pengajuan Dana gagal/macet"):
+    // sebelumnya filterTahun DIPAKSA 'SEMUA' di sini -- narik SELURUH
+    // riwayat pengajuan dari SEMUA TAHUN setiap kali halaman ini
+    // dibuka/disegarkan (termasuk auto-refresh diam2 tiap 5 menit), padahal
+    // SELURUH menu lain di sistem ini SUDAH konsisten dibatasi ke tahun
+    // aktif yg dipilih di pojok kanan atas. Sekarang dibatasi ke
+    // STATE.tahunAktif SAJA, konsisten dgn menu lain.
+    { fn:'getDaftarPengajuan', args:[PD.filterStatus, PD.filterUnit, STATE.tahunAktif, STATE.token] }
+    // PERBAIKAN (atas laporan "gagal memuat, khusus 1 unit"): getDaftarDraftSaya
+    // DIKELUARKAN dari batch inti ini -- draft murni pemanis tampilan
+    // (baris "Draft" di tab Pengajuan Baru), TIDAK PERLU sampai bikin
+    // SELURUH daftar pengajuan gagal tampil kalau ada masalah di situ.
+    // Sekarang ditarik TERPISAH (lihat _pdMuatDraftSajaDiamDiam), gagal
+    // pun tidak akan pernah mengganggu daftar pengajuan yang resmi.
   ];
 }
-function _pdTerapkanRingkasanDanDaftar(resRingkasan, resBadge, resDaftar, resDraft){
+// Draft ditarik TERPISAH & diam2 (fire-and-forget) -- gagal di sini TIDAK
+// PERNAH memengaruhi tampilan daftar pengajuan resmi sama sekali.
+function _pdMuatDraftSajaDiamDiam(){
+  gasCall('getDaftarDraftSaya', STATE.token).then(function(res){
+    PD.daftarDraft = (res && res.success) ? res.data : [];
+    if(PD.kategori==='BARU') pdRenderDaftarTable();
+  }).catch(function(){}); // diam2 -- draft opsional, tidak fatal
+}
+function _pdTerapkanRingkasanDanDaftar(resRingkasan, resBadge, resDaftar){
   if(resRingkasan && resRingkasan.success){
     PD.ringkasan = resRingkasan;
     document.getElementById('pd-r-baru').textContent = resRingkasan.jumlahBaru;
@@ -7014,10 +7079,8 @@ function _pdTerapkanRingkasanDanDaftar(resRingkasan, resBadge, resDaftar, resDra
       else elBadge.classList.add('d-none');
     }
   }
-  // resDraft BUKAN dianggap gagal keras kalau error/kosong -- draft murni
-  // pemanis tampilan, tidak boleh sampai bikin seluruh daftar pengajuan
-  // gagal tampil cuma gara-gara baris draft gagal ditarik.
-  PD.daftarDraft = (resDraft && resDraft.success) ? resDraft.data : [];
+  // Draft SUDAH TIDAK ikut batch ini lagi (lihat _pdMuatDraftSajaDiamDiam)
+  // -- ditarik terpisah, jadi tidak disentuh di sini sama sekali.
   if(resDaftar && resDaftar.success){ PD.daftar = resDaftar.data; pdRenderDaftarTable(); }
   else if(resDaftar){ toast('error', resDaftar.message); }
 }
@@ -7040,17 +7103,40 @@ function pdJalankanAksi(fnName, args, btn, pesanSukses){
   var calls = [{ fn:fnName, args:args }].concat(_pdCallsRingkasanDanDaftar());
   return gasCallBatch(calls).then(function(hasil){
     btnBusy(btn, false);
+    // PERBAIKAN (atas permintaan -- tanpa pesan error yang mengganggu):
+    // kalau batch gabungan ini gagal balik dgn benar (hasil kosong), JANGAN
+    // tampilkan pesan error yang berhenti di situ -- aksi kemungkinan besar
+    // SUDAH tersimpan di server (cuma respons gabungannya yg bermasalah).
+    // Langsung jatuh balik diam2 ke pemanggilan terpisah (aksi tunggal +
+    // refresh terpisah) supaya tetap dapat kepastian, tanpa mengganggu user.
+    if(!hasil){
+      gasCall(fnName, args).then(function(res){
+        if(!res || !res.success){ toast('error', res && res.message); return; }
+        if(pesanSukses) toast('success', pesanSukses);
+        pdMuatRingkasanDanDaftar();
+        if(res.header) pdTerapkanDetailDariAksi(res);
+      }).catch(function(err){ toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); });
+      return null;
+    }
     var res = hasil[0];
     if(!res || !res.success){ toast('error', res && res.message); return null; }
     if(pesanSukses) toast('success', pesanSukses);
-    _pdTerapkanRingkasanDanDaftar(hasil[1], hasil[2], hasil[3], hasil[4]);
+    _pdTerapkanRingkasanDanDaftar(hasil[1], hasil[2], hasil[3]);
     if(res.header) pdTerapkanDetailDariAksi(res);
     return res;
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) ? err.message : 'Gagal menyimpan'); return null; });
 }
 function pdMuatRingkasanDanDaftar(){
   gasCallBatch(_pdCallsRingkasanDanDaftar()).then(function(hasil){
-    _pdTerapkanRingkasanDanDaftar(hasil[0], hasil[1], hasil[2], hasil[3]);
+    // PERBAIKAN (atas permintaan -- tanpa pesan "Gagal memuat data" yang
+    // mengganggu): kalau batch gabungan ini kosong, LANGSUNG jatuh balik
+    // diam2 ke 2 panggilan terpisah (masing2 lebih kecil/ringan drpd batch
+    // gabungan, jadi lebih besar peluangnya berhasil), TANPA menampilkan
+    // pesan error apa pun ke user -- baru kalau jalur terpisah ini JUGA
+    // gagal, masing2 fungsi (pdMuatRingkasan/pdMuatDaftar) sudah py
+    // penanganan errornya sendiri.
+    if(!hasil){ pdMuatRingkasan(); pdMuatDaftar(); return; }
+    _pdTerapkanRingkasanDanDaftar(hasil[0], hasil[1], hasil[2]);
   }).catch(function(){
     // PERBAIKAN BUG: sebelumnya baris ini memanggil pdMuatRingkasanDanDaftar()
     // LAGI setiap kali batch-nya gagal -- TANPA batas jumlah percobaan dan
@@ -7069,7 +7155,7 @@ function pdMuatRingkasanDanDaftar(){
   });
 }
 function pdMuatRingkasan(){
-  gasCall('getRingkasanPengajuan', STATE.token).then(function(res){
+  gasCall('getRingkasanPengajuan', STATE.token, STATE.tahunAktif).then(function(res){
     if(!res || !res.success) return;
     PD.ringkasan = res;
     document.getElementById('pd-r-baru').textContent = res.jumlahBaru;
@@ -7080,7 +7166,7 @@ function pdMuatRingkasan(){
   muatBadgePengajuan(); // ikut disegarkan tiap kali ringkasan dimuat -- mencakup SEMUA titik aksi (setuju/tolak/revisi/verifikasi/dst) tanpa perlu ditambah satu-satu
 }
 function pdMuatDaftar(){
-  gasCall('getDaftarPengajuan', PD.filterStatus, PD.filterUnit, 'SEMUA', STATE.token).then(function(res){
+  gasCall('getDaftarPengajuan', PD.filterStatus, PD.filterUnit, STATE.tahunAktif, STATE.token).then(function(res){
     if(!res || !res.success){ toast('error', res.message); return; }
     PD.daftar = res.data;
     pdRenderDaftarTable();
@@ -7112,9 +7198,23 @@ function pdExportCsv(){
 // Cetak Daftar Pengajuan (yang SEDANG terlihat -- ikut tab kategori & filter
 // yg aktif) -- pakai KOP & warna hitam yang SAMA PERSIS dgn cetak lain di
 // modul ini (lihat pdKopHtml, dipakai juga di Lampiran LPJ/Tanda Terima).
-function pdCetakDaftar(){
+// PERBAIKAN PERFORMA (atas laporan "khusus Admin/LPPM gagal memuat"): peta
+// dokumen (link Drive per pengajuan) SEBELUMNYA dibawa otomatis di SETIAP
+// baris getDaftarPengajuan -- padahal cuma dipakai di sini (Cetak Daftar),
+// bikin payload daftar utama membengkak percuma utk semua orang tiap kali
+// buka/segarkan halaman. Sekarang ditarik SENDIRI, cuma pas tombol Cetak
+// benar2 diklik -- gasCall ringan terpisah, bukan dibebankan ke semua orang.
+function pdCetakDaftar(btn){
   var tersaring = pdDaftarTersaring();
   if(!tersaring.length){ toast('error','Tidak ada data untuk dicetak'); return; }
+  btnBusy(btn, true);
+  gasCall('getPetaDokumenUntukCetak', STATE.token).then(function(resPeta){
+    btnBusy(btn, false);
+    var petaDokumen = (resPeta && resPeta.success) ? resPeta.peta : {};
+    _pdCetakDaftarLanjut(tersaring, petaDokumen);
+  }).catch(function(){ btnBusy(btn, false); _pdCetakDaftarLanjut(tersaring, {}); }); // gagal ambil dokumen -- tetap cetak, cuma kolom Dokumen kosong
+}
+function _pdCetakDaftarLanjut(tersaring, petaDokumen){
   var css = '*{box-sizing:border-box;color:#000 !important;} @page{size:A4 landscape;margin:14mm 12mm;} body{font-family:Arial,sans-serif;font-size:9pt;padding:0;} '
     + '.pt-title{text-align:center;font-weight:700;text-decoration:underline;margin:14px 0;font-size:11pt;} '
     + 'table.pt-tbl{width:100%;border-collapse:collapse;font-size:8.5pt;} .pt-tbl th,.pt-tbl td{border:1px solid #000;padding:4px 7px;} .pt-tbl th{background:#f2f2f2;text-align:left;} .r{text-align:right;} .pt-tbl a{color:#1d4ed8 !important;text-decoration:underline;display:block;white-space:nowrap;}';
@@ -7127,7 +7227,7 @@ function pdCetakDaftar(){
     // Kolom Dokumen -- link Drive langsung bisa diklik (dibuka di tab baru),
     // biar yang buka hasil cetak/PDF ini bisa langsung lompat ke file
     // Surat/LPJ/Memo/Bukti Bayar-nya tanpa perlu balik ke aplikasi dulu.
-    var dokumenHtml = (p.dokumen||[]).map(function(d){ return '<a href="'+d.url+'" target="_blank" rel="noopener">'+(PD_TIPE_FILE_LABEL[d.tipe]||d.tipe)+'</a>'; }).join('') || '-';
+    var dokumenHtml = (petaDokumen[String(p.idPengajuan)]||[]).map(function(d){ return '<a href="'+d.url+'" target="_blank" rel="noopener">'+(PD_TIPE_FILE_LABEL[d.tipe]||d.tipe)+'</a>'; }).join('') || '-';
     return '<tr><td>'+(i+1)+'</td><td>'+p.idPengajuan+'</td><td>'+bj[2]+'</td><td>'+esc(p.judul)+'</td><td>'+esc(p.diajukanOlehNama||p.diajukanOleh||p.kodeUnit)+'</td><td>'+tgl+'</td><td class="r">Rp '+fmtRp(p.totalDiajukan)+'</td><td>'+labelStatusCetak+'</td><td>'+dokumenHtml+'</td></tr>';
   }).join('');
   var judulKategori = PD.kategori==='SEMUA' ? '' : (' — ' + PD_KATEGORI_LABEL[PD.kategori]);
@@ -7155,7 +7255,16 @@ var PD_BADGE_STATUS = {
 // status (Daftar Pengajuan, Cetak, Rollover, header Detail) supaya
 // konsisten -- satu sumber, bukan diulang-ulang per tempat.
 function pdLabelStatus(p){
-  if(p && p.status==='MENUNGGU_PENCATATAN' && p.metodePembayaran==='TRANSFER') return 'Menunggu Verifikasi Transfer';
+  if(p && p.status==='MENUNGGU_PENCATATAN'){
+    if(p.metodePembayaran==='TRANSFER') return 'Menunggu Verifikasi Transfer';
+    // FITUR BARU (atas permintaan): LPJ MUKA sekarang punya sub-tahap
+    // tersendiri sebelum bisa dicatat BKK/BKM -- Unit wajib menyerahkan
+    // LPJ asli (hardcopy) & isi Data Penyetor dulu (lihat isiDataPenyetorLpj
+    // di Code.gs). Selama itu belum diisi, labelnya dibedakan supaya jelas
+    // sedang menunggu SIAPA -- bukan "Menunggu Pencatatan Kas" yang
+    // menyiratkan giliran Admin, padahal masih menunggu Unit.
+    if(p.jenis==='MUKA' && !p.namaPenyetor) return 'Menunggu Penyerahan LPJ';
+  }
   return (PD_BADGE_STATUS[p && p.status] || ['badge-pd', p && p.status])[1];
 }
 var PD_BADGE_JENIS = { MUKA:['#dbeafe','#1d4ed8','Dana Kegiatan'], SEKALIGUS:['#e0e7ff','#3730a3','Penggantian Biaya'], TAGIHAN:['#fef9c3','#854d0e','Tagihan'], LAPORAN_UNIT:['#dcfce7','#166534','Laporan Unit'] };
@@ -7211,7 +7320,7 @@ function pdHapusDraftUI(draftKey, btn){
   }).then(function(r){
     if(!r.isConfirmed) return;
     toast('success','Draft dihapus');
-    pdMuatRingkasanDanDaftar(); // refresh gabungan (ringkasan+badge+daftar+draft) -- baris draft yang dihapus otomatis hilang dari tab Pengajuan Baru
+    _pdMuatDraftSajaDiamDiam(); // draft ditarik terpisah sekarang (lihat catatan di _pdCallsRingkasanDanDaftar)
   });
 }
 function pdRenderDaftarTable(){
@@ -7456,9 +7565,9 @@ function pdSimpanDraftBaru(jenis, btn){
     // user langsung pindah ke tab "Pengajuan Baru", draft yang baru saja
     // disimpan itu TIDAK MUNCUL (baru muncul kalau kebetulan ada refresh
     // lain yang tidak ke-debounce, bisa telat sampai 20 detik). Sekarang
-    // langsung disegarkan seketika begitu draft tersimpan, sama seperti
-    // pola refresh yang sudah dipakai di aksi-aksi lain (pdJalankanAksi).
-    pdMuatRingkasanDanDaftar();
+    // langsung disegarkan seketika begitu draft tersimpan -- draft ditarik
+    // TERPISAH sekarang (lihat catatan di _pdCallsRingkasanDanDaftar).
+    _pdMuatDraftSajaDiamDiam();
   }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal menyimpan draft'); });
 }
 // SUDAH TIDAK DIPANGGIL LAGI (atas permintaan): draft "Ajukan Baru" dulu
@@ -7592,7 +7701,12 @@ function pdBarisRealisasiHtml(target, r, i, prefix){
     + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasi(\''+target+'\','+i+',\'nominal\',this.value)"></td>'
     + '<td><input class="form-control form-control-sm text-end" value="'+(r.pph21?fmtRp(r.pph21):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasi(\''+target+'\','+i+',\'pph21\',this.value)"></td>'
     + '<td><input class="form-control form-control-sm text-end" value="'+(r.pph23?fmtRp(r.pph23):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasi(\''+target+'\','+i+',\'pph23\',this.value)"></td>'
-    + '<td><input class="form-control form-control-sm" value="'+esc(r.noBukti)+'" placeholder="mis. BKM-001" oninput="pdUbahRealisasi(\''+target+'\','+i+',\'noBukti\',this.value)"></td>'
+    // PERBAIKAN (atas permintaan): No. Bukti di sini adalah No. Bukti
+    // PENGELUARAN/NOTA per item realisasi (mis. "I.A", "I.B" -- lihat
+    // format yang sama di kolom No. Bukti hasil Cetak Lampiran LPJ), BUKAN
+    // No. Bukti Kas Masuk/Keluar (BKM/BKK) tingkat pengajuan -- hint
+    // sebelumnya "mis. BKM-001" menyesatkan karena menyiratkan nomor BKM.
+    + '<td><input class="form-control form-control-sm" value="'+esc(r.noBukti)+'" placeholder="mis. I.A" oninput="pdUbahRealisasi(\''+target+'\','+i+',\'noBukti\',this.value)"></td>'
     + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisRealisasi(\''+target+'\','+i+')"><i class="fas fa-trash"></i></button></td></tr>';
 }
 function pdRenderTabelRealisasiForm(){
@@ -8209,24 +8323,109 @@ function pdRenderDetailMuka(res){
   // verifikasi dokumen di tahap 5. Input mengikuti tanda selisih (net
   // setelah PPh) -- surplus=Kas Masuk, defisit=Kas Keluar, pas=tidak perlu
   // bukti sama sekali (tidak ada pergerakan kas).
+  // PERBAIKAN (atas permintaan "tanggal & jumlahnya belum jelas &
+  // konsisten"): perhitungan selisih ini SEBELUMNYA cuma ada di dalam
+  // percabangan st(6)==='active' -- tidak bisa dipakai lagi di percabangan
+  // 'done' di bawah, jadi status akhir tidak pernah menunjukkan angka
+  // Rp-nya dgn jelas (cuma No. Bukti-nya doang, tanpa jumlahnya). Sekarang
+  // dipindah ke sini (dihitung SEKALI, dipakai bersama kedua percabangan)
+  // supaya tahap "Selesai" JUGA bisa menunjukkan Rp-nya dgn jelas.
+  var totalP21b = res.realisasi.reduce(function(s,r){return s+(Number(r.pph21)||0);},0);
+  var totalP23b = res.realisasi.reduce(function(s,r){return s+(Number(r.pph23)||0);},0);
+  var netRealisasiB = h.totalRealisasi - totalP21b - totalP23b;
+  var selisihB = h.totalDiajukan - netRealisasiB;
   if(st(6)==='active'){
-    var totalP21b = res.realisasi.reduce(function(s,r){return s+(Number(r.pph21)||0);},0);
-    var totalP23b = res.realisasi.reduce(function(s,r){return s+(Number(r.pph23)||0);},0);
-    var netRealisasiB = h.totalRealisasi - totalP21b - totalP23b;
-    var selisihB = h.totalDiajukan - netRealisasiB;
-    var inputBuktiHtml = selisihB > 0
-      ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk <span class="text-muted">(ada surplus Rp '+fmtRp(selisihB)+' dikembalikan ke kas)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-kasir-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>')
-      : (selisihB < 0
-        ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar <span class="text-muted">(dana kurang Rp '+fmtRp(Math.abs(selisihB))+', perlu dibayar tambahan)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-kasir-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>')
-        : '<p class="small text-muted mb-2">Realisasi sudah pas dengan dana yang dicairkan -- tidak ada pergerakan kas tambahan, tidak perlu No. Bukti.</p>');
-    html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
-      isAdmin ? ('<p class="small text-muted mb-2">LPJ sudah disetujui. Catat No. Bukti Kas sesuai selisih di bawah untuk menyelesaikan pengajuan ini.</p>'
-        + inputBuktiHtml
-        + '<button class="btn btn-sm" id="btn-kasir-lpj-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Catat &amp; Selesaikan</button>')
-        : pdCatatanTunggu('LPJ sudah disetujui, menunggu Admin mencatat No. Bukti Kas.'));
+    var buktiKasSudahAda = !!(h.noBuktiKasMasuk || h.noBuktiKasKeluarTambahan);
+    var infoPenyetor = h.namaPenyetor ? ('<div class="small text-muted mb-2">Data Penyetor: <b>'+esc(h.namaPenyetor)+'</b> ('+esc(h.npmNimPenyetor)+') &middot; '+esc(h.noHpPenyetor)+'</div>') : '';
+    // PERBAIKAN ALUR BESAR (atas permintaan): urutannya DIBEDAKAN sesuai
+    // ada/tidaknya surplus/defisit --
+    // - BALANCE (selisih persis 0): TIDAK ada apa pun yg perlu dicatat
+    //   Admin, jadi Unit boleh langsung isi Data Penyetor kapan saja, lalu
+    //   Admin tinggal klik "Selesaikan LPJ". Urutan ini TIDAK BERUBAH dari
+    //   sebelumnya (sudah dikonfirmasi benar).
+    // - SURPLUS/DEFISIT: uangnya harus TERCATAT DULU oleh Admin (No. Bukti
+    //   Kas Masuk/Keluar), BARU SETELAH ITU Unit boleh mengisi Data
+    //   Penyetor & menyerahkan LPJ fisik -- KEBALIKAN dari urutan versi
+    //   sebelumnya (yg sempat meminta Data Penyetor lebih dulu utk semua
+    //   kasus, keliru utk kasus surplus/defisit).
+    if(selisihB === 0){
+      if(!h.namaPenyetor){
+        var bodyPenyetorBalance = isAdmin
+          ? pdCatatanTunggu('LPJ sudah disetujui. Tidak ada pergerakan kas (realisasi pas), menunggu Unit menyerahkan LPJ asli (hardcopy) ke Bagian Keuangan & mengisi Data Penyetor.')
+          : ('<p class="small text-muted mb-2">LPJ sudah disetujui, realisasi sudah pas (tidak ada surplus/defisit). Mohon segera serahkan LPJ ASLI (hardcopy) ke Bagian Keuangan, lalu isi data penyetor di bawah ini:</p>'
+            + '<div class="mb-2"><label class="form-label small mb-1">Nama Penyetor</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-nama-'+h.idPengajuan+'" style="max-width:320px;"></div>'
+            + '<div class="mb-2"><label class="form-label small mb-1">NPP/NIM</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-npm-'+h.idPengajuan+'" style="max-width:260px;"></div>'
+            + '<div class="mb-2"><label class="form-label small mb-1">No. HP</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-hp-'+h.idPengajuan+'" style="max-width:260px;"></div>'
+            + '<button class="btn btn-sm" id="btn-penyetor-'+h.idPengajuan+'" onclick="pdAksiIsiDataPenyetorLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Simpan Data Penyetor</button>');
+        html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'', bodyPenyetorBalance);
+      } else {
+        html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+          isAdmin ? (infoPenyetor + '<p class="small text-muted mb-2">LPJ asli sudah diterima. Tidak ada pergerakan kas tambahan, tinggal selesaikan pengajuan ini.</p>'
+            + '<button class="btn btn-sm" id="btn-kasir-lpj-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Selesaikan LPJ</button>')
+            : (infoPenyetor + pdCatatanTunggu('Data Penyetor sudah tersimpan, menunggu Admin menyelesaikan pengajuan ini.')));
+      }
+    } else if(!buktiKasSudahAda){
+      // Ada surplus/defisit, TAPI belum dicatat Admin -- Unit BELUM boleh
+      // isi Data Penyetor sama sekali di tahap ini (dicegah backend juga,
+      // lihat isiDataPenyetorLpj).
+      var inputBuktiAwal = selisihB > 0
+        ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk <span class="text-muted">(ada surplus Rp '+fmtRp(selisihB)+' dikembalikan ke kas)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-awal-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>')
+        : ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar <span class="text-muted">(dana kurang Rp '+fmtRp(Math.abs(selisihB))+', perlu dibayar tambahan)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-awal-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>');
+      html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+        isAdmin ? ('<p class="small text-muted mb-2">Ada '+(selisihB>0?'surplus':'defisit')+' dari realisasi LPJ ini. Catat No. Bukti Kas di bawah ini DULU -- baru setelah itu Unit bisa menyerahkan LPJ fisik & mengisi Data Penyetor.</p>'
+          + inputBuktiAwal
+          + '<button class="btn btn-sm" id="btn-bukti-kas-awal-'+h.idPengajuan+'" onclick="pdAksiCatatBuktiKasLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Catat Bukti Kas</button>')
+          : pdCatatanTunggu('LPJ sudah disetujui. Ada '+(selisihB>0?'surplus':'defisit')+' yang harus dicatat Admin dulu, sebelum Anda bisa menyerahkan LPJ fisik & mengisi Data Penyetor.'));
+    } else if(!h.namaPenyetor){
+      // Bukti kas SUDAH dicatat Admin -- sekarang giliran Unit menyerahkan
+      // LPJ fisik & mengisi Data Penyetor.
+      // PERBAIKAN (atas permintaan): No. Bukti Kas di sini SEKARANG pakai
+      // pdBaristNoBuktiEdit (sama persis pola yang sudah dipakai di tahap
+      // "3. Pencairan Dana") -- Admin bisa langsung koreksi lewat ikon
+      // pensil kalau ternyata salah ketik, TANPA perlu balik ke Sheet
+      // manual. Sebelumnya cuma teks statis, tidak bisa diedit sama sekali.
+      var infoBuktiSudah = pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk', h.noBuktiKasMasuk)
+        + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar', h.noBuktiKasKeluarTambahan);
+      var bodyPenyetorSetelahBukti = isAdmin
+        ? (infoBuktiSudah + pdCatatanTunggu('Bukti kas Rp '+fmtRp(Math.abs(selisihB))+' sudah dicatat, menunggu Unit menyerahkan LPJ asli (hardcopy) ke Bagian Keuangan & mengisi Data Penyetor.'))
+        : (infoBuktiSudah + '<p class="small text-muted mb-2">Bukti kas Rp '+fmtRp(Math.abs(selisihB))+' sudah dicatat Admin. Mohon segera serahkan LPJ ASLI (hardcopy) ke Bagian Keuangan, lalu isi data penyetor di bawah ini:</p>'
+          + '<div class="mb-2"><label class="form-label small mb-1">Nama Penyetor</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-nama-'+h.idPengajuan+'" style="max-width:320px;"></div>'
+          + '<div class="mb-2"><label class="form-label small mb-1">NPP/NIM</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-npm-'+h.idPengajuan+'" style="max-width:260px;"></div>'
+          + '<div class="mb-2"><label class="form-label small mb-1">No. HP</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-hp-'+h.idPengajuan+'" style="max-width:260px;"></div>'
+          + '<button class="btn btn-sm" id="btn-penyetor-'+h.idPengajuan+'" onclick="pdAksiIsiDataPenyetorLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Simpan Data Penyetor</button>');
+      html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'', bodyPenyetorSetelahBukti);
+    } else {
+      // Bukti kas SUDAH dicatat DAN Data Penyetor SUDAH diisi -- tinggal
+      // Admin menandai selesai. PERBAIKAN (atas permintaan): No. Bukti Kas
+      // SEBELUMNYA tidak ditampilkan sama sekali di tahap ini (cuma Data
+      // Penyetor) -- sekarang ikut ditampilkan (bisa diedit lewat pensil,
+      // sama seperti tahap Pencairan Dana), supaya semua data yg relevan
+      // terlihat jelas & sinkron sebelum ditandai selesai.
+      // Angka Rp-nya SEKARANG ikut disebut eksplisit di kalimatnya (bukan
+      // cuma "bukti kas sudah tercatat" tanpa angka) -- konsisten dgn
+      // permintaan supaya tanggal & jumlahnya jelas di semua tahap.
+      var infoBuktiSelesai = pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk', h.noBuktiKasMasuk)
+        + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar', h.noBuktiKasKeluarTambahan);
+      var kalimatBuktiSelesai = 'Bukti kas Rp '+fmtRp(Math.abs(selisihB))+' sudah tercatat & LPJ asli sudah diterima. Tinggal tandai selesai.';
+      html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+        isAdmin ? (infoPenyetor + infoBuktiSelesai + '<p class="small text-muted mb-2">'+kalimatBuktiSelesai+'</p>'
+          + '<button class="btn btn-sm" id="btn-kasir-lpj-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Tandai Selesai</button>')
+          : (infoPenyetor + infoBuktiSelesai + pdCatatanTunggu('Bukti kas Rp '+fmtRp(Math.abs(selisihB))+' sudah tercatat & Data Penyetor sudah tersimpan, menunggu Admin menandai pengajuan ini selesai.')));
+    }
   } else if(st(6)==='done'){
+    // PERBAIKAN (atas permintaan "tanggal & jumlahnya belum jelas &
+    // konsisten"): SEBELUMNYA cuma tulisan "LPJ selesai" tanpa tanggal
+    // ataupun jumlah Rp-nya sama sekali -- tidak konsisten dgn tahap
+    // "3. Pencairan Dana" yg SUDAH jelas ("Dicairkan [tgl] Rp [jumlah]").
+    // Sekarang disamakan gayanya: baris ringkasan jelas jam/tanggal
+    // diselesaikan + jumlah Rp selisihnya (kalau ada surplus/defisit;
+    // kalau balance, ditulis eksplisit "tidak ada selisih" bukan disembunyikan).
+    var ringkasanSelesai = 'Selesai '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')
+      + (selisihB!==0 ? (' \u00b7 Rp '+fmtRp(Math.abs(selisihB))) : ' \u00b7 tidak ada selisih (pas)');
+    var infoPenyetorDone = h.namaPenyetor ? ('<div class="small text-muted mb-2">Data Penyetor: <b>'+esc(h.namaPenyetor)+'</b> ('+esc(h.npmNimPenyetor)+') &middot; '+esc(h.noHpPenyetor)+'</div>') : '';
     html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','done','<span class="badge-pd badge-pd-selesai">Selesai</span>',
-      '<div class="fw-bold small mb-2" style="color:#166534;">Bukti kas sudah dicatat, pengajuan ini selesai.</div>'
+      '<div class="fw-bold small mb-2" style="color:#166534;">'+ringkasanSelesai+'</div>'
+      + infoPenyetorDone
       + pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk (surplus dikembalikan)', h.noBuktiKasMasuk)
       + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar (kekurangan dibayar)', h.noBuktiKasKeluarTambahan));
   } else {
@@ -8234,7 +8433,16 @@ function pdRenderDetailMuka(res){
   }
 
   document.getElementById('pd-blocks').innerHTML = html;
-  pdRenderTombolCetak(h, h.status==='SELESAI');
+  // PERBAIKAN BUG NYATA (atas laporan "Unit belum bisa cetak Lampiran
+  // LPJ"): sebelumnya tombol Cetak baru muncul kalau status SUDAH SELESAI
+  // total -- padahal Unit justru PALING BUTUH mencetak Lampiran LPJ
+  // (utk dilampirkan bareng LPJ asli/hardcopy) TEPAT setelah LPJ
+  // DISETUJUI Admin (status MENUNGGU_VERIFIKASI berubah jadi
+  // MENUNGGU_PENCATATAN) -- itu justru momen mereka diminta menyerahkan
+  // dokumen fisik ke Bagian Keuangan, jauh SEBELUM status SELESAI. Sekarang
+  // tombol Cetak sudah muncul begitu LPJ disetujui (MENUNGGU_PENCATATAN),
+  // bukan menunggu semuanya benar2 tuntas.
+  pdRenderTombolCetak(h, h.status==='MENUNGGU_PENCATATAN' || h.status==='SELESAI');
 }
 
 // -- JENIS SEKALIGUS & TAGIHAN (3 tahap, mirip strukturnya) ----------------
@@ -8460,12 +8668,59 @@ function pdAksiSetujuiDokumenLpj(id, keputusan, btn){
   if(keputusan==='PERLU_REVISI' && !catatan){ toast('error','Catatan wajib diisi kalau meminta revisi'); return; }
   pdJalankanAksi('setujuiDokumenLpj', [id, keputusan, catatan, STATE.token], btn, keputusan==='DISETUJUI' ? 'LPJ disetujui' : 'Tersimpan');
 }
-// TAHAP 2/2 (KASIR): mencatat No. Bukti Kas Masuk/Keluar setelah LPJ MUKA
-// DISETUJUI di tahap 1.
+// FITUR BARU (atas permintaan, Unit): mengisi identitas orang yang
+// menyerahkan LPJ asli (hardcopy) ke Bagian Keuangan -- WAJIB diisi
+// sebelum Admin bisa menyelesaikan pengajuan (lihat pdAksiCatatKasirLpj &
+// catatKasirLpj di Code.gs).
+// PERBAIKAN BUG NYATA ("can't access property 0, hasil is null"): fungsi
+// ini sebelumnya lewat pdJalankanAksi -- yang menggabungkan aksi INI dgn 3
+// panggilan tambahan (ringkasan+badge+daftar+draft, lihat
+// _pdCallsRingkasanDanDaftar) jadi 1 batch. Isi Data Penyetor TIDAK
+// mengubah status pengajuan (tetap MENUNGGU_PENCATATAN, tidak pindah
+// kategori Baru/Proses/Selesai) -- jadi 3 panggilan tambahan itu sebenarnya
+// TIDAK PERLU sama sekali di sini, cuma beban. Lebih parah lagi: di
+// GAS-index.html (google.script.run), menggabungkan getDaftarPengajuan
+// (bisa besar kalau pengajuan sudah menumpuk banyak) ke DALAM 1 batch
+// google.script.run bareng aksi tulis lain, kadang bikin hasil batch-nya
+// gagal diserialisasi balik dgn benar (google.script.run PUNYA batas ukuran
+// data yg dikembalikan) -- withSuccessHandler jadi terpanggil dgn null,
+// bukan array hasil yg semestinya, dan kode lama langsung crash begitu
+// coba baca hasil[0]. Sekarang pakai gasCall() BIASA (satu panggilan
+// tunggal, tanpa batch) -- lebih ringan DAN sekalian menghindari risiko ini.
+function pdAksiIsiDataPenyetorLpj(id, btn){
+  var nama = (document.getElementById('pd-penyetor-nama-'+id)||{}).value || '';
+  var npm = (document.getElementById('pd-penyetor-npm-'+id)||{}).value || '';
+  var hp = (document.getElementById('pd-penyetor-hp-'+id)||{}).value || '';
+  if(!nama.trim()){ toast('error','Nama Penyetor wajib diisi'); return; }
+  if(!npm.trim()){ toast('error','NPP/NIM wajib diisi'); return; }
+  if(!hp.trim()){ toast('error','No. HP wajib diisi'); return; }
+  btnBusy(btn, true);
+  gasCall('isiDataPenyetorLpj', id, nama, npm, hp, STATE.token).then(function(res){
+    btnBusy(btn, false);
+    if(!res || !res.success){ toast('error', res && res.message); return; }
+    toast('success','Data Penyetor tersimpan');
+    pdTerapkanDetailDariAksi(res);
+  }).catch(function(err){ btnBusy(btn, false); toast('error', (err && err.message) || 'Gagal menyimpan, coba lagi.'); });
+}
+// FITUR BARU (atas permintaan, ALUR DIBALIK): kalau ada surplus/defisit,
+// Admin mencatat No. Bukti Kas DI SINI DULU -- SEBELUM Unit boleh mengisi
+// Data Penyetor (lihat pdAksiIsiDataPenyetorLpj di atas & gerbangnya di
+// isiDataPenyetorLpj Code.gs). Kasus balance (selisih 0) TIDAK memakai
+// fungsi ini sama sekali -- langsung ke pdAksiIsiDataPenyetorLpj lalu
+// pdAksiCatatKasirLpj (tanpa bukti kas apa pun).
+function pdAksiCatatBuktiKasLpj(id, btn){
+  var noBukti = (document.getElementById('pd-bukti-kas-awal-'+id)||{}).value || '';
+  if(!noBukti){ toast('error','No. Bukti Kas wajib diisi'); return; }
+  pdJalankanAksi('catatBuktiKasLpj', [id, noBukti, STATE.token], btn, 'Bukti kas tercatat');
+}
+// TAHAP TERAKHIR (ADMIN): menandai LPJ MUKA selesai -- Data Penyetor SUDAH
+// diisi Unit, dan (kalau ada surplus/defisit) bukti kasnya SUDAH dicatat
+// lebih dulu lewat pdAksiCatatBuktiKasLpj di atas -- di sini TIDAK LAGI
+// ada input bukti kas baru utk MUKA, murni tombol konfirmasi selesai.
 function pdAksiCatatKasirLpj(id, btn){
   var noBukti = (document.getElementById('pd-bukti-kasir-'+id)||{}).value || '';
   if(document.getElementById('pd-bukti-kasir-'+id) && !noBukti){ toast('error','No. Bukti Kas wajib diisi'); return; }
-  pdJalankanAksi('catatKasirLpj', [id, noBukti, null, STATE.token], btn, 'Bukti kas tercatat, pengajuan selesai');
+  pdJalankanAksi('catatKasirLpj', [id, noBukti, null, STATE.token], btn, 'Pengajuan selesai');
 }
 function pdAksiKirimRevisiSekaligus(id, btn){
   var realisasi = PD.realisasiEdit.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
@@ -8733,12 +8988,35 @@ function pdKopHtml(){
 function cetakLampiranLpj(){
   var res = PD.detail; if(!res){ toast('error','Detail belum dimuat'); return; }
   var h = res.header;
-  var namaPengaju = h.diajukanOlehNama || h.diajukanOleh || h.kodeUnit;
+  // PERBAIKAN (atas permintaan "cetak tidak rapi -- Rp terputus, kolom
+  // tidak konsisten/sejajar, baris terpotong pas ganti halaman"):
+  // 1) ".r" (Nominal/PPh 21/PPh 23) & ".nb" (No. Bukti) SEKARANG dipaksa
+  //    "white-space:nowrap" -- sebelumnya "Rp 2.000.000,00" bisa
+  //    terpotong jadi 2 baris ("Rp" sendiri, angkanya di bawah) kalau
+  //    kolomnya sempit & teks Keterangan di sampingnya panjang.
+  // 2) Kolom Komponen SEKARANG proporsinya lebih kecil & KONSISTEN via
+  //    <colgroup> lebar persen (lihat tabel RAB & Realisasi di bawah) --
+  //    Keterangan mengisi SISA ruang yg ada (kolom paling fleksibel),
+  //    supaya kedua tabel sejajar rapi satu sama lain, bukan lebar
+  //    kolomnya beda-beda ngikut isi teks tiap tabel sendiri-sendiri.
+  // 3) "tr{page-break-inside:avoid}" -- kalau baris Realisasi banyak &
+  //    tabelnya harus lanjut ke halaman berikutnya, SATU baris data tidak
+  //    akan pernah terpotong di tengah jadi 2 bagian; baris itu akan
+  //    utuh dipindah ke halaman berikutnya. "thead{display:table-header-group}"
+  //    supaya baris judul kolom (Komponen/Keterangan/Nominal/dst) ikut
+  //    muncul ulang di ATAS setiap halaman baru, tidak cuma di halaman pertama.
   var css = '*{box-sizing:border-box;color:#000 !important;} @page{size:A4 portrait;margin:14mm 12mm 16mm;} body{font-family:Arial,sans-serif;font-size:9.5pt;padding:0;} '
     + '.pt-title{text-align:center;font-weight:700;text-decoration:underline;margin:14px 0;font-size:11pt;letter-spacing:.4px;} '
     + '.pt-info{width:100%;font-size:9.5pt;margin-bottom:14px;} .pt-info td{padding:2px 0;vertical-align:top;} .pt-info td:first-child{width:150px;} '
     + '.pt-sec{font-weight:700;font-size:9.5pt;margin:16px 0 6px;border-bottom:1px solid #000;padding-bottom:3px;} '
-    + 'table.pt-tbl{width:100%;border-collapse:collapse;font-size:9pt;} .pt-tbl th,.pt-tbl td{border:1px solid #000;padding:5px 8px;} .pt-tbl th{background:#f2f2f2;text-align:left;} .r{text-align:right;} '
+    // PERBAIKAN (atas permintaan "pastikan Rp 100.000.000.000,00 muat"):
+    // font tabel dikecilkan sedikit (9pt -> 8.5pt) & padding dipadatkan
+    // supaya ada margin ruang ekstra utk angka BESAR -- font ini SAMA
+    // (konsisten) utk SELURUH isi tabel (Komponen/Keterangan/Nominal/dst),
+    // bukan cuma kolom angka yg dikecilkan sendirian.
+    + 'table.pt-tbl{width:100%;border-collapse:collapse;font-size:8.5pt;table-layout:fixed;} .pt-tbl th,.pt-tbl td{border:1px solid #000;padding:4px 6px;word-wrap:break-word;} .pt-tbl th{background:#f2f2f2;text-align:left;} '
+    + '.r{text-align:right;white-space:nowrap;} .nb{white-space:nowrap;} '
+    + '.pt-tbl thead{display:table-header-group;} .pt-tbl tr{page-break-inside:avoid;} '
     + '.pt-summary{width:60%;margin-left:auto;margin-top:8px;font-size:9.5pt;} .pt-summary td{padding:3px 6px;} .pt-summary tr.total td{font-weight:700;border-top:2px solid #000;} '
     + '.pt-ttd{display:flex;justify-content:space-between;margin-top:50px;font-size:9.5pt;text-align:center;} .pt-ttd .kol{width:44%;} .pt-ttd .garis{margin-top:60px;border-top:1px solid #000;padding-top:4px;}';
   var body = pdKopHtml();
@@ -8761,9 +9039,11 @@ function cetakLampiranLpj(){
       + '<table class="pt-summary"><tr><td>Nominal Tagihan</td><td class="r">Rp '+fmtRp(h.totalDiajukan)+'</td></tr>'
       + '<tr class="total"><td>Status</td><td class="r">LUNAS DIBAYAR</td></tr></table>'
       + (h.noBuktiKasKeluar ? ('<div style="margin-top:6px;font-size:9pt;">No. Bukti Kas Keluar: <b>'+esc(h.noBuktiKasKeluar)+'</b></div>') : '')
-      + (buktiBayar ? ('<div style="margin-top:4px;font-size:9pt;">Bukti bayar terlampir: '+esc(buktiBayar.namaFile)+'</div>') : '')
-      + '<div class="pt-ttd"><div class="kol">Diajukan oleh,<br>'+esc(namaPengaju)+'<div class="garis">( ......................................... )</div></div>'
-      + '<div class="kol">Dibayar oleh,<br>Bagian Keuangan<div class="garis">( ......................................... )</div></div></div>';
+      + (buktiBayar ? ('<div style="margin-top:4px;font-size:9pt;">Bukti bayar terlampir: '+esc(buktiBayar.namaFile)+'</div>') : '');
+    // PERBAIKAN (atas permintaan "konsistenkan seperti LPJ semua"): kolom
+    // tanda tangan "Diajukan oleh/Dibayar oleh" DIHAPUS -- konsisten
+    // dengan Lampiran LPJ & Tanda Terima LPJ yang sudah lebih dulu tidak
+    // pakai tanda tangan.
     _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Bukti Pembayaran '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
     return;
   }
@@ -8782,13 +9062,38 @@ function cetakLampiranLpj(){
     + '</table>';
   if(res.detail && res.detail.length){
     body += '<div class="pt-sec">A. Rencana Anggaran Biaya (RAB)</div>'
-      + '<table class="pt-tbl"><thead><tr><th>Komponen Anggaran</th><th>Keterangan</th><th class="r">Nominal</th></tr></thead><tbody>'
+      // PERBAIKAN (atas permintaan "rapikan tabel"): kolom Nominal dikasih
+      // lebar TETAP lewat <colgroup> supaya sejajar rapi dgn tabel
+      // Realisasi di bawahnya (sebelumnya lebar kolom cuma ngikut isi teks
+      // Keterangan yang panjangnya beda-beda tiap baris, jadi kolom
+      // Nominal ikut goyang tidak sejajar).
+      + '<table class="pt-tbl"><colgroup><col style="width:85px"><col><col style="width:145px"></colgroup><thead><tr><th>Komponen Anggaran</th><th>Keterangan</th><th class="r">Nominal</th></tr></thead><tbody>'
       + res.detail.map(function(d){ return '<tr><td>'+esc(d.namaKomponen)+'</td><td>'+esc(d.keterangan)+'</td><td class="r">Rp '+fmtRp(d.nominal)+'</td></tr>'; }).join('')
       + '</tbody><tfoot><tr><td colspan="2"><b>Total RAB</b></td><td class="r"><b>Rp '+fmtRp(h.totalDiajukan)+'</b></td></tr></tfoot></table>';
   }
+  // PERBAIKAN (atas permintaan): kolom "No. Bukti" DIKEMBALIKAN -- ternyata
+  // itu No. Bukti PENGELUARAN/NOTA per item realisasi (mis. "I.A", "I.B"),
+  // BUKAN No. Bukti Kas Masuk/Keluar (BKM/BKK) tingkat pengajuan -- dua hal
+  // yang beda & sama2 penting, sempat salah dikira redundan & dihapus.
+  // Supaya tabelnya tetap rapi (bukan cuma dikembalikan mentah2), SEMUA
+  // kolom (termasuk No. Bukti) dikasih lebar TETAP lewat <colgroup> --
+  // Nominal/PPh 21/PPh 23/No. Bukti konsisten sejajar, tidak lagi ikut
+  // goyang mengikuti panjang teks Keterangan yang beda-beda tiap baris.
   body += '<div class="pt-sec">'+(res.detail&&res.detail.length?'B':'A')+'. Realisasi Anggaran</div>'
-    + '<table class="pt-tbl"><thead><tr><th>Komponen</th><th>Keterangan</th><th class="r">Nominal</th><th class="r">PPh 21</th><th class="r">PPh 23</th><th>No. Bukti</th></tr></thead><tbody>'
-    + realisasi.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td>'+esc(r.keterangan)+'</td><td class="r">Rp '+fmtRp(r.nominal)+'</td><td class="r">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="r">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td>'+esc(r.noBukti)+'</td></tr>'; }).join('')
+    // Lebar kolom Komponen (90px) & Nominal (120px) SEKARANG SAMA PERSIS
+    // dgn tabel RAB di atas -- supaya keduanya benar2 sejajar rapi kalau
+    // dilihat berurutan, bukan lebar yg beda2 sendiri2.
+    // PERBAIKAN (atas permintaan "No. Bukti masih kurang rapi"): 55px
+    // ternyata terlalu sempit utk judul "No. Bukti" (tebal) muat 1 baris
+    // -- dilebarkan ke 72px, PPh 21/PPh 23 sedikit disusutkan (72px)
+    // supaya total lebar tabel tetap seimbang, kolom Keterangan (fleksibel)
+    // yang menyerap selisihnya.
+    // Lebar Nominal/PPh 21/PPh 23 (145px/95px/95px) SEKARANG cukup lega
+    // utk angka sampai "Rp 100.000.000.000,00" (22 karakter) tanpa
+    // terpotong/meluber -- font tabel juga sudah dikecilkan sedikit (lihat
+    // catatan di atas) supaya ada margin ruang ekstra.
+    + '<table class="pt-tbl"><colgroup><col style="width:85px"><col><col style="width:145px"><col style="width:95px"><col style="width:95px"><col style="width:68px"></colgroup><thead><tr><th>Komponen</th><th>Keterangan</th><th class="r">Nominal</th><th class="r">PPh 21</th><th class="r">PPh 23</th><th class="nb">No. Bukti</th></tr></thead><tbody>'
+    + realisasi.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td>'+esc(r.keterangan)+'</td><td class="r">Rp '+fmtRp(r.nominal)+'</td><td class="r">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="r">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td class="nb">'+esc(r.noBukti)+'</td></tr>'; }).join('')
     + '</tbody><tfoot><tr><td colspan="2"><b>Total Realisasi</b></td><td class="r"><b>Rp '+fmtRp(totalRealisasi)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph21)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph23)+'</b></td><td></td></tr></tfoot></table>';
   body += '<div class="pt-sec">'+(res.detail&&res.detail.length?'C':'B')+'. Ringkasan</div>'
     + '<table class="pt-summary"><tr><td>Dana Dicairkan / Diajukan</td><td class="r">Rp '+fmtRp(h.totalDiajukan)+'</td></tr>'
@@ -8804,14 +9109,23 @@ function cetakLampiranLpj(){
   if(h.noBuktiKasMasuk) buktiKasHtml += '<div>No. Bukti Kas Masuk (Surplus Dikembalikan): <b>'+esc(h.noBuktiKasMasuk)+'</b></div>';
   if(h.noBuktiKasKeluarTambahan) buktiKasHtml += '<div>No. Bukti Kas Keluar (Kekurangan Dibayar): <b>'+esc(h.noBuktiKasKeluarTambahan)+'</b></div>';
   if(buktiKasHtml) body += '<div style="margin-top:8px;font-size:9pt;">'+buktiKasHtml+'</div>';
-  body += '<div class="pt-ttd"><div class="kol">Dibuat oleh,<br>'+esc(namaPengaju)+'<div class="garis">( ......................................... )</div></div>'
-    + '<div class="kol">Diverifikasi oleh,<br>Bagian Keuangan<div class="garis">( ......................................... )</div></div></div>';
+  // FITUR BARU (atas permintaan): Data Penyetor (siapa yang menyerahkan LPJ
+  // asli/hardcopy ke Bagian Keuangan) ditampilkan di bawah hasil Cetak
+  // Lampiran LPJ ini juga -- cuma muncul kalau memang sudah diisi (LPJ
+  // MUKA, lihat isiDataPenyetorLpj), disembunyikan sama sekali kalau belum.
+  if(h.jenis==='MUKA' && h.namaPenyetor){
+    body += '<div class="pt-sec">Data Penyetor</div>'
+      + '<table class="pt-info"><tr><td>Nama</td><td>: '+esc(h.namaPenyetor)+'</td></tr>'
+      + '<tr><td>NPP/NIM</td><td>: '+esc(h.npmNimPenyetor)+'</td></tr>'
+      + '<tr><td>No. HP</td><td>: '+esc(h.noHpPenyetor)+'</td></tr></table>';
+  }
+  // PERBAIKAN (atas permintaan): kolom tanda tangan "Dibuat oleh/
+  // Diverifikasi oleh" DIHAPUS -- tidak diperlukan di Lampiran LPJ ini.
   _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lampiran LPJ '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
 }
 function cetakTandaTerimaLpj(){
   var res = PD.detail; if(!res){ toast('error','Detail belum dimuat'); return; }
   var h = res.header;
-  var namaPengaju = h.diajukanOlehNama || h.diajukanOleh || h.kodeUnit;
   var css = '*{box-sizing:border-box;color:#000 !important;} @page{size:A4 landscape;margin:14mm 16mm;} body{font-family:Arial,sans-serif;font-size:10pt;padding:0;} '
     + '.pt-title{text-align:center;font-weight:700;text-decoration:underline;margin:14px 0;font-size:12pt;letter-spacing:.4px;} '
     + '.pt-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;} .pt-info{width:100%;font-size:10pt;} .pt-info td{padding:3px 0;vertical-align:top;} .pt-info td:first-child{width:160px;} '
@@ -8820,8 +9134,12 @@ function cetakTandaTerimaLpj(){
     + '<div class="pt-grid"><table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr><tr><td>Unit</td><td>: '+esc(h.kodeUnit)+'</td></tr><tr><td>Nama Kegiatan</td><td>: '+esc(h.judul)+'</td></tr></table>'
     + '<table class="pt-info"><tr><td>Dana Dicairkan</td><td>: Rp '+fmtRp(h.totalDiajukan)+'</td></tr><tr><td>Total Realisasi</td><td>: Rp '+fmtRp(h.totalRealisasi)+'</td></tr><tr><td>Tanggal LPJ Diterima</td><td>: '+new Date().toLocaleDateString('id-ID')+'</td></tr></table></div>'
     + '<p style="font-size:10pt;margin-top:14px;">Dokumen LPJ (RAB, Realisasi, dan bukti pendukung) untuk kegiatan di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.</p>'
-    + '<div class="pt-ttd"><div class="kol">Yang Menyerahkan,<br>'+esc(namaPengaju)+'<div class="garis">( ......................................... )</div></div>'
-    + '<div class="kol">Yang Menerima,<br>Bagian Keuangan<div class="garis">( ......................................... )</div></div></div>';
+    // PERBAIKAN (atas permintaan): nama di bawah "Yang Menyerahkan,"/"Yang
+    // Menerima," DIHAPUS -- sengaja dikosongkan supaya diisi tangan manual
+    // siapa yang benar2 menyerahkan/menerima (bukan otomatis diisi nama
+    // pengaju/unit sistem, yang belum tentu itu orangnya yang bawa fisik).
+    + '<div class="pt-ttd"><div class="kol">Yang Menyerahkan,<div class="garis">( ......................................... )</div></div>'
+    + '<div class="kol">Yang Menerima,<div class="garis">( ......................................... )</div></div></div>';
   _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
 }
 
