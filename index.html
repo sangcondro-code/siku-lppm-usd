@@ -1381,11 +1381,28 @@ function gasCallBatch(calls){
 // menyerah/berhasil), bukan lebih cepat. Dikurangi jadi 1x percobaan ulang
 // saja dgn jeda lebih singkat -- cukup untuk blip sesaat, tidak menambah
 // beban berarti kalau memang sedang ada gangguan yang lebih panjang.
+// PERBAIKAN (atas laporan "Failed to fetch, tapi tersimpan"): SEBELUMNYA
+// cuma dicoba ulang 1x kalau ada gangguan jaringan sesaat ("Failed to
+// fetch" -- koneksi terputus sebelum sempat terhubung ke server, BUKAN
+// error dari kode) -- kalau gangguannya sedikit lebih lama drpd jeda 1x
+// coba ulang itu, tetap gagal ke user walau datanya SUDAH tersimpan di
+// server (server tetap lanjut mengeksekusi meski koneksi klien terputus).
+// Sekarang dicoba ulang sampai 2x dgn jeda makin lama (400ms, 800ms) --
+// AMAN diulang krn 2 lapis perlindungan di backend: (1) aksi PEMBUATAN
+// data baru selalu bawa idKey (idempotency, lihat _idemKey) -- kunci
+// dihitung dari ISI datanya, permintaan sama persis dikenali sbg
+// pengulangan & TIDAK menulis dobel; (2) aksi PERUBAHAN status (Setujui/
+// Tolak/Verifikasi/dst) selalu mengecek status SAAT INI dulu sebelum
+// mengubah (mis. "if (header.status !== 'DIAJUKAN') return {gagal}") --
+// kalau diulang SETELAH percobaan pertama sukses, statusnya sudah
+// berubah, jadi otomatis ditolak dgn pesan jelas ("sudah diproses
+// sebelumnya"), bukan diproses dua kali.
 function _gasCallBatchDenganRetry(calls, percobaanJaringan){
+  percobaanJaringan = percobaanJaringan || 0;
   return _gasCallBatchFetch(calls).catch(function(err){
     var isTimeout = err && err.message && err.message.indexOf('Waktu tunggu habis') !== -1;
-    if(!isTimeout && percobaanJaringan < 1){
-      return new Promise(function(r){ setTimeout(r, 400); })
+    if(!isTimeout && percobaanJaringan < 2){
+      return new Promise(function(r){ setTimeout(r, 400 * (percobaanJaringan + 1)); })
         .then(function(){ return _gasCallBatchDenganRetry(calls, percobaanJaringan + 1); });
     }
     throw err;
@@ -1510,9 +1527,12 @@ function _gasCallDenganRetry(fnName, args, percobaan, percobaanJaringan){
     // TIDAK dicoba ulang otomatis -- kalau server benar-benar macet 90
     // detik, mencoba ulang cuma bikin user menunggu lebih lama lagi tanpa
     // manfaat; pesan errornya sendiri sudah jelas.
+    // PERBAIKAN (atas laporan "Failed to fetch, tapi tersimpan"): lihat
+    // catatan lengkap di _gasCallBatchDenganRetry -- dinaikkan dari 1x ke
+    // 2x percobaan ulang dgn jeda makin lama, AMAN krn idempotency key.
     var isTimeout = err && err.message && err.message.indexOf('Waktu tunggu habis') !== -1;
-    if(!isTimeout && percobaanJaringan < 1){
-      return new Promise(function(r){ setTimeout(r, 400); })
+    if(!isTimeout && percobaanJaringan < 2){
+      return new Promise(function(r){ setTimeout(r, 400 * (percobaanJaringan + 1)); })
         .then(function(){ return _gasCallDenganRetry(fnName, args, percobaan, percobaanJaringan + 1); });
     }
     throw err;
@@ -8606,19 +8626,19 @@ function pdRenderDetailSingkat(res){
 // ============================================================
 function pdAksiSetujui(id, btn){
   var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
-  pdJalankanAksi('setujuiPermohonanDana', [id, catatan, STATE.token], btn, 'Pengajuan disetujui');
+  pdJalankanAksi('setujuiPermohonanDana', [id, catatan, STATE.token, _idemKey('setuju_muka', {id:id, catatan:catatan})], btn, 'Pengajuan disetujui');
 }
 // Admin minta REVISI di tahap Persetujuan awal -- tahap 1 (Pengajuan) akan
 // terbuka lagi utk Unit perbaiki & kirim ulang (menimpa, bukan menyimpan versi).
 function pdAksiRevisi(id, btn){
   var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
   if(!catatan){ toast('error','Isi dulu catatan alasan revisi di kotak di atas'); return; }
-  pdJalankanAksi('revisiPengajuan', [id, catatan, STATE.token], btn, 'Pengajuan dikembalikan untuk direvisi');
+  pdJalankanAksi('revisiPengajuan', [id, catatan, STATE.token, _idemKey('revisi_muka', {id:id, catatan:catatan})], btn, 'Pengajuan dikembalikan untuk direvisi');
 }
 function pdAksiTolak(id, btn){
   var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
   if(!catatan){ toast('error','Isi dulu catatan alasan penolakan di kotak di atas'); return; }
-  pdJalankanAksi('tolakPermohonanDana', [id, catatan, STATE.token], btn, 'Pengajuan ditolak');
+  pdJalankanAksi('tolakPermohonanDana', [id, catatan, STATE.token, _idemKey('tolak_muka', {id:id, catatan:catatan})], btn, 'Pengajuan ditolak');
 }
 // Unit kirim ULANG pengajuan (RAB + surat) sesudah diminta revisi di tahap
 // Persetujuan awal -- MENIMPA data lama, bukan menyimpan sbg versi baru.
@@ -8649,7 +8669,7 @@ function pdAksiCairkan(id, btn){
   var tgl = (document.getElementById('pd-tgl-cair-'+id)||{}).value || new Date().toISOString().slice(0,10);
   var noBukti = (document.getElementById('pd-bukti-cair-'+id)||{}).value || '';
   if(!noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
-  pdJalankanAksi('cairkanDana', [id, tgl, noBukti, STATE.token], btn, 'Dana ditandai sudah dicairkan');
+  pdJalankanAksi('cairkanDana', [id, tgl, noBukti, STATE.token, _idemKey('cairkan', {id:id, tgl:tgl, noBukti:noBukti})], btn, 'Dana ditandai sudah dicairkan');
 }
 function pdAksiKirimLpj(id, btn){
   var realisasi = PD.realisasiEdit.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
@@ -8666,7 +8686,7 @@ function pdAksiKirimLpj(id, btn){
 function pdAksiSetujuiDokumenLpj(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-verif-'+id)||{}).value || '';
   if(keputusan==='PERLU_REVISI' && !catatan){ toast('error','Catatan wajib diisi kalau meminta revisi'); return; }
-  pdJalankanAksi('setujuiDokumenLpj', [id, keputusan, catatan, STATE.token], btn, keputusan==='DISETUJUI' ? 'LPJ disetujui' : 'Tersimpan');
+  pdJalankanAksi('setujuiDokumenLpj', [id, keputusan, catatan, STATE.token, _idemKey('setuju_lpj', {id:id, keputusan:keputusan, catatan:catatan})], btn, keputusan==='DISETUJUI' ? 'LPJ disetujui' : 'Tersimpan');
 }
 // FITUR BARU (atas permintaan, Unit): mengisi identitas orang yang
 // menyerahkan LPJ asli (hardcopy) ke Bagian Keuangan -- WAJIB diisi
@@ -8711,7 +8731,7 @@ function pdAksiIsiDataPenyetorLpj(id, btn){
 function pdAksiCatatBuktiKasLpj(id, btn){
   var noBukti = (document.getElementById('pd-bukti-kas-awal-'+id)||{}).value || '';
   if(!noBukti){ toast('error','No. Bukti Kas wajib diisi'); return; }
-  pdJalankanAksi('catatBuktiKasLpj', [id, noBukti, STATE.token], btn, 'Bukti kas tercatat');
+  pdJalankanAksi('catatBuktiKasLpj', [id, noBukti, STATE.token, _idemKey('bukti_kas_lpj', {id:id, noBukti:noBukti})], btn, 'Bukti kas tercatat');
 }
 // TAHAP TERAKHIR (ADMIN): menandai LPJ MUKA selesai -- Data Penyetor SUDAH
 // diisi Unit, dan (kalau ada surplus/defisit) bukti kasnya SUDAH dicatat
@@ -8720,7 +8740,7 @@ function pdAksiCatatBuktiKasLpj(id, btn){
 function pdAksiCatatKasirLpj(id, btn){
   var noBukti = (document.getElementById('pd-bukti-kasir-'+id)||{}).value || '';
   if(document.getElementById('pd-bukti-kasir-'+id) && !noBukti){ toast('error','No. Bukti Kas wajib diisi'); return; }
-  pdJalankanAksi('catatKasirLpj', [id, noBukti, null, STATE.token], btn, 'Pengajuan selesai');
+  pdJalankanAksi('catatKasirLpj', [id, noBukti, null, STATE.token, _idemKey('kasir_lpj', {id:id, noBukti:noBukti})], btn, 'Pengajuan selesai');
 }
 function pdAksiKirimRevisiSekaligus(id, btn){
   var realisasi = PD.realisasiEdit.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
@@ -8736,7 +8756,7 @@ function pdAksiKirimRevisiSekaligus(id, btn){
 function pdAksiSetujuiDokumenSekaligus(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-verif-'+id)||{}).value || '';
   if(keputusan!=='DISETUJUI' && !catatan){ toast('error','Catatan wajib diisi'); return; }
-  pdJalankanAksi('setujuiDokumenPenggantianBiaya', [id, keputusan, catatan, STATE.token], btn, keputusan==='DISETUJUI' ? 'Penggantian Biaya disetujui' : 'Tersimpan');
+  pdJalankanAksi('setujuiDokumenPenggantianBiaya', [id, keputusan, catatan, STATE.token, _idemKey('setuju_sekaligus', {id:id, keputusan:keputusan, catatan:catatan})], btn, keputusan==='DISETUJUI' ? 'Penggantian Biaya disetujui' : 'Tersimpan');
 }
 // TAHAP 2/2 (KASIR): mencatat penggantian dana setelah DISETUJUI di tahap 1.
 function pdAksiCatatKasirSekaligus(id, btn){
@@ -8749,7 +8769,7 @@ function pdAksiCatatKasirSekaligus(id, btn){
     noBukti = (document.getElementById('pd-bukti-kas-'+id)||{}).value || '';
     if(!noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
   }
-  pdJalankanAksi('catatKasirPenggantianBiaya', [id, noBukti, buktiTransferFile, STATE.token], btn, 'Dana tercatat, pengajuan selesai');
+  pdJalankanAksi('catatKasirPenggantianBiaya', [id, noBukti, buktiTransferFile, STATE.token, _idemKey('kasir_sekaligus', {id:id, noBukti:noBukti, punyaFile:!!buktiTransferFile})], btn, 'Dana tercatat, pengajuan selesai');
 }
 // TAHAP 1/2 (Admin): Verifikasi DOKUMEN Tagihan (SENGAJA tidak ada
 // 'PERLU_REVISI' utk Tagihan, sesuai desain lama -- cuma Setuju/Tolak).
@@ -8757,7 +8777,7 @@ function pdAksiCatatKasirSekaligus(id, btn){
 function pdAksiSetujuiDokumenTagihan(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-tagihan-'+id)||{}).value || '';
   if(keputusan==='DITOLAK' && !catatan){ toast('error','Catatan alasan penolakan wajib diisi'); return; }
-  pdJalankanAksi('setujuiDokumenTagihan', [id, keputusan, catatan, STATE.token], btn, keputusan==='DISETUJUI' ? 'Tagihan disetujui' : 'Tersimpan');
+  pdJalankanAksi('setujuiDokumenTagihan', [id, keputusan, catatan, STATE.token, _idemKey('setuju_tagihan', {id:id, keputusan:keputusan, catatan:catatan})], btn, keputusan==='DISETUJUI' ? 'Tagihan disetujui' : 'Tersimpan');
 }
 // TAHAP 2/2 (KASIR): mencatat bukti bayar/BKK setelah Tagihan DISETUJUI di
 // tahap 1. Bukti Bayar (PDF) cuma wajib kalau metode Transfer -- kalau
@@ -8770,7 +8790,7 @@ function pdAksiCatatKasirTagihan(id, btn){
     noBukti = (document.getElementById('pd-bukti-kas-'+id)||{}).value || '';
     if(!noBukti){ toast('error','No. Bukti Kas Keluar wajib diisi'); return; }
   }
-  pdJalankanAksi('catatKasirTagihan', [id, PD.buktiBayarFile, noBukti, STATE.token], btn, 'Pembayaran tercatat, tagihan selesai');
+  pdJalankanAksi('catatKasirTagihan', [id, PD.buktiBayarFile, noBukti, STATE.token, _idemKey('kasir_tagihan', {id:id, noBukti:noBukti, punyaFile:!!PD.buktiBayarFile})], btn, 'Pembayaran tercatat, tagihan selesai');
 }
 
 // ============================================================
@@ -8939,14 +8959,14 @@ function pdAksiKirimUlangLaporanUnit(id, btn){
 function pdAksiSetujuiDokumenLaporanUnit(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-verif-'+id)||{}).value || '';
   if(keputusan!=='DISETUJUI' && !catatan){ toast('error','Catatan wajib diisi kalau Minta Revisi/Tolak'); return; }
-  pdJalankanAksi('setujuiDokumenLaporanUnit', [id, keputusan, catatan, STATE.token], btn, keputusan==='DISETUJUI' ? 'Laporan disetujui' : 'Tersimpan');
+  pdJalankanAksi('setujuiDokumenLaporanUnit', [id, keputusan, catatan, STATE.token, _idemKey('setuju_laporan', {id:id, keputusan:keputusan, catatan:catatan})], btn, keputusan==='DISETUJUI' ? 'Laporan disetujui' : 'Tersimpan');
 }
 // TAHAP 2/2 (KASIR): mencatat No. Bukti Kas Masuk/Keluar setelah Laporan
 // Unit DISETUJUI di tahap 1.
 function pdAksiCatatKasirLaporanUnit(id, btn){
   var noBuktiMasuk = (document.getElementById('pd-bukti-masuk-'+id)||{}).value || '';
   var noBuktiKeluar = (document.getElementById('pd-bukti-keluar-'+id)||{}).value || '';
-  pdJalankanAksi('catatKasirLaporanUnit', [id, noBuktiMasuk, noBuktiKeluar, STATE.token], btn, 'Bukti kas tercatat, laporan selesai');
+  pdJalankanAksi('catatKasirLaporanUnit', [id, noBuktiMasuk, noBuktiKeluar, STATE.token, _idemKey('kasir_laporan', {id:id, masuk:noBuktiMasuk, keluar:noBuktiKeluar})], btn, 'Bukti kas tercatat, laporan selesai');
 }
 
 // ============================================================
