@@ -7871,8 +7871,23 @@ var PD_FILE_MAKS = 10*1024*1024;
 function pdPilihFile(inputEl, targetKey){
   var file = inputEl.files && inputEl.files[0];
   if(!file) return;
-  if(!/\.pdf$/i.test(file.name)){ toast('error','File harus berformat PDF'); inputEl.value=''; return; }
-  if(file.size > PD_FILE_MAKS){ toast('error','Ukuran file maksimal 10MB'); inputEl.value=''; return; }
+  // PERBAIKAN BUG NYATA (atas laporan "file yang sama tidak bisa diunggah
+  // ulang"): input file HTML TIDAK memicu event "change" kalau file yang
+  // dipilih PERSIS SAMA dengan yang terakhir dipilih di input itu (browser
+  // menganggap tidak ada perubahan sama sekali di internal state-nya) --
+  // ini kuirk bawaan HTML, BUKAN sesuatu yang bisa dicegah lewat validasi
+  // biasa. Akibatnya: kalau user mau pilih ulang file yang SAMA (mis. surat
+  // pengajuan yang sudah diunggah sebelumnya, lalu perlu diunggah ulang
+  // krn draft/reset/dsb), klik "pilih file" itu SAMA SEKALI TIDAK
+  // BEREAKSI -- kelihatan seperti macet, padahal file-nya sendiri valid.
+  // Sekarang value input DIKOSONGKAN SEGERA setelah file-nya "ditangkap"
+  // ke variabel `file` di atas (File object-nya SENDIRI tetap valid &
+  // tetap bisa dibaca FileReader di bawah, TIDAK terpengaruh value input-
+  // nya dikosongkan) -- supaya lain kali dropzone yang sama diklik,
+  // memilih file identik akan tetap dianggap "berubah" & memicu ulang.
+  inputEl.value = '';
+  if(!/\.pdf$/i.test(file.name)){ toast('error','File harus berformat PDF'); return; }
+  if(file.size > PD_FILE_MAKS){ toast('error','Ukuran file maksimal 10MB'); return; }
   pdRenderDropzoneMemproses(inputEl.dataset.dropId); // tampilkan status "sedang diproses" SEGERA, sebelum file selesai dibaca
   var reader = new FileReader();
   reader.onload = function(e){
