@@ -7854,6 +7854,27 @@ function pdTabelRealisasiReadonly(rows){
     + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(totalNominal)+'</td><td class="text-end">Rp '+fmtRp(totalPph21)+'</td><td class="text-end">Rp '+fmtRp(totalPph23)+'</td><td></td></tr></tfoot>'
     + '</table></div>';
 }
+// PERBAIKAN (atas permintaan): rincian PPh 21/23 PER ITEM realisasi --
+// bukan cuma total gabungan -- supaya jelas PPh yang mana berasal dari
+// komponen/kegiatan yang mana, memudahkan Bagian Keuangan mencocokkan saat
+// lapor pajak (mis. e-Bupot). SEKADAR INFORMASI, TIDAK memengaruhi
+// perhitungan Total Realisasi/Selisih sama sekali (lihat catatan poin 3 &
+// 4 -- PPh adalah BAGIAN DI DALAM nominal yang sudah dibelanjakan, bukan
+// pengurang). Ditaruh di blok yang SAMA (tidak dibedakan per-role), jadi
+// otomatis terlihat baik oleh Admin maupun Unit. Kembalikan string kosong
+// kalau tidak ada PPh sama sekali (supaya tidak menampilkan kotak kosong).
+function pdInfoPphHtml(realisasi, namaKegiatan){
+  var baris = [];
+  (realisasi||[]).forEach(function(r){
+    var ket = r.keterangan || r.namaKomponen || '';
+    if(Number(r.pph21) > 0) baris.push('<div class="d-flex justify-content-between gap-2"><span>PPh 21 &mdash; '+esc(ket)+' &mdash; '+esc(namaKegiatan)+'</span><span class="fw-bold text-nowrap">Rp '+fmtRp(r.pph21)+'</span></div>');
+    if(Number(r.pph23) > 0) baris.push('<div class="d-flex justify-content-between gap-2"><span>PPh 23 &mdash; '+esc(ket)+' &mdash; '+esc(namaKegiatan)+'</span><span class="fw-bold text-nowrap">Rp '+fmtRp(r.pph23)+'</span></div>');
+  });
+  if(!baris.length) return '';
+  return '<div class="mb-3" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;">'
+    + '<div class="small fw-bold mb-1" style="color:#92400e;"><i class="fas fa-file-invoice-dollar me-1"></i>Rincian Pemotongan PPh (sudah termasuk di dalam Total Realisasi)</div>'
+    + '<div class="small" style="color:#78350f;line-height:1.8;">' + baris.join('') + '</div></div>';
+}
 function pdTabelRabReadonly(rows){
   var total = rows.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
   return '<div class="table-responsive"><table class="table tbl mb-0">'
@@ -7927,9 +7948,25 @@ function pdRenderDropzone(dropId, namaFile){
 // Kalau pengecekannya sendiri gagal (mis. jaringan bermasalah), JANGAN
 // blokir submit -- lanjut saja seperti biasa (ini cuma peringatan
 // tambahan, bukan validasi wajib).
-function pdCekSerupaLaluLanjut(judul, jenis, lanjutFn){
+function pdCekSerupaLaluLanjut(judul, jenis, lanjutFn, btn){
+  // PERBAIKAN BUG NYATA (atas laporan "klik Ajukan Sekarang, tidak langsung
+  // ada respons/spinner, terasa seperti macet/freeze dulu"): SEBELUMNYA
+  // fungsi ini langsung menembak round-trip ke server (cekPengajuanSerupa)
+  // TANPA menyalakan btnBusy() sama sekali -- spinner baru muncul BELAKANGAN
+  // di dalam pdJalankanAksi(), yaitu SETELAH round-trip cek-serupa ini
+  // selesai. Akibatnya ada jeda (bisa 1-3 detik tergantung jaringan) sejak
+  // tombol diklik sampai ada tanda visual APA PUN bahwa aksi sedang
+  // diproses -- persis terasa seperti macet. Sekarang btnBusy(true)
+  // dinyalakan LANGSUNG begitu tombol diklik (baris di bawah ini), SEBELUM
+  // round-trip apa pun dikirim, supaya user langsung dapat respons visual
+  // instan. Spinner dimatikan sebentar HANYA kalau dialog "Ada pengajuan
+  // mirip" perlu ditampilkan (supaya tombol tidak terlihat "stuck loading"
+  // selagi menunggu keputusan user); begitu user lanjut, pdJalankanAksi()
+  // akan menyalakannya lagi seperti biasa sampai aksi benar2 selesai.
+  if(btn) btnBusy(btn, true);
   gasCall('cekPengajuanSerupa', judul, jenis, STATE.token).then(function(res){
     if(res && res.success && res.serupa && res.serupa.length){
+      if(btn) btnBusy(btn, false);
       var daftarHtml = res.serupa.map(function(s){
         return '<li class="mb-1"><b>'+s.idPengajuan+'</b> &mdash; "'+esc(s.judul)+'" <span class="text-muted">('+s.jamLalu+' jam lalu, status: '+esc(s.status)+')</span></li>';
       }).join('');
@@ -7939,7 +7976,7 @@ function pdCekSerupaLaluLanjut(judul, jenis, lanjutFn){
           + '<ul class="mt-2 mb-2">'+daftarHtml+'</ul>'
           + 'Kalau ini <b>bukan</b> pengajuan yang sama (misal tidak sengaja klik dua kali), silakan lanjutkan.</div>',
         icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Tetap Ajukan', cancelButtonText:'Batal, Cek Dulu', confirmButtonColor:'#800000'
-      }).then(function(r){ if(r.isConfirmed) lanjutFn(); });
+      }).then(function(r){ if(r.isConfirmed) lanjutFn(); else if(btn) btnBusy(btn, false); });
     } else {
       lanjutFn();
     }
@@ -7982,7 +8019,7 @@ function pdSubmitPermohonanDana(btn){
       if(PD.draftKeyAktif.muka) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.muka, STATE.token).then(function(){ _pdMuatDraftSajaDiamDiam(); }).catch(function(){});
       pdSub('daftar');
     });
-  });
+  }, btn);
 }
 // Toggle Tunai/Transfer di form Ajukan Baru (Penggantian Biaya & Tagihan) --
 // prefix: 'sekaligus' atau 'tagihan'.
@@ -8011,7 +8048,7 @@ function pdSubmitPenggantianBiaya(btn){
       if(PD.draftKeyAktif.sekaligus) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.sekaligus, STATE.token).then(function(){ _pdMuatDraftSajaDiamDiam(); }).catch(function(){});
       pdSub('daftar');
     });
-  });
+  }, btn);
 }
 function pdSubmitTagihan(btn){
   var judul = document.getElementById('pd-judul-tagihan').value.trim();
@@ -8035,7 +8072,7 @@ function pdSubmitTagihan(btn){
       if(PD.draftKeyAktif.tagihan) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.tagihan, STATE.token).then(function(){ _pdMuatDraftSajaDiamDiam(); }).catch(function(){});
       pdSub('daftar');
     });
-  });
+  }, btn);
 }
 function pdSubmitLaporanUnit(btn){
   var namaKegiatan = document.getElementById('pd-judul-laporan').value.trim();
@@ -8291,8 +8328,19 @@ function pdRenderDetailMuka(res){
         + '<button class="btn btn-sm btn-outline-danger" id="btn-tolak-'+h.idPengajuan+'" onclick="pdAksiTolak(\''+h.idPengajuan+'\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
         : pdCatatanTunggu('Menunggu keputusan Admin Pusat.'));
   } else if(st(2)==='done'){
+    // PERBAIKAN (atas permintaan): SETELAH disetujui Admin, belum tentu
+    // jelas langkah selanjutnya adalah AMBIL dana secara fisik ke Bagian
+    // Keuangan (dana TIDAK otomatis ditransfer/dikirim) -- sebelumnya blok
+    // ini cuma menampilkan "Disetujui oleh ..." tanpa info tindak lanjut
+    // sama sekali. Catatan singkat ditambahkan di sini, HANYA sampai dana
+    // benar2 dicairkan (tahap 3 belum 'done') supaya tidak nongol lagi
+    // begitu sudah tidak relevan.
+    var infoPencairan = (st(3)!=='done')
+      ? '<div class="pd-locked-note" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-top:10px;"><i class="fas fa-sack-dollar"></i><div>Pengajuan sudah disetujui. Silakan lakukan pencairan dana di Bagian Keuangan dengan membawa <b>surat pengajuan asli (hardcopy)</b> sebagai syarat pencairan.</div></div>'
+      : '';
     html += pdBlock('fa-gavel','2. Persetujuan Admin','done','<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>');
+      '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      + infoPencairan);
   } else {
     html += pdBlock('fa-gavel','2. Persetujuan Admin','locked','', pdLockedBody('Menunggu tahap Pengajuan selesai diproses.'));
   }
@@ -8344,14 +8392,24 @@ function pdRenderDetailMuka(res){
           + '<button class="btn btn-sm" id="btn-kirim-lpj-'+h.idPengajuan+'" onclick="pdAksiKirimLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim LPJ</button>'));
     if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
   } else if(st(4)==='done'){
-    var totalP21_ = res.realisasi.reduce(function(s,r){return s+(Number(r.pph21)||0);},0);
-    var totalP23_ = res.realisasi.reduce(function(s,r){return s+(Number(r.pph23)||0);},0);
-    var netRealisasi_ = h.totalRealisasi - totalP21_ - totalP23_;
-    var selisih = h.totalDiajukan - netRealisasi_; // net setelah PPh -- SAMA dgn perhitungan di cetak & backend
+    // PERBAIKAN (atas permintaan "Total Realisasi tidak boleh mengurangi
+    // PPh -- pajak itu BAGIAN DI DALAM nominal yg sudah dibelanjakan, BUKAN
+    // pengurang/potongan dari total realisasi"): SEBELUMNYA nilai yang
+    // ditampilkan (& dipakai hitung Selisih) adalah netRealisasi_ = Total
+    // Realisasi DIKURANGI PPh 21 & 23 lagi -- ini SALAH & tidak konsisten
+    // dgn backend (lihat kirimLpjPengajuan di Code.gs: totalRealisasi =
+    // SUM nominal apa adanya, TIDAK dikurangi PPh sama sekali; selisihDana
+    // = totalDiajukan - totalRealisasi, keduanya TANPA PPh diotak-atik
+    // lagi). Sekarang disamakan PERSIS dgn backend: h.totalRealisasi
+    // dipakai APA ADANYA (SAMA dgn h.selisihDana dari backend kalau
+    // dihitung ulang) -- PPh 21/23 cuma ditampilkan sbg RINCIAN INFORMATIF
+    // di bawah (pdInfoPphHtml), bukan pengurang Total Realisasi.
+    var selisih = h.totalDiajukan - h.totalRealisasi; // PURE: dana dicairkan - realisasi apa adanya
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','done','', pdTabelRealisasiReadonly(res.realisasi)
       + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
-      + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi (bersih)</div><div class="fw-bold">Rp '+fmtRp(netRealisasi_)+'</div></div></div>'
-      + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisih===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisih))+(selisih>0?' (dikembalikan)':(selisih<0?' (kurang)':' (sesuai)'))+'</div></div></div></div>'
+      + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
+      + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisih===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisih))+(selisih>0?' (surplus, dikembalikan)':(selisih<0?' (defisit, kurang)':' (sesuai)'))+'</div></div></div></div>'
+      + pdInfoPphHtml(res.realisasi, h.judul)
       + '<div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(lpjFile));
       // No. Bukti Kas Masuk/Keluar TIDAK lagi ditampilkan di sini -- sekarang
       // bagian tahap 6 "Pencatatan Kasir" (lihat di bawah), karena bukti kas
@@ -8378,9 +8436,10 @@ function pdRenderDetailMuka(res){
   }
 
   // Tahap 6 (KASIR) -- Pencatatan No. Bukti Kas Masuk/Keluar, TERPISAH dari
-  // verifikasi dokumen di tahap 5. Input mengikuti tanda selisih (net
-  // setelah PPh) -- surplus=Kas Masuk, defisit=Kas Keluar, pas=tidak perlu
-  // bukti sama sekali (tidak ada pergerakan kas).
+  // verifikasi dokumen di tahap 5. Input mengikuti tanda selisih -- PURE
+  // dana dicairkan dikurangi realisasi apa adanya -- surplus=Kas Masuk,
+  // defisit=Kas Keluar, pas=tidak perlu bukti sama sekali (tidak ada
+  // pergerakan kas).
   // PERBAIKAN (atas permintaan "tanggal & jumlahnya belum jelas &
   // konsisten"): perhitungan selisih ini SEBELUMNYA cuma ada di dalam
   // percabangan st(6)==='active' -- tidak bisa dipakai lagi di percabangan
@@ -8388,10 +8447,13 @@ function pdRenderDetailMuka(res){
   // Rp-nya dgn jelas (cuma No. Bukti-nya doang, tanpa jumlahnya). Sekarang
   // dipindah ke sini (dihitung SEKALI, dipakai bersama kedua percabangan)
   // supaya tahap "Selesai" JUGA bisa menunjukkan Rp-nya dgn jelas.
-  var totalP21b = res.realisasi.reduce(function(s,r){return s+(Number(r.pph21)||0);},0);
-  var totalP23b = res.realisasi.reduce(function(s,r){return s+(Number(r.pph23)||0);},0);
-  var netRealisasiB = h.totalRealisasi - totalP21b - totalP23b;
-  var selisihB = h.totalDiajukan - netRealisasiB;
+  // PERBAIKAN LANJUTAN (atas permintaan "Total Realisasi tidak boleh
+  // mengurangi PPh"): SEBELUMNYA selisihB DIKURANGI PPh 21/23 lagi
+  // (netRealisasiB) -- SALAH, PPh sudah TERMASUK di dalam nominal yang
+  // dibelanjakan, bukan pengurang tambahan. Sekarang PERSIS sama dgn
+  // Selisih di tahap 4 & dgn selisihDana dari backend: dana dicairkan
+  // dikurangi Total Realisasi apa adanya, TANPA PPh diotak-atik lagi.
+  var selisihB = h.totalDiajukan - h.totalRealisasi;
   if(st(6)==='active'){
     // PERBAIKAN ALUR (atas permintaan TERBARU): Data Penyetor SEKARANG
     // selalu tersedia utk Unit isi SECEPATNYA begitu LPJ disetujui (TIDAK
@@ -9080,8 +9142,13 @@ function cetakLampiranLpj(){
   var totalRealisasi = realisasi.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
   var totalPph21 = realisasi.reduce(function(s,r){ return s+(Number(r.pph21)||0); }, 0);
   var totalPph23 = realisasi.reduce(function(s,r){ return s+(Number(r.pph23)||0); }, 0);
-  var netRealisasi = totalRealisasi - totalPph21 - totalPph23;
-  var selisih = h.totalDiajukan - netRealisasi;
+  // PERBAIKAN (atas permintaan "Total Realisasi tidak boleh mengurangi
+  // PPh"): SEBELUMNYA selisih dihitung dari netRealisasi = totalRealisasi
+  // DIKURANGI PPh 21 & 23 lagi -- SALAH, PPh sudah TERMASUK di dalam
+  // nominal yang dibelanjakan (bukan pengurang tambahan). Sekarang PERSIS
+  // sama dgn perhitungan di halaman Detail & backend (selisihDana): dana
+  // dicairkan dikurangi Total Realisasi apa adanya.
+  var selisih = h.totalDiajukan - totalRealisasi;
 
   body += '<div class="pt-title">LAMPIRAN LAPORAN PERTANGGUNGJAWABAN (LPJ)</div>'
     + '<table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr><tr><td>Unit</td><td>: '+esc(h.kodeUnit)+'</td></tr>'
@@ -9125,7 +9192,9 @@ function cetakLampiranLpj(){
     + '</tbody><tfoot><tr><td colspan="2"><b>Total Realisasi</b></td><td class="r"><b>Rp '+fmtRp(totalRealisasi)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph21)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph23)+'</b></td><td></td></tr></tfoot></table>';
   body += '<div class="pt-sec">'+(res.detail&&res.detail.length?'C':'B')+'. Ringkasan</div>'
     + '<table class="pt-summary"><tr><td>Dana Dicairkan / Diajukan</td><td class="r">Rp '+fmtRp(h.totalDiajukan)+'</td></tr>'
-    + '<tr><td>Total Realisasi (bersih setelah PPh)</td><td class="r">Rp '+fmtRp(netRealisasi)+'</td></tr>'
+    + '<tr><td>Total Realisasi</td><td class="r">Rp '+fmtRp(totalRealisasi)+'</td></tr>'
+    + (totalPph21 ? ('<tr><td style="padding-left:14px;">termasuk PPh 21</td><td class="r">Rp '+fmtRp(totalPph21)+'</td></tr>') : '')
+    + (totalPph23 ? ('<tr><td style="padding-left:14px;">termasuk PPh 23</td><td class="r">Rp '+fmtRp(totalPph23)+'</td></tr>') : '')
     + '<tr class="total"><td>'+(selisih>0?'Surplus (dikembalikan ke Kas)':(selisih<0?'Defisit (kekurangan)':'Selisih (sesuai, tidak ada surplus/defisit)'))+'</td><td class="r">Rp '+fmtRp(Math.abs(selisih))+'</td></tr></table>';
   var buktiKasHtml = '';
   if(h.jenis==='MUKA' && h.noBuktiKasKeluar) buktiKasHtml += '<div>No. Bukti Kas Keluar (Pencairan Dana): <b>'+esc(h.noBuktiKasKeluar)+'</b></div>';
