@@ -1135,7 +1135,7 @@
               <button type="button" class="btn btn-sm btn-outline-secondary" onclick="pdTambahBarisLaporan('laporanPengeluaran')"><i class="fas fa-plus me-1"></i>Baris</button>
             </div>
             <div class="table-responsive"><table class="table tbl mb-0">
-              <thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th style="width:6%"></th></tr></thead>
+              <thead><tr><th style="width:14%">Tanggal</th><th style="width:34%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:14%">No. Bukti</th><th style="width:6%"></th></tr></thead>
               <tbody id="pd-tbody-laporan-keluar"></tbody>
             </table></div>
             <div class="text-end mt-2"><b>Total Pengeluaran: </b><span id="pd-total-laporanPengeluaran">Rp 0</span></div>
@@ -1736,7 +1736,16 @@ function afterLogin(){
   // menampilkan data tahun yang salah -- lihat pengecekan di bawah).
   if(_tahunTebakan){
     _callsAwal.push({ fn:'getRingkasanTahun', args:[_tahunTebakan, STATE.token] });
-    _callsAwal.push({ fn:'getRingkasanPengajuan', args:[STATE.token] });
+    // PERBAIKAN BUG NYATA (atas laporan "jumlah Pengajuan Dana di Dashboard
+    // beda dengan di halaman Pengajuan Dana sendiri"): SEBELUMNYA panggilan
+    // ini TIDAK menyertakan argumen tahun (cuma STATE.token), jadi backend
+    // (getRingkasanPengajuan(token, tahun) di Code.gs) otomatis jatuh balik
+    // ke tahun aktif DEFAULT SISTEM kalau tahun kosong -- BUKAN tahun yang
+    // ditebak/dikonfirmasi di sini. Sekarang _tahunTebakan disertakan,
+    // PERSIS sama dgn getRingkasanTahun di baris atasnya, supaya kalau
+    // tebakan ini dipakai (lihat pengecekan _tahunTebakan===STATE.tahunAktif
+    // di bawah), datanya benar2 utk tahun yang sama.
+    _callsAwal.push({ fn:'getRingkasanPengajuan', args:[STATE.token, _tahunTebakan] });
   }
   gasCallBatch(_callsAwal).then(function(res){
     hideLoading(); hideBar();
@@ -1822,13 +1831,45 @@ function afterLogin(){
       if(document.hidden) return; // tab sedang tidak aktif dilihat -- hemat kuota
       if(document.querySelector('.swal2-container')) return; // ada dialog SweetAlert terbuka -- jangan ganggu
       if(document.querySelector('.modal.show')) return; // ada modal Bootstrap terbuka -- jangan ganggu
-      muatBadgeGabungan();
       var av = document.querySelector('.nav-item.active');
       if(!av) return;
       refreshViewSilently(av.dataset.view);
     }, 300000); // 5 menit -- diminta eksplisit oleh pengguna
   }
+  // PERBAIKAN (atas permintaan "cukup lama Unit setelah mengajukan muncul
+  // di sistem Admin, jangan menunggu email"): notifikasi EMAIL sendiri
+  // SUDAH TIDAK sinkron/menunggu sama sekali sejak awal -- lihat ANTRIAN
+  // EMAIL di Code.gs (_antriEmail/prosesAntrianEmail): begitu Unit
+  // menekan Ajukan, data langsung tersimpan & responsnya balik SEKETIKA,
+  // email cuma dicatat ke antrian (operasi lokal cepat) lalu benar2
+  // dikirim oleh trigger terpisah tiap 1 menit DI LUAR alur klik user sama
+  // sekali -- jadi Unit TIDAK PERNAH menunggu proses kirim email.
+  // Keterlambatan yang dirasakan ("lama muncul di sistem Admin") sebenarnya
+  // BUKAN dari email, tapi dari muatBadgeGabungan() (badge lonceng
+  // Pesan/Pengajuan di sidebar Admin) yang SEBELUMNYA ikut nebeng di
+  // interval BERAT 5 menit di atas bersama refreshViewSilently() --
+  // artinya badge Admin baru bisa ikut terupdate sampai 5 menit kemudian
+  // walau datanya di server sudah tersimpan SEKETIKA (server TIDAK pernah
+  // basi -- cache pengajuan langsung diinvalidasi tiap kali ada
+  // pengajuan baru/berubah, lihat _invalidatePengajuanCache).
+  // Sekarang badge DIPISAH ke interval TERSENDIRI yang jauh lebih sering
+  // (30 detik) TANPA ikut menyeret refreshViewSilently() (bagian yang
+  // BERAT & sengaja tetap 5 menit sesuai permintaan sebelumnya) --
+  // muatBadgeGabungan() sendiri SANGAT RINGAN (cuma 2 hitungan jumlah,
+  // getJumlahPesanBelumDibaca & getJumlahPengajuanPerluPerhatian, BUKAN
+  // menarik seluruh data pengajuan), jadi aman dijalankan jauh lebih
+  // sering tanpa membebani kuota seperti keluhan sebelumnya (yang
+  // waktu itu 10-60 detik terasa berat karena refreshViewSilently()
+  // -- bagian BERATNYA -- ikut ditarik di interval pendek yang sama).
+  if (!window._srgBadgeRefresh) {
+    window._srgBadgeRefresh = setInterval(function(){
+      if(!STATE.token) return;
+      if(document.hidden) return;
+      muatBadgeGabungan();
+    }, 30000); // 30 detik -- ringan (cuma 2 hitungan), aman lebih sering drpd refresh penuh
+  }
 }
+
 
 // ============================================================
 // PRELOAD BULAN TETANGGA -- begitu login, diam-diam siapkan data bulan
@@ -2113,9 +2154,24 @@ function loadDashboard(){
   // aplikasi. Digabung jadi 1 batch -- hasilnya dipakai bersama oleh kartu
   // dashboard MAUPUN banner Pengajuan (lihat catatan _renderBannerPengajuanDashboard
   // di bawah, tetap tidak berubah -- cukup 1x tarik data, dipakai 2 tempat).
+  // PERBAIKAN BUG NYATA (atas laporan "jumlah Pengajuan Dana di Dashboard
+  // beda dengan di halaman Pengajuan Dana sendiri"): SEBELUMNYA panggilan
+  // getRingkasanPengajuan di sini TIDAK menyertakan argumen tahun sama
+  // sekali (cuma STATE.token) -- lihat signature backend-nya:
+  // getRingkasanPengajuan(token, tahun) di Code.gs, yang kalau tahun kosong
+  // otomatis JATUH BALIK ke tahun aktif DEFAULT SISTEM (setting
+  // TAHUN_AKTIF), BUKAN tahun yang sedang dipilih user lewat dropdown
+  // tahun global (STATE.tahunAktif). Akibatnya, begitu user pindah ke
+  // tahun LAIN lewat dropdown itu, kartu Dashboard tetap menghitung dari
+  // tahun default sistem sementara halaman Pengajuan Dana sendiri (lihat
+  // pdMuatRingkasan, yang SUDAH BENAR mengirim STATE.tahunAktif) mengikuti
+  // tahun yang dipilih -- dua angka jadi tidak sinkron. Sekarang
+  // STATE.tahunAktif disertakan di sini juga, PERSIS sama dgn yang dipakai
+  // getRingkasanTahun di baris atasnya & pdMuatRingkasan di halaman
+  // Pengajuan Dana, supaya keduanya SELALU menghitung tahun yang sama.
   gasCallBatch([
     { fn:'getRingkasanTahun', args:[STATE.tahunAktif, STATE.token] },
-    { fn:'getRingkasanPengajuan', args:[STATE.token] }
+    { fn:'getRingkasanPengajuan', args:[STATE.token, STATE.tahunAktif] }
   ]).then(function(hasil){
     if(!cached) hideBar();
     // PERBAIKAN BUG NYATA (systemik -- "hasil is null"): sama seperti
@@ -6831,7 +6887,7 @@ var PD = {
   realisasiSekaligus:[{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}],
   lpjFileSekaligus:null,
   tagihanJudul:'', tagihanKepada:'', tagihanNominal:0, memoFileTagihan:null,
-  laporanBulan:_bulanLaporanDefault(), laporanPemasukan:[{tanggal:'',keterangan:'',nominal:0}], laporanPengeluaran:[{tanggal:'',keterangan:'',nominal:0}], laporanBuktiFile:null,
+  laporanBulan:_bulanLaporanDefault(), laporanPemasukan:[{tanggal:'',keterangan:'',nominal:0}], laporanPengeluaran:[{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}], laporanBuktiFile:null,
   // FITUR BARU: kunci draft AKTIF per jenis form "Ajukan Baru" -- null berarti
   // belum pernah disimpan sbg draft di sesi ini (klik "Simpan Draft" akan
   // membuat kunci acak baru); kalau diisi (dari "Lanjutkan" di tab Draft),
@@ -7459,7 +7515,7 @@ function pdResetForm(){
   PD.rab = [{namaKomponen:'',keterangan:'',nominal:0}]; PD.suratFile = null;
   PD.realisasiSekaligus = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.lpjFileSekaligus = null;
   PD.tagihanJudul=''; PD.tagihanKepada=''; PD.tagihanNominal=0; PD.memoFileTagihan = null;
-  PD.laporanBulan = _bulanLaporanDefault(); PD.laporanPemasukan = [{tanggal:'',keterangan:'',nominal:0}]; PD.laporanPengeluaran = [{tanggal:'',keterangan:'',nominal:0}]; PD.laporanBuktiFile = null;
+  PD.laporanBulan = _bulanLaporanDefault(); PD.laporanPemasukan = [{tanggal:'',keterangan:'',nominal:0}]; PD.laporanPengeluaran = [{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.laporanBuktiFile = null;
   document.querySelectorAll('#pd-jenis-toggle .pos-tab').forEach(function(el){ el.classList.toggle('active', el.dataset.jenis==='muka'); });
   document.getElementById('pd-panel-jenis-muka').classList.remove('d-none');
   document.getElementById('pd-panel-jenis-sekaligus').classList.add('d-none');
@@ -7743,21 +7799,32 @@ function pdRenderTabelRealisasi(target){
 // ============================================================
 // BARIS PEMASUKAN/PENGELUARAN -- Laporan Usaha Unit (LAPORAN_UNIT). Pola
 // SAMA seperti baris RAB/Realisasi di atas (array of object di PD, render
-// ulang tiap ada perubahan) tapi lebih sederhana: cuma Tanggal, Keterangan,
-// Nominal (tidak ada Komponen/PPh/NoBukti -- tidak relevan utk laporan
-// bulanan sederhana ini).
+// ulang tiap ada perubahan). Tanggal/Keterangan/Nominal dipakai bersama
+// Pemasukan & Pengeluaran; PPh 21/PPh 23/No. Bukti HANYA relevan &
+// ditampilkan utk baris Pengeluaran (lihat pdBarisLaporanHtml &
+// _pdLaporanAdalahPengeluaran di bawah) -- atas permintaan "dibagian
+// pengeluaran dan operasional kolom PPh 21 dan PPh 23 serta no bukti
+// juga". Field-nya tetap disimpan di object utk SEMUA baris (termasuk
+// Pemasukan) demi konsistensi struktur data, cuma tidak dirender/diisi
+// utk Pemasukan (selalu 0/kosong di sana).
 // ============================================================
+// Target Laporan yang berkaitan dgn Pengeluaran (baik form "Ajukan Baru"
+// maupun form revisi/edit) -- dipakai utk menentukan apakah kolom PPh
+// 21/PPh 23/No. Bukti perlu dirender di pdBarisLaporanHtml.
+function _pdLaporanAdalahPengeluaran(target){
+  return target === 'laporanPengeluaran' || target === 'laporanEditKeluar';
+}
 function pdTambahBarisLaporan(target){
-  PD[target].push({tanggal:'',keterangan:'',nominal:0});
+  PD[target].push({tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''});
   pdRenderTabelLaporan(target);
 }
 function pdHapusBarisLaporan(target, i){
   PD[target].splice(i,1);
-  if(!PD[target].length) PD[target].push({tanggal:'',keterangan:'',nominal:0});
+  if(!PD[target].length) PD[target].push({tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''});
   pdRenderTabelLaporan(target);
 }
 function pdUbahLaporan(target, i, field, val){
-  PD[target][i][field] = (field==='nominal') ? angkaKeAngka(val) : val;
+  PD[target][i][field] = (['nominal','pph21','pph23'].indexOf(field)!==-1) ? angkaKeAngka(val) : val;
   pdRenderTotalLaporan(target);
 }
 function pdRenderTotalLaporan(target){
@@ -7825,10 +7892,20 @@ function pdGantiBulanLaporan(bulanBaru){
 }
 function pdBarisLaporanHtml(target, r, i){
   var rentang = pdRentangTanggalLaporan();
-  return '<tr><td><input type="date" class="form-control form-control-sm" value="'+(r.tanggal||'')+'" min="'+rentang.min+'" max="'+rentang.max+'" onchange="pdUbahLaporan(\''+target+'\','+i+',\'tanggal\',this.value)"></td>'
+  var kolomDasar = '<td><input type="date" class="form-control form-control-sm" value="'+(r.tanggal||'')+'" min="'+rentang.min+'" max="'+rentang.max+'" onchange="pdUbahLaporan(\''+target+'\','+i+',\'tanggal\',this.value)"></td>'
     + '<td><input class="form-control form-control-sm" value="'+esc(r.keterangan)+'" placeholder="Keterangan" oninput="pdUbahLaporan(\''+target+'\','+i+',\'keterangan\',this.value)"></td>'
-    + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahLaporan(\''+target+'\','+i+',\'nominal\',this.value)"></td>'
-    + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisLaporan(\''+target+'\','+i+')"><i class="fas fa-trash"></i></button></td></tr>';
+    + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahLaporan(\''+target+'\','+i+',\'nominal\',this.value)"></td>';
+  // PERBAIKAN (atas permintaan "dibagian pengeluaran dan operasional
+  // kolom PPh 21 dan PPh 23 serta no bukti juga"): kolom ini HANYA
+  // dirender utk baris Pengeluaran -- Pemasukan (penjualan) tidak relevan
+  // dgn pemotongan PPh, tetap sesederhana sebelumnya supaya tidak
+  // membingungkan & tidak menambah kerja input yang tidak perlu.
+  var kolomPph = !_pdLaporanAdalahPengeluaran(target) ? '' : (
+    '<td><input class="form-control form-control-sm text-end" value="'+(r.pph21?fmtRp(r.pph21):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahLaporan(\''+target+'\','+i+',\'pph21\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm text-end" value="'+(r.pph23?fmtRp(r.pph23):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahLaporan(\''+target+'\','+i+',\'pph23\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm" value="'+esc(r.noBukti)+'" placeholder="mis. I.A" oninput="pdUbahLaporan(\''+target+'\','+i+',\'noBukti\',this.value)"></td>'
+  );
+  return '<tr>' + kolomDasar + kolomPph + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisLaporan(\''+target+'\','+i+')"><i class="fas fa-trash"></i></button></td></tr>';
 }
 function pdRenderTabelLaporan(target){
   var idMap = { laporanPemasukan:'pd-tbody-laporan-masuk', laporanPengeluaran:'pd-tbody-laporan-keluar', laporanEditMasuk:'pd-tbody-laporan-edit-masuk', laporanEditKeluar:'pd-tbody-laporan-edit-keluar' };
@@ -7840,10 +7917,22 @@ function pdRenderTabelLaporan(target){
 function pdTabelLaporanReadonly(rows, tipe){
   var filtered = rows.filter(function(r){ return r.tipe===tipe; });
   var total = filtered.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
+  // PERBAIKAN (atas permintaan): kolom PPh 21/PPh 23/No. Bukti HANYA
+  // ditampilkan utk tabel Pengeluaran (tipe KELUAR) -- konsisten dgn form
+  // isi/revisi (lihat pdBarisLaporanHtml) yang juga hanya menampilkan
+  // kolom ini utk Pengeluaran, bukan Pemasukan.
+  if(tipe !== 'KELUAR'){
+    return '<div class="table-responsive mb-2"><table class="table tbl mb-0">'
+      + '<thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:20%">Nominal</th></tr></thead><tbody>'
+      + filtered.map(function(r){ return '<tr><td>'+(r.tanggal?new Date(r.tanggal).toLocaleDateString('id-ID'):'-')+'</td><td>'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td></tr>'; }).join('')
+      + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(total)+'</td></tr></tfoot></table></div>';
+  }
+  var totalPph21 = filtered.reduce(function(s,r){ return s+(Number(r.pph21)||0); }, 0);
+  var totalPph23 = filtered.reduce(function(s,r){ return s+(Number(r.pph23)||0); }, 0);
   return '<div class="table-responsive mb-2"><table class="table tbl mb-0">'
-    + '<thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:20%">Nominal</th></tr></thead><tbody>'
-    + filtered.map(function(r){ return '<tr><td>'+(r.tanggal?new Date(r.tanggal).toLocaleDateString('id-ID'):'-')+'</td><td>'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td></tr>'; }).join('')
-    + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(total)+'</td></tr></tfoot></table></div>';
+    + '<thead><tr><th style="width:14%">Tanggal</th><th style="width:34%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:14%">No. Bukti</th></tr></thead><tbody>'
+    + filtered.map(function(r){ return '<tr><td>'+(r.tanggal?new Date(r.tanggal).toLocaleDateString('id-ID'):'-')+'</td><td>'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td><td class="text-end">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="text-end">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td>'+esc(r.noBukti)+'</td></tr>'; }).join('')
+    + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(total)+'</td><td class="text-end">Rp '+fmtRp(totalPph21)+'</td><td class="text-end">Rp '+fmtRp(totalPph23)+'</td><td></td></tr></tfoot></table></div>';
 }
 function pdTabelRealisasiReadonly(rows){
   var totalNominal=0, totalPph21=0, totalPph23=0;
@@ -7854,25 +7943,29 @@ function pdTabelRealisasiReadonly(rows){
     + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(totalNominal)+'</td><td class="text-end">Rp '+fmtRp(totalPph21)+'</td><td class="text-end">Rp '+fmtRp(totalPph23)+'</td><td></td></tr></tfoot>'
     + '</table></div>';
 }
-// PERBAIKAN (atas permintaan): rincian PPh 21/23 PER ITEM realisasi --
-// bukan cuma total gabungan -- supaya jelas PPh yang mana berasal dari
-// komponen/kegiatan yang mana, memudahkan Bagian Keuangan mencocokkan saat
-// lapor pajak (mis. e-Bupot). SEKADAR INFORMASI, TIDAK memengaruhi
-// perhitungan Total Realisasi/Selisih sama sekali (lihat catatan poin 3 &
-// 4 -- PPh adalah BAGIAN DI DALAM nominal yang sudah dibelanjakan, bukan
-// pengurang). Ditaruh di blok yang SAMA (tidak dibedakan per-role), jadi
-// otomatis terlihat baik oleh Admin maupun Unit. Kembalikan string kosong
-// kalau tidak ada PPh sama sekali (supaya tidak menampilkan kotak kosong).
+// PERBAIKAN (atas permintaan "bentuknya total saja jangan per komponen,
+// biar tidak banyak informasinya"): SEBELUMNYA blok ini merinci PPh 21/23
+// PER ITEM realisasi (1 baris per komponen yang kena PPh) -- SEKARANG
+// disederhanakan jadi TOTAL GABUNGAN saja per jenis pajak (maks 2 baris:
+// PPh 21 & PPh 23), format "PPh 21 -- [Nama Kegiatan] -- Rp [Total]".
+// Dipakai bersama utk Pengajuan Dana Kegiatan (MUKA) & Laporan Unit
+// (parameter `realisasi` cukup dikirim baris yang relevan saja, mis.
+// khusus tipe KELUAR utk Laporan Unit). SEKADAR INFORMASI, TIDAK
+// memengaruhi perhitungan Total Realisasi/Selisih sama sekali (lihat
+// catatan poin 3 & 4 -- PPh adalah BAGIAN DI DALAM nominal yang sudah
+// dibelanjakan, bukan pengurang). Ditaruh di blok yang SAMA (tidak
+// dibedakan per-role), jadi otomatis terlihat baik oleh Admin maupun
+// Unit. Kembalikan string kosong kalau tidak ada PPh sama sekali (supaya
+// tidak menampilkan kotak kosong).
 function pdInfoPphHtml(realisasi, namaKegiatan){
+  var totalP21 = 0, totalP23 = 0;
+  (realisasi||[]).forEach(function(r){ totalP21 += Number(r.pph21)||0; totalP23 += Number(r.pph23)||0; });
+  if(!totalP21 && !totalP23) return '';
   var baris = [];
-  (realisasi||[]).forEach(function(r){
-    var ket = r.keterangan || r.namaKomponen || '';
-    if(Number(r.pph21) > 0) baris.push('<div class="d-flex justify-content-between gap-2"><span>PPh 21 &mdash; '+esc(ket)+' &mdash; '+esc(namaKegiatan)+'</span><span class="fw-bold text-nowrap">Rp '+fmtRp(r.pph21)+'</span></div>');
-    if(Number(r.pph23) > 0) baris.push('<div class="d-flex justify-content-between gap-2"><span>PPh 23 &mdash; '+esc(ket)+' &mdash; '+esc(namaKegiatan)+'</span><span class="fw-bold text-nowrap">Rp '+fmtRp(r.pph23)+'</span></div>');
-  });
-  if(!baris.length) return '';
+  if(totalP21) baris.push('<div class="d-flex justify-content-between gap-2"><span>PPh 21 &mdash; '+esc(namaKegiatan)+'</span><span class="fw-bold text-nowrap">Rp '+fmtRp(totalP21)+'</span></div>');
+  if(totalP23) baris.push('<div class="d-flex justify-content-between gap-2"><span>PPh 23 &mdash; '+esc(namaKegiatan)+'</span><span class="fw-bold text-nowrap">Rp '+fmtRp(totalP23)+'</span></div>');
   return '<div class="mb-3" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px 12px;">'
-    + '<div class="small fw-bold mb-1" style="color:#92400e;"><i class="fas fa-file-invoice-dollar me-1"></i>Rincian Pemotongan PPh (sudah termasuk di dalam Total Realisasi)</div>'
+    + '<div class="small fw-bold mb-1" style="color:#92400e;"><i class="fas fa-file-invoice-dollar me-1"></i>Rincian Pemotongan PPh (bukan pengurang, sudah termasuk di dalam nominal)</div>'
     + '<div class="small" style="color:#78350f;line-height:1.8;">' + baris.join('') + '</div></div>';
 }
 function pdTabelRabReadonly(rows){
@@ -8472,8 +8565,8 @@ function pdRenderDetailMuka(res){
     // cuma "serahkan LPJ asli" yang ambigu (LPJ terdiri dari beberapa
     // bagian, gampang ada yg kelupaan kalau tidak dirinci).
     var infoDokumenDiserahkan = '<div class="small text-muted mb-2" style="line-height:1.7;">'
-      + 'Silakan cetak <b>"Lampiran LPJ"</b> di atas (tombol Cetak, pojok kanan atas halaman ini -- Data Penyetor sudah termuat), lalu lampirkan &amp; serahkan ke Bagian Keuangan bersama:'
-      + '<ol class="mb-0 mt-1"><li><b>Hasil cetak Lampiran LPJ</b> ini (sudah memuat data penyetor)</li>'
+      + 'Silakan cetak <b>"Lampiran LPJ"</b> di atas (tombol Cetak, pojok kanan atas halaman ini), lalu lampirkan &amp; serahkan ke Bagian Keuangan bersama:'
+      + '<ol class="mb-0 mt-1"><li><b>Hasil cetak Lampiran LPJ</b> ini</li>'
       + '<li><b>BKK Pengajuan Dana</b> (bukti kas keluar saat dana ini pertama kali dicairkan)</li>'
       + '<li><b>Bukti-bukti realisasi belanja</b> (nota/kuitansi/struk asli sesuai rincian Realisasi di atas)</li></ol></div>';
 
@@ -8627,8 +8720,28 @@ function pdRenderDetailSingkat(res){
           : pdCatatanTunggu('Menunggu diverifikasi Admin Pusat.'));
     }
   } else if(st(2)==='done'){
+    // PERBAIKAN (atas permintaan "pengajuan reimburse dan tagihan baik trf
+    // dan tunai, surat asli harus sampai di Bagian Keuangan untuk
+    // diproses -- belum ada informasi soal itu"): SEBELUMNYA blok ini cuma
+    // menampilkan "Disetujui oleh ..." tanpa info tindak lanjut sama
+    // sekali -- padahal SAMA seperti jenis MUKA, dokumen ASLI (hardcopy)
+    // tetap harus diserahkan fisik ke Bagian Keuangan supaya bisa
+    // diproses, TERLEPAS dari metode pembayarannya Transfer atau Tunai
+    // (Transfer cuma menghilangkan kebutuhan uang kas fisik, BUKAN
+    // menghilangkan kebutuhan dokumen asli utk arsip/audit). Kalimat
+    // dibedakan sesuai jenis & dokumen aslinya masing2 (Tagihan -> Memo &
+    // Invoice, Penggantian Biaya -> Bukti LPJ), dan menyertakan
+    // bukti-bukti penyerta (nota/kuitansi/invoice pendukung lain).
+    // Ditampilkan HANYA sampai tahap 3 (pembayaran/pencatatan) selesai,
+    // supaya tidak nongol lagi begitu sudah tidak relevan.
+    var infoPencairan2 = (st(3)!=='done')
+      ? (h.jenis==='TAGIHAN'
+          ? '<div class="pd-locked-note" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-top:10px;"><i class="fas fa-sack-dollar"></i><div>Pengajuan sudah disetujui. Silakan serahkan memo &amp; invoice asli (hardcopy) beserta bukti-bukti penyerta ke Bagian Keuangan sebagai syarat pembayaran tagihan.</div></div>'
+          : '<div class="pd-locked-note" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-top:10px;"><i class="fas fa-sack-dollar"></i><div>Pengajuan sudah disetujui. Silakan serahkan bukti LPJ asli (hardcopy) beserta bukti-bukti penyerta ke Bagian Keuangan sebagai syarat pencairan penggantian dana.</div></div>')
+      : '';
     html += pdBlock('fa-gavel', judul2, 'done', '<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>');
+      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      + infoPencairan2);
   } else {
     html += pdBlock('fa-gavel', judul2, 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
   }
@@ -8919,9 +9032,14 @@ function pdRenderDetailLaporanUnit(res){
     // sudah benar tampak "di luar rentang" atau tanggal baru salah divalidasi.
     PD.laporanBulan = Number(h.bulanLaporan);
     PD.laporanEditMasuk = res.realisasi.filter(function(r){return r.tipe==='MASUK';}).map(function(r){ return {tanggal:r.tanggal,keterangan:r.keterangan,nominal:r.nominal}; });
-    PD.laporanEditKeluar = res.realisasi.filter(function(r){return r.tipe==='KELUAR';}).map(function(r){ return {tanggal:r.tanggal,keterangan:r.keterangan,nominal:r.nominal}; });
+    // PERBAIKAN (atas permintaan "kolom PPh 21/23/No. Bukti di Pengeluaran"):
+    // ikut disertakan saat memuat data lama utk direvisi -- SEBELUMNYA cuma
+    // tanggal/keterangan/nominal yang dibawa, jadi PPh 21/23/No. Bukti yang
+    // sudah pernah diisi akan HILANG (balik ke kosong) begitu Unit kirim
+    // ulang, walau Unit tidak bermaksud mengubahnya sama sekali.
+    PD.laporanEditKeluar = res.realisasi.filter(function(r){return r.tipe==='KELUAR';}).map(function(r){ return {tanggal:r.tanggal,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; });
     if(!PD.laporanEditMasuk.length) PD.laporanEditMasuk = [{tanggal:'',keterangan:'',nominal:0}];
-    if(!PD.laporanEditKeluar.length) PD.laporanEditKeluar = [{tanggal:'',keterangan:'',nominal:0}];
+    if(!PD.laporanEditKeluar.length) PD.laporanEditKeluar = [{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.laporanEditBuktiFile = null;
     html += pdBlock('fa-store', '1. Laporan '+labelBulan, 'revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
       (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
@@ -8932,7 +9050,7 @@ function pdRenderDetailLaporanUnit(res){
           + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisLaporan(\'laporanEditMasuk\')"><i class="fas fa-plus me-1"></i>Baris</button>'
           + '<div class="mb-2"><b>Total Pemasukan: </b><span id="pd-total-laporanEditMasuk"></span></div>'
           + '<div class="fw-bold small text-danger mb-1"><i class="fas fa-circle-minus me-1"></i>Pengeluaran</div>'
-          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-laporan-edit-keluar"></tbody></table></div>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:14%">Tanggal</th><th style="width:34%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:14%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-laporan-edit-keluar"></tbody></table></div>'
           + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisLaporan(\'laporanEditKeluar\')"><i class="fas fa-plus me-1"></i>Baris</button>'
           + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLaporanEdit(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total Pengeluaran: </b><span id="pd-total-laporanEditKeluar"></span></div>'
@@ -8957,6 +9075,11 @@ function pdRenderDetailLaporanUnit(res){
     html += pdBlock('fa-store', '1. Laporan '+labelBulan, 'done', '',
       pdTabelLaporanReadonly(res.realisasi, 'MASUK') + pdTabelLaporanReadonly(res.realisasi, 'KELUAR')
       + '<div class="pd-total-box '+(selisihAwal>=0?'ok':'warn')+' mb-3"><div class="small text-muted">Selisih (Pemasukan &minus; Pengeluaran)</div><div class="fw-bold" style="color:'+(selisihAwal>=0?'#166534':'#9a3412')+';">'+(selisihAwal<0?'-':'')+'Rp '+fmtRp(Math.abs(selisihAwal))+'</div></div>'
+      // PERBAIKAN (atas permintaan "dibawah surplus defisit ada informasi
+      // PPh 21 dan 23 itu tapi bentuknya total saja"): rincian PPh 21/23
+      // (kalau ada) TOTAL GABUNGAN, bukan per baris -- lihat pdInfoPphHtml.
+      // Cuma baris Pengeluaran (tipe KELUAR) yang relevan, Pemasukan selalu 0.
+      + pdInfoPphHtml(res.realisasi.filter(function(r){return r.tipe==='KELUAR';}), h.judul)
       + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI PENDUKUNG</div>'+pdFileChip(fileUtama)+'</div>'
       + pdKomentarThreadHtml(h.idPengajuan, res.komentar));
   }
@@ -9193,8 +9316,8 @@ function cetakLampiranLpj(){
   body += '<div class="pt-sec">'+(res.detail&&res.detail.length?'C':'B')+'. Ringkasan</div>'
     + '<table class="pt-summary"><tr><td>Dana Dicairkan / Diajukan</td><td class="r">Rp '+fmtRp(h.totalDiajukan)+'</td></tr>'
     + '<tr><td>Total Realisasi</td><td class="r">Rp '+fmtRp(totalRealisasi)+'</td></tr>'
-    + (totalPph21 ? ('<tr><td style="padding-left:14px;">termasuk PPh 21</td><td class="r">Rp '+fmtRp(totalPph21)+'</td></tr>') : '')
-    + (totalPph23 ? ('<tr><td style="padding-left:14px;">termasuk PPh 23</td><td class="r">Rp '+fmtRp(totalPph23)+'</td></tr>') : '')
+    + (totalPph21 ? ('<tr><td style="padding-left:14px;">PPh 21</td><td class="r">Rp '+fmtRp(totalPph21)+'</td></tr>') : '')
+    + (totalPph23 ? ('<tr><td style="padding-left:14px;">PPh 23</td><td class="r">Rp '+fmtRp(totalPph23)+'</td></tr>') : '')
     + '<tr class="total"><td>'+(selisih>0?'Surplus (dikembalikan ke Kas)':(selisih<0?'Defisit (kekurangan)':'Selisih (sesuai, tidak ada surplus/defisit)'))+'</td><td class="r">Rp '+fmtRp(Math.abs(selisih))+'</td></tr></table>';
   var buktiKasHtml = '';
   if(h.jenis==='MUKA' && h.noBuktiKasKeluar) buktiKasHtml += '<div>No. Bukti Kas Keluar (Pencairan Dana): <b>'+esc(h.noBuktiKasKeluar)+'</b></div>';
@@ -9226,7 +9349,7 @@ function cetakTandaTerimaLpj(){
   var css = '*{box-sizing:border-box;color:#000 !important;} @page{size:A4 landscape;margin:14mm 16mm;} body{font-family:Arial,sans-serif;font-size:10pt;padding:0;} '
     + '.pt-title{text-align:center;font-weight:700;text-decoration:underline;margin:14px 0;font-size:12pt;letter-spacing:.4px;} '
     + '.pt-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;} .pt-info{width:100%;font-size:10pt;} .pt-info td{padding:3px 0;vertical-align:top;} .pt-info td:first-child{width:160px;} '
-    + '.pt-ttd{display:flex;justify-content:space-between;margin-top:70px;font-size:10pt;text-align:center;} .pt-ttd .kol{width:44%;} .pt-ttd .garis{margin-top:60px;border-top:1px solid #000;padding-top:4px;}';
+    + '.pt-ttd{display:flex;justify-content:space-between;margin-top:70px;font-size:10pt;text-align:center;} .pt-ttd .kol{width:44%;} .pt-ttd .garis{margin-top:60px;padding-top:4px;}';
   var body = pdKopHtml() + '<div class="pt-title">TANDA TERIMA LAPORAN PERTANGGUNGJAWABAN (LPJ)</div>'
     + '<div class="pt-grid"><table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr><tr><td>Unit</td><td>: '+esc(h.kodeUnit)+'</td></tr><tr><td>Nama Kegiatan</td><td>: '+esc(h.judul)+'</td></tr></table>'
     + '<table class="pt-info"><tr><td>Dana Dicairkan</td><td>: Rp '+fmtRp(h.totalDiajukan)+'</td></tr><tr><td>Total Realisasi</td><td>: Rp '+fmtRp(h.totalRealisasi)+'</td></tr><tr><td>Tanggal LPJ Diterima</td><td>: '+new Date().toLocaleDateString('id-ID')+'</td></tr></table></div>'
@@ -9235,8 +9358,13 @@ function cetakTandaTerimaLpj(){
     // Menerima," DIHAPUS -- sengaja dikosongkan supaya diisi tangan manual
     // siapa yang benar2 menyerahkan/menerima (bukan otomatis diisi nama
     // pengaju/unit sistem, yang belum tentu itu orangnya yang bawa fisik).
-    + '<div class="pt-ttd"><div class="kol">Yang Menyerahkan,<div class="garis">( ......................................... )</div></div>'
-    + '<div class="kol">Yang Menerima,<div class="garis">( ......................................... )</div></div></div>';
+    // PERBAIKAN (atas permintaan "garis dihapus, titik saja tanpa
+    // kurung"): SEBELUMNYA ada garis cetak (border-top) DI ATAS titik-titik
+    // & titik-titiknya dibungkus tanda kurung "( ... )" -- sekarang garis
+    // dihapus (cukup titik-titik polos sbg tempat tanda tangan) dan tanda
+    // kurung dihapus juga.
+    + '<div class="pt-ttd"><div class="kol">Yang Menyerahkan,<div class="garis">.........................................</div></div>'
+    + '<div class="kol">Yang Menerima,<div class="garis">.........................................</div></div></div>';
   _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
 }
 
