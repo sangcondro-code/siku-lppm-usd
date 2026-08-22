@@ -6850,7 +6850,7 @@ var PD = {
 // supaya konsisten dgn pola yang sudah benar di Pencairan Dana awal
 // (Setujui dulu, BARU Cairkan terpisah dgn BKK). Berlaku di 4 jenis
 // pengajuan sekaligus.
-var PD_TAHAP_LABEL_MUKA = ['Pengajuan','Persetujuan','Pencairan','Realisasi & LPJ','Verifikasi LPJ','Pencatatan BKK/BKM'];
+var PD_TAHAP_LABEL_MUKA = ['Pengajuan','Persetujuan','Pencairan','Realisasi & LPJ','Verifikasi LPJ','Penyerahan LPJ & Kas'];
 var PD_TAHAP_LABEL_SEKALIGUS = ['Pengajuan & LPJ','Verifikasi Pengajuan','Pencatatan BKK/BKM','Selesai'];
 var PD_TAHAP_LABEL_TAGIHAN = ['Pengajuan Tagihan','Verifikasi Pengajuan','Pencatatan BKK/BKM','Selesai'];
 var PD_TAHAP_LABEL_LAPORAN = ['Laporan Bulanan','Verifikasi Pengajuan','Pencatatan BKK/BKM','Selesai'];
@@ -8404,15 +8404,25 @@ function pdRenderDetailMuka(res){
     // Penyetor sudah diisi Unit (tandanya LPJ fisik sudah/segera diserahkan).
     var perluBuktiKas = selisihB !== 0;
     var infoPenyetor = h.namaPenyetor ? ('<div class="small text-muted mb-2">Data Penyetor: <b>'+esc(h.namaPenyetor)+'</b> ('+esc(h.npmNimPenyetor)+') &middot; '+esc(h.noHpPenyetor)+'</div>') : '';
+    // PERBAIKAN (atas permintaan "kasih kata-kata yang lebih baik dan
+    // jelas"): pesan setelah Data Penyetor terisi SEKARANG merinci JELAS
+    // 3 dokumen yang harus dilampirkan & diserahkan bersamaan -- bukan
+    // cuma "serahkan LPJ asli" yang ambigu (LPJ terdiri dari beberapa
+    // bagian, gampang ada yg kelupaan kalau tidak dirinci).
+    var infoDokumenDiserahkan = '<div class="small text-muted mb-2" style="line-height:1.7;">'
+      + 'Silakan cetak <b>"Lampiran LPJ"</b> di atas (tombol Cetak, pojok kanan atas halaman ini -- Data Penyetor sudah termuat), lalu lampirkan &amp; serahkan ke Bagian Keuangan bersama:'
+      + '<ol class="mb-0 mt-1"><li><b>Hasil cetak Lampiran LPJ</b> ini (sudah memuat data penyetor)</li>'
+      + '<li><b>BKK Pengajuan Dana</b> (bukti kas keluar saat dana ini pertama kali dicairkan)</li>'
+      + '<li><b>Bukti-bukti realisasi belanja</b> (nota/kuitansi/struk asli sesuai rincian Realisasi di atas)</li></ol></div>';
 
     // BAGIAN 1: Data Penyetor -- selalu tersedia begitu LPJ disetujui.
     var bagianPenyetor;
     if(h.namaPenyetor){
-      bagianPenyetor = infoPenyetor;
+      bagianPenyetor = infoPenyetor + infoDokumenDiserahkan;
     } else if(isAdmin){
       bagianPenyetor = pdCatatanTunggu('Menunggu Unit menyerahkan LPJ asli (hardcopy) ke Bagian Keuangan & mengisi Data Penyetor.');
     } else {
-      bagianPenyetor = '<p class="small text-muted mb-2">LPJ sudah disetujui. Mohon segera serahkan LPJ ASLI (hardcopy) ke Bagian Keuangan, lalu isi data penyetor di bawah ini supaya termuat di Cetak Lampiran LPJ:</p>'
+      bagianPenyetor = '<p class="small text-muted mb-2">LPJ sudah disetujui. Silakan isi data penyetor di bawah ini dulu -- setelah tersimpan, Anda bisa mencetak "Lampiran LPJ" (sudah memuat nama Anda) untuk dilampirkan & diserahkan ke Bagian Keuangan.</p>'
         + '<div class="mb-2"><label class="form-label small mb-1">Nama Penyetor</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-nama-'+h.idPengajuan+'" style="max-width:320px;"></div>'
         + '<div class="mb-2"><label class="form-label small mb-1">NPP/NIM</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-npm-'+h.idPengajuan+'" style="max-width:260px;"></div>'
         + '<div class="mb-2"><label class="form-label small mb-1">No. HP</label><input type="text" class="form-control form-control-sm" id="pd-penyetor-hp-'+h.idPengajuan+'" style="max-width:260px;"></div>'
@@ -8430,17 +8440,17 @@ function pdRenderDetailMuka(res){
           ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk <span class="text-muted">(ada surplus Rp '+fmtRp(selisihB)+' dikembalikan ke kas)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-kasir-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>')
           : ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar <span class="text-muted">(dana kurang Rp '+fmtRp(Math.abs(selisihB))+', perlu dibayar tambahan)</span></label><input type="text" class="form-control form-control-sm" id="pd-bukti-kasir-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>'));
         var tombolSelesaiTeks = perluBuktiKas ? 'Catat &amp; Tandai Selesai' : 'Selesaikan LPJ';
-        bagianPenutup = '<p class="small text-muted mb-2">LPJ asli sudah diterima. '+(perluBuktiKas ? ('Ada '+(selisihB>0?'surplus':'defisit')+' Rp '+fmtRp(Math.abs(selisihB))+' -- catat No. Bukti Kas sekalian menandai selesai.') : 'Tidak ada pergerakan kas tambahan, tinggal selesaikan.')+'</p>'
+        bagianPenutup = '<p class="small text-muted mb-2">LPJ asli & dokumen pendukung sudah diterima. '+(perluBuktiKas ? ('Ada '+(selisihB>0?'surplus':'defisit')+' Rp '+fmtRp(Math.abs(selisihB))+' -- catat No. Bukti Kas sekalian menandai selesai.') : 'Tidak ada pergerakan kas tambahan, tinggal selesaikan.')+'</p>'
           + inputBuktiAkhir
           + '<button class="btn btn-sm" id="btn-kasir-lpj-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>'+tombolSelesaiTeks+'</button>';
       } else {
-        bagianPenutup = pdCatatanTunggu('Data Penyetor sudah tersimpan, menunggu Admin menandai pengajuan ini selesai.');
+        bagianPenutup = pdCatatanTunggu('Data Penyetor sudah tersimpan. Setelah dokumen fisik diterima Bagian Keuangan, Admin akan menandai pengajuan ini selesai.');
       }
     } else {
       bagianPenutup = '';
     }
 
-    html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+    html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       bagianPenyetor + (bagianPenutup ? ('<hr class="my-3">' + bagianPenutup) : ''));
   } else if(st(6)==='done'){
     // PERBAIKAN (atas permintaan "tanggal & jumlahnya belum jelas &
@@ -8453,26 +8463,25 @@ function pdRenderDetailMuka(res){
     var ringkasanSelesai = 'Selesai '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')
       + (selisihB!==0 ? (' \u00b7 Rp '+fmtRp(Math.abs(selisihB))) : ' \u00b7 tidak ada selisih (pas)');
     var infoPenyetorDone = h.namaPenyetor ? ('<div class="small text-muted mb-2">Data Penyetor: <b>'+esc(h.namaPenyetor)+'</b> ('+esc(h.npmNimPenyetor)+') &middot; '+esc(h.noHpPenyetor)+'</div>') : '';
-    html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','done','<span class="badge-pd badge-pd-selesai">Selesai</span>',
+    html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','done','<span class="badge-pd badge-pd-selesai">Selesai</span>',
       '<div class="fw-bold small mb-2" style="color:#166534;">'+ringkasanSelesai+'</div>'
       + infoPenyetorDone
       + pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk (surplus dikembalikan)', h.noBuktiKasMasuk)
       + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar (kekurangan dibayar)', h.noBuktiKasKeluarTambahan));
   } else {
-    html += pdBlock('fa-cash-register','6. Pencatatan BKK/BKM','locked','', pdLockedBody('Menunggu LPJ disetujui Admin.'));
+    html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','locked','', pdLockedBody('Menunggu LPJ disetujui Admin.'));
   }
 
   document.getElementById('pd-blocks').innerHTML = html;
-  // PERBAIKAN BUG NYATA (atas laporan "Unit belum bisa cetak Lampiran
-  // LPJ"): sebelumnya tombol Cetak baru muncul kalau status SUDAH SELESAI
-  // total -- padahal Unit justru PALING BUTUH mencetak Lampiran LPJ
-  // (utk dilampirkan bareng LPJ asli/hardcopy) TEPAT setelah LPJ
-  // DISETUJUI Admin (status MENUNGGU_VERIFIKASI berubah jadi
-  // MENUNGGU_PENCATATAN) -- itu justru momen mereka diminta menyerahkan
-  // dokumen fisik ke Bagian Keuangan, jauh SEBELUM status SELESAI. Sekarang
-  // tombol Cetak sudah muncul begitu LPJ disetujui (MENUNGGU_PENCATATAN),
-  // bukan menunggu semuanya benar2 tuntas.
-  pdRenderTombolCetak(h, h.status==='MENUNGGU_PENCATATAN' || h.status==='SELESAI');
+  // PERBAIKAN (atas permintaan TERBARU): tombol Cetak Lampiran LPJ
+  // SEBELUMNYA sudah muncul begitu LPJ disetujui (MENUNGGU_PENCATATAN),
+  // TANPA menunggu Data Penyetor terisi -- akibatnya kalau Unit mencetak
+  // di momen itu, kolom "Data Penyetor" di hasil cetaknya masih KOSONG
+  // (belum ada apa2 yg bisa dicetak), padahal tujuannya justru supaya
+  // Nama Penyetor SUDAH termuat saat dicetak. Sekarang tombol Cetak baru
+  // muncul SETELAH h.namaPenyetor terisi -- persis saat datanya SUDAH ADA
+  // & siap dicetak, bukan lebih awal dari itu.
+  pdRenderTombolCetak(h, (h.status==='MENUNGGU_PENCATATAN' && !!h.namaPenyetor) || h.status==='SELESAI');
 }
 
 // -- JENIS SEKALIGUS & TAGIHAN (3 tahap, mirip strukturnya) ----------------
