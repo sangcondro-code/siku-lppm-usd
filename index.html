@@ -1852,23 +1852,43 @@ function afterLogin(){
   // walau datanya di server sudah tersimpan SEKETIKA (server TIDAK pernah
   // basi -- cache pengajuan langsung diinvalidasi tiap kali ada
   // pengajuan baru/berubah, lihat _invalidatePengajuanCache).
-  // Sekarang badge DIPISAH ke interval TERSENDIRI yang jauh lebih sering
-  // (30 detik) TANPA ikut menyeret refreshViewSilently() (bagian yang
-  // BERAT & sengaja tetap 5 menit sesuai permintaan sebelumnya) --
-  // muatBadgeGabungan() sendiri SANGAT RINGAN (cuma 2 hitungan jumlah,
-  // getJumlahPesanBelumDibaca & getJumlahPengajuanPerluPerhatian, BUKAN
-  // menarik seluruh data pengajuan), jadi aman dijalankan jauh lebih
-  // sering tanpa membebani kuota seperti keluhan sebelumnya (yang
-  // waktu itu 10-60 detik terasa berat karena refreshViewSilently()
-  // -- bagian BERATNYA -- ikut ditarik di interval pendek yang sama).
+  // Sekarang badge DIPISAH ke interval TERSENDIRI yang jauh lebih sering.
+  // PERBAIKAN LANJUTAN (atas laporan "masih belum sinkron, ada 3 status
+  // pengajuan tidak kunjung ter-refresh -- unit ajukan, admin nunggu
+  // lama; admin eksekusi, status di unit tidak segera berubah"): SEBELUMNYA
+  // interval ini CUMA menyegarkan BADGE (angka notifikasi), sedangkan ISI
+  // TABEL Daftar Pengajuan (yang sebenarnya ingin dipantau nyaris
+  // real-time -- lihat catatan lama di refreshViewSilently('pengajuan'))
+  // TETAP ikut nebeng interval BERAT 5 menit -- jadi badge-nya cepat
+  // terupdate, tapi baris & STATUS di tabelnya sendiri tetap basi sampai
+  // 5 menit. Sekarang KHUSUS kalau memang sedang berada di halaman
+  // Pengajuan Dana (sub-panel Daftar, bukan Form/Detail -- lihat
+  // pengecekan di refreshViewSilently), ringkasan+badge+daftar Pengajuan
+  // Dana SEKALIAN ikut disegarkan di interval CEPAT ini juga -- 1x
+  // round-trip gabungan (pdMuatRingkasanDanDaftar), BUKAN full-page reload
+  // -- supaya Unit & Admin yang sama2 sedang membuka halaman ini melihat
+  // perubahan satu sama lain (submit baru / status berubah) dalam
+  // hitungan detik, BUKAN menit. View LAIN (Verifikasi Transaksi, Rekap
+  // Konsolidasi, dst) TETAP di interval 5 menit spt sebelumnya (TIDAK
+  // ikut dipercepat) -- supaya tidak mengulang keluhan "membebani" yang
+  // dulu terjadi waktu SEMUA halaman disegarkan tiap 10-60 detik. Interval
+  // diperpendek jadi 10 detik (dari 30 detik) supaya lebih terasa
+  // "seketika" sesuai permintaan, sementara tetap ringan (badge = 2
+  // hitungan; refresh Pengajuan Dana = 1 batch gabungan, HANYA jalan kalau
+  // memang sedang dibuka).
   if (!window._srgBadgeRefresh) {
     window._srgBadgeRefresh = setInterval(function(){
       if(!STATE.token) return;
-      if(document.hidden) return;
+      if(document.hidden) return; // tab sedang tidak aktif dilihat -- hemat kuota
       muatBadgeGabungan();
-    }, 30000); // 30 detik -- ringan (cuma 2 hitungan), aman lebih sering drpd refresh penuh
+      if(document.querySelector('.swal2-container')) return; // ada dialog SweetAlert terbuka -- jangan ganggu
+      if(document.querySelector('.modal.show')) return; // ada modal Bootstrap terbuka -- jangan ganggu
+      var av = document.querySelector('.nav-item.active');
+      if(av && av.dataset.view === 'pengajuan') refreshViewSilently('pengajuan');
+    }, 10000); // 10 detik -- ringan (badge = 2 hitungan; daftar Pengajuan cuma refresh kalau sedang dibuka)
   }
 }
+
 
 
 // ============================================================
@@ -1999,6 +2019,11 @@ function refreshViewSilently(name){
     // 1 round-trip gabungan (ringkasan+badge+daftar+draft), jauh lebih
     // cepat, jendela race-condition-nya jauh lebih sempit, DAN draft ikut
     // tersegarkan juga.
+    // PERBAIKAN LANJUTAN: fungsi ini SEKARANG dipanggil dari 2 interval --
+    // yang CEPAT (10 detik, lihat _srgBadgeRefresh di afterLogin) KHUSUS
+    // kalau halaman Pengajuan Dana ini yang sedang aktif, dan yang
+    // BERAT/5-menit (_srgAutoRefresh) sbg jaring pengaman umum spt view
+    // lain -- supaya status pengajuan dipantau nyaris real-time.
     var subDaftar = document.getElementById('pd-sub-daftar');
     if(subDaftar && !subDaftar.classList.contains('d-none')){ pdMuatRingkasanDanDaftar(); }
   }
@@ -9137,7 +9162,12 @@ function pdRenderDetailLaporanUnit(res){
   }
 
   document.getElementById('pd-blocks').innerHTML = html;
-  pdRenderTombolCetak(h, false);
+  // PERBAIKAN (atas permintaan "cetak tanda terima laporan muncul SETELAH
+  // sudah selesai catat BKK/BKM"): SEBELUMNYA selalu false (tidak pernah
+  // muncul tombol cetak apa pun utk Laporan Unit) -- sekarang true begitu
+  // status SELESAI (tahap 3 Pencatatan BKK/BKM sudah diproses Admin),
+  // konsisten dgn pola SEKALIGUS/TAGIHAN (lihat pdRenderDetailSingkat).
+  pdRenderTombolCetak(h, h.status==='SELESAI');
 }
 function pdAksiKirimUlangLaporanUnit(id, btn){
   var pemasukan = PD.laporanEditMasuk.filter(function(r){ return r.keterangan && r.tanggal && Number(r.nominal)>0; });
@@ -9178,6 +9208,19 @@ function _pdCetak(fullHtml){
 function pdRenderTombolCetak(h, tampilkanLampiran){
   var el = document.getElementById('pd-d-cetak-tombol');
   var html = '';
+  // PERBAIKAN (atas permintaan "buatkan cetak tanda terima laporan di
+  // Laporan Unit, muncul setelah BKK/BKM selesai dicatat -- bukan Lampiran
+  // LPJ, tapi Tanda Terima LAPORAN"): jenis LAPORAN_UNIT strukturnya beda
+  // (Pemasukan/Pengeluaran, bukan RAB/Realisasi) jadi TIDAK relevan dgn
+  // "Lampiran LPJ" -- dapat tombol cetak SENDIRI ("Cetak Tanda Terima
+  // Laporan"), pakai cetakTandaTerimaLaporanUnit() yang terpisah dari
+  // cetakTandaTerimaLpj() (judul & rincian disesuaikan: Total
+  // Pemasukan/Pengeluaran, bukan Dana Dicairkan/Total Realisasi/LPJ).
+  if(h.jenis === 'LAPORAN_UNIT'){
+    if(tampilkanLampiran && STATE.role==='ADMIN') html += '<button class="btn btn-sm btn-outline-secondary" onclick="cetakTandaTerimaLaporanUnit()"><i class="fas fa-print me-1"></i>Cetak Tanda Terima Laporan</button>';
+    el.innerHTML = html;
+    return;
+  }
   if(tampilkanLampiran) html += '<button class="btn btn-sm btn-outline-secondary" onclick="cetakLampiranLpj()"><i class="fas fa-print me-1"></i>Cetak Lampiran LPJ</button>';
   if(tampilkanLampiran && STATE.role==='ADMIN' && h.jenis!=='TAGIHAN') html += '<button class="btn btn-sm btn-outline-secondary" onclick="cetakTandaTerimaLpj()"><i class="fas fa-print me-1"></i>Cetak Tanda Terima</button>';
   el.innerHTML = html;
@@ -9366,6 +9409,32 @@ function cetakTandaTerimaLpj(){
     + '<div class="pt-ttd"><div class="kol">Yang Menyerahkan,<div class="garis">.........................................</div></div>'
     + '<div class="kol">Yang Menerima,<div class="garis">.........................................</div></div></div>';
   _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+}
+// PERBAIKAN (atas permintaan "buatkan cetak tanda terima laporan di
+// Laporan Unit, bukan LPJ tapi Laporan"): tanda terima TERPISAH khusus
+// jenis LAPORAN_UNIT (Pemasukan/Pengeluaran usaha bulanan) -- BUKAN
+// dipaksa pakai cetakTandaTerimaLpj() yang istilah & rinciannya
+// (Dana Dicairkan/Total Realisasi/"LPJ") memang utk jenis MUKA. Cuma
+// muncul setelah status SELESAI (BKK/BKM sudah dicatat Admin) -- lihat
+// pemanggilnya di pdRenderDetailLaporanUnit/pdRenderTombolCetak.
+function cetakTandaTerimaLaporanUnit(){
+  var res = PD.detail; if(!res){ toast('error','Detail belum dimuat'); return; }
+  var h = res.header;
+  var labelBulan = (BULAN_NAMA[Number(h.bulanLaporan)-1] || h.bulanLaporan) + ' ' + h.tahunAnggaran;
+  var css = '*{box-sizing:border-box;color:#000 !important;} @page{size:A4 landscape;margin:14mm 16mm;} body{font-family:Arial,sans-serif;font-size:10pt;padding:0;} '
+    + '.pt-title{text-align:center;font-weight:700;text-decoration:underline;margin:14px 0;font-size:12pt;letter-spacing:.4px;} '
+    + '.pt-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;} .pt-info{width:100%;font-size:10pt;} .pt-info td{padding:3px 0;vertical-align:top;} .pt-info td:first-child{width:160px;} '
+    + '.pt-ttd{display:flex;justify-content:space-between;margin-top:70px;font-size:10pt;text-align:center;} .pt-ttd .kol{width:44%;} .pt-ttd .garis{margin-top:60px;padding-top:4px;}';
+  var body = pdKopHtml() + '<div class="pt-title">TANDA TERIMA LAPORAN UNIT</div>'
+    + '<div class="pt-grid"><table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr><tr><td>Unit</td><td>: '+esc(h.kodeUnit)+'</td></tr><tr><td>Nama Kegiatan</td><td>: '+esc(h.judul)+'</td></tr><tr><td>Periode Laporan</td><td>: '+esc(labelBulan)+'</td></tr></table>'
+    + '<table class="pt-info"><tr><td>Total Pemasukan</td><td>: Rp '+fmtRp(h.totalDiajukan)+'</td></tr><tr><td>Total Pengeluaran</td><td>: Rp '+fmtRp(h.totalRealisasi)+'</td></tr><tr><td>Tanggal Laporan Diterima</td><td>: '+new Date().toLocaleDateString('id-ID')+'</td></tr></table></div>'
+    + '<p style="font-size:10pt;margin-top:14px;">Dokumen Laporan Unit (rincian Pemasukan, Pengeluaran, dan bukti pendukung) untuk periode di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.</p>'
+    // Sengaja dikosongkan (bukan otomatis diisi nama pengaju/unit sistem)
+    // & titik-titik polos tanpa garis/kurung -- konsisten dgn perbaikan
+    // yang sama di cetakTandaTerimaLpj di atas.
+    + '<div class="pt-ttd"><div class="kol">Yang Menyerahkan,<div class="garis">.........................................</div></div>'
+    + '<div class="kol">Yang Menerima,<div class="garis">.........................................</div></div></div>';
+  _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima Laporan '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
 }
 
 </script>
