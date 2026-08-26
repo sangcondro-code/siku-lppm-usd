@@ -1883,9 +1883,26 @@ function afterLogin(){
       muatBadgeGabungan();
       if(document.querySelector('.swal2-container')) return; // ada dialog SweetAlert terbuka -- jangan ganggu
       if(document.querySelector('.modal.show')) return; // ada modal Bootstrap terbuka -- jangan ganggu
+      // PERBAIKAN LANJUTAN (atas laporan "kok Dashboard tidak sekalian
+      // diperbaiki -- kartu 'menunggu diproses'/'Pengajuan Baru' di sana
+      // juga kelihatan tidak kunjung berkurang"): SEBELUMNYA baris di
+      // bawah ini CUMA menyegarkan halaman Pengajuan Dana kalau itu yang
+      // sedang aktif -- Dashboard TIDAK ikut disertakan sama sekali, jadi
+      // kartu2-nya tetap nebeng interval BERAT 5 menit spt sebelumnya
+      // (data di server SUDAH benar seketika sejak perbaikan cache
+      // "SEMUA" di atas, tapi Dashboard di layar baru ikut menariknya
+      // setelah sampai 5 menit). Dashboard AMAN ikut dipercepat -- murni
+      // tampilan baca-saja (kartu ringkasan + grafik batang), TIDAK ADA
+      // input/checkbox/drag sama sekali (beda dgn Input Rekap Bulanan/
+      // Rekap Rekening Koran/Jurnal Memorial yg sengaja TETAP tidak
+      // disentuh -- lihat catatan risiko itu). loadDashboard() sendiri
+      // SUDAH punya penjaga debounce internal (_bolehSegarkan, jendela 20
+      // detik) jadi aman dipanggil tiap 10 detik di sini -- otomatis
+      // membatasi diri sendiri, tidak akan benar2 menembak server 2x
+      // lebih sering dari yang perlu.
       var av = document.querySelector('.nav-item.active');
-      if(av && av.dataset.view === 'pengajuan') refreshViewSilently('pengajuan');
-    }, 10000); // 10 detik -- ringan (badge = 2 hitungan; daftar Pengajuan cuma refresh kalau sedang dibuka)
+      if(av && (av.dataset.view === 'pengajuan' || av.dataset.view === 'dashboard')) refreshViewSilently(av.dataset.view);
+    }, 10000); // 10 detik -- ringan (badge = 2 hitungan; daftar Pengajuan/Dashboard cuma refresh kalau sedang dibuka)
   }
 }
 
@@ -3314,7 +3331,7 @@ window.addEventListener('resize', function(){ if(_gcPosActiveId!=null) _gcPosPla
 var _gcKetActiveId = null;
 var _gcKetFiltered = [];
 var _gcKetHiIdx = -1;
-var _gcRiwayatKetCache = {}; // kodePos -> array hasil (sudah selesai dimuat) ATAU Promise (sedang dimuat)
+var _gcRiwayatKetCache = {}; // kodePos -> {data:array, waktu:timestamp} (sudah selesai dimuat, ada TTL) ATAU {promise:Promise} (sedang dimuat)
 function _gcKetDd(){ return document.getElementById('gc-ket-dd-shared'); }
 function _gcKetPlace(id){
   var inp=document.getElementById('gc-ket-'+id); var dd=_gcKetDd(); if(!inp||!dd) return;
@@ -3328,28 +3345,47 @@ function _gcKetPlace(id){
   if(left + ddW > window.innerWidth - 12) left = Math.max(12, window.innerWidth - 12 - ddW);
   dd.style.left = left+'px';
 }
-// Muat riwayat Keterangan utk 1 kodePos dari server (sekali saja per kodePos
-// per sesi grid ini -- baris lain yang pakai Pos sama otomatis pakai hasil
-// yang sudah ada, tidak nanya server berulang-ulang).
+// Muat riwayat Keterangan utk 1 kodePos dari server (dicache per kodePos
+// SELAMA MASIH SEGAR -- baris lain yang pakai Pos sama otomatis pakai
+// hasil yang sudah ada, tidak nanya server berulang-ulang tiap kali fokus
+// pindah baris).
 // PERBAIKAN: baris "Belum Jelas Milik Pos Mana" (kodePos-nya sentinel
 // POS_BELUM_JELAS, bukan kode Pos asli) sebelumnya IKUT lewat sini juga,
 // padahal getRiwayatKeterangan hanya mencocokkan kodePos ASLI -- sentinel
 // itu tidak pernah cocok, jadi hint-nya selalu kosong. Sekarang baris
 // Belum Jelas dialihkan ke getRiwayatKeteranganBelumJelas (riwayat khusus
 // utk baris rekening koran yang belum jelas Pos-nya).
+// PERBAIKAN BUG NYATA (atas laporan "transaksi yang sudah di-ACC/
+// diverifikasi Unit tidak pernah muncul lagi di saran Keterangan,
+// padahal tercatat ada"): SEBELUMNYA cache ini TIDAK PUNYA MASA BERLAKU
+// SAMA SEKALI -- begitu daftar saran utk 1 kodePos (termasuk sentinel
+// "Belum Jelas") dimuat SEKALI dalam sesi browser ini, tidak akan pernah
+// dimuat ulang lagi, walau ADA transaksi baru yang terverifikasi/diklaim
+// SESUDAHNYA. Reset manual yang sudah ada (lihat initGridCepat) cuma
+// jalan kalau ADMIN SENDIRI baru menyimpan lewat grid Input Cepat ini --
+// TIDAK ikut tersegarkan kalau perubahannya terjadi di tempat LAIN (mis.
+// Unit mengklaim transaksi lewat halaman Verifikasi Transaksi yang
+// terpisah, baik oleh Admin sendiri di tab lain maupun user lain sama
+// sekali) -- daftar sarannya jadi "beku" di kondisi awal sesi selama-
+// lamanya. Sekarang cache diberi masa berlaku (TTL 2 menit) -- kalau
+// sudah lewat, dimuat ulang dari server, supaya transaksi yang baru saja
+// di-ACC ikut tertangkap sbg saran TANPA harus refresh halaman/logout-
+// login ulang, sambil tetap hemat (tidak nanya server tiap fokus pindah
+// baris kalau memang belum lama dimuat).
+var GC_RIWAYAT_KET_TTL_MS = 120000; // 2 menit
 function _gcMuatRiwayatKet(kodePos){
   var c = _gcRiwayatKetCache[kodePos];
-  if(Array.isArray(c)) return Promise.resolve(c);
-  if(c) return c; // promise sedang berjalan
+  if(c && c.data && (Date.now() - c.waktu) < GC_RIWAYAT_KET_TTL_MS) return Promise.resolve(c.data);
+  if(c && c.promise) return c.promise; // permintaan sebelumnya masih berjalan -- tunggu itu, jangan nembak dobel
   var panggilan = (kodePos===POS_BELUM_JELAS)
     ? gasCall('getRiwayatKeteranganBelumJelas', STATE.tahunAktif, STATE.token)
     : gasCall('getRiwayatKeterangan', STATE.tahunAktif, kodePos, STATE.token);
   var p = panggilan.then(function(res){
     var list = (res && res.success) ? res.data : [];
-    _gcRiwayatKetCache[kodePos] = list;
+    _gcRiwayatKetCache[kodePos] = { data:list, waktu:Date.now() };
     return list;
-  }).catch(function(){ _gcRiwayatKetCache[kodePos] = []; return []; });
-  _gcRiwayatKetCache[kodePos] = p;
+  }).catch(function(){ _gcRiwayatKetCache[kodePos] = { data:[], waktu:Date.now() }; return []; });
+  _gcRiwayatKetCache[kodePos] = { promise:p };
   return p;
 }
 function gcKetFocus(id){
@@ -3366,7 +3402,7 @@ function gcKetInput(id){ _gcKetPlace(id); var inp=document.getElementById('gc-ke
 function gcKetFilter(id, q){
   var r=_gcFind(id); if(!r || !r.kodePos){ var dd0=_gcKetDd(); if(dd0) dd0.classList.add('d-none'); return; }
   var cached = _gcRiwayatKetCache[r.kodePos];
-  var all = Array.isArray(cached) ? cached : [];
+  var all = (cached && Array.isArray(cached.data)) ? cached.data : [];
   q=(q||'').trim().toLowerCase();
   var list = q ? all.filter(function(o){ return o.keterangan.toLowerCase().indexOf(q)>-1; }) : all;
   _gcKetFiltered = list; _gcKetHiIdx = list.length?0:-1;
@@ -3420,7 +3456,7 @@ window.addEventListener('resize', function(){ if(_gcKetActiveId!=null) _gcKetPla
 // grid) dan kuncinya kodeKategori (bukan kodePos). ──
 var _tbKetFiltered = [];
 var _tbKetHiIdx = -1;
-var _tbRiwayatKetCache = {}; // kodeKategori -> array hasil (selesai) ATAU Promise (sedang dimuat)
+var _tbRiwayatKetCache = {}; // kodeKategori -> {data:array, waktu:timestamp} (selesai, ada TTL) ATAU {promise:Promise} (sedang dimuat)
 function _tbKetDd(){ return document.getElementById('tb-ket-dd'); }
 function _tbKetPlace(){
   var inp=document.getElementById('tb-keterangan'); var dd=_tbKetDd(); if(!inp||!dd) return;
@@ -3432,16 +3468,25 @@ function _tbKetPlace(){
   if(left+ddW>window.innerWidth-12) left=Math.max(12, window.innerWidth-12-ddW);
   dd.style.left=left+'px';
 }
+// PERBAIKAN BUG NYATA (pola SAMA seperti _gcMuatRiwayatKet di atas, atas
+// laporan "saran Keterangan -- baik Unit maupun Non-Unit -- tidak ikut
+// menangkap transaksi yang baru saja di-ACC/diverifikasi"): SEBELUMNYA
+// cache ini TIDAK PUNYA MASA BERLAKU & TIDAK PERNAH DIRESET SAMA SEKALI
+// (beda dgn _gcRiwayatKetCache yg setidaknya direset lewat initGridCepat)
+// -- begitu daftar saran utk 1 kodeKategori dimuat SEKALI dalam sesi
+// browser ini, akan terus dipakai APA ADANYA selama-lamanya, walau ada
+// transaksi baru dgn kategori yg sama masuk/berubah sesudahnya. Sekarang
+// diberi masa berlaku (TTL 2 menit), sama seperti versi Unit di atas.
 function _tbMuatRiwayatKet(kodeKategori){
   var c=_tbRiwayatKetCache[kodeKategori];
-  if(Array.isArray(c)) return Promise.resolve(c);
-  if(c) return c; // promise sedang berjalan
+  if(c && c.data && (Date.now() - c.waktu) < GC_RIWAYAT_KET_TTL_MS) return Promise.resolve(c.data);
+  if(c && c.promise) return c.promise;
   var p = gasCall('getRiwayatKeteranganTambahan', STATE.tahunAktif, kodeKategori, STATE.token).then(function(res){
     var list=(res&&res.success)?res.data:[];
-    _tbRiwayatKetCache[kodeKategori]=list;
+    _tbRiwayatKetCache[kodeKategori] = { data:list, waktu:Date.now() };
     return list;
-  }).catch(function(){ _tbRiwayatKetCache[kodeKategori]=[]; return []; });
-  _tbRiwayatKetCache[kodeKategori]=p;
+  }).catch(function(){ _tbRiwayatKetCache[kodeKategori] = { data:[], waktu:Date.now() }; return []; });
+  _tbRiwayatKetCache[kodeKategori] = { promise:p };
   return p;
 }
 function tbKetFocus(){
@@ -3458,7 +3503,7 @@ function tbKetFilter(q){
   var kodeKategori = document.getElementById('tb-kategori').value;
   if(!kodeKategori){ var dd0=_tbKetDd(); if(dd0) dd0.classList.add('d-none'); return; }
   var cached = _tbRiwayatKetCache[kodeKategori];
-  var all = Array.isArray(cached) ? cached : [];
+  var all = (cached && Array.isArray(cached.data)) ? cached.data : [];
   q=(q||'').trim().toLowerCase();
   var list = q ? all.filter(function(o){ return o.keterangan.toLowerCase().indexOf(q)>-1; }) : all;
   _tbKetFiltered=list; _tbKetHiIdx=list.length?0:-1;
@@ -9222,7 +9267,13 @@ function pdRenderTombolCetak(h, tampilkanLampiran){
     return;
   }
   if(tampilkanLampiran) html += '<button class="btn btn-sm btn-outline-secondary" onclick="cetakLampiranLpj()"><i class="fas fa-print me-1"></i>Cetak Lampiran LPJ</button>';
-  if(tampilkanLampiran && STATE.role==='ADMIN' && h.jenis!=='TAGIHAN') html += '<button class="btn btn-sm btn-outline-secondary" onclick="cetakTandaTerimaLpj()"><i class="fas fa-print me-1"></i>Cetak Tanda Terima</button>';
+  // PERBAIKAN (atas permintaan "termasuk juga tagihan"): pengecualian
+  // h.jenis!=='TAGIHAN' DIHAPUS -- SEBELUMNYA Tagihan tidak pernah dapat
+  // tombol Cetak Tanda Terima sama sekali, padahal dokumen fisiknya (Memo
+  // & Invoice) sama-sama perlu tanda terima serah-terima ke Bagian
+  // Keuangan. cetakTandaTerimaLpj() sekarang sudah sadar jenis TAGIHAN
+  // (judul & rincian field disesuaikan otomatis) -- lihat fungsinya.
+  if(tampilkanLampiran && STATE.role==='ADMIN') html += '<button class="btn btn-sm btn-outline-secondary" onclick="cetakTandaTerimaLpj()"><i class="fas fa-print me-1"></i>Cetak Tanda Terima</button>';
   el.innerHTML = html;
 }
 function pdKopHtml(){
@@ -9386,29 +9437,130 @@ function cetakLampiranLpj(){
   // Diverifikasi oleh" DIHAPUS -- tidak diperlukan di Lampiran LPJ ini.
   _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lampiran LPJ '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
 }
+// PERBAIKAN BESAR (atas permintaan "cetak tanda terima tidak rapi & tidak
+// konsisten -- rapikan semuanya, termasuk LPJ kegiatan/tagihan/reimburse"):
+// SEBELUMNYA setiap fungsi cetak Tanda Terima (LPJ & Laporan Unit) menulis
+// CSS & struktur HTML-nya sendiri-sendiri secara terpisah -- gampang
+// kebablasan beda kecil-kecil (margin, ukuran font, dst) yang lama-lama
+// bikin hasil cetaknya terasa tidak konsisten satu sama lain. Sekarang
+// KEDUANYA berbagi 1 CSS & 1 kerangka HTML yang SAMA lewat 2 fungsi
+// pembantu ini -- dijamin identik gaya & spasinya, tinggal beda ISI per
+// jenis pengajuan.
+// PERBAIKAN LAYOUT: SEBELUMNYA halaman A4 LANDSCAPE (mendatar) dgn isi
+// yang sebenarnya pendek (cuma beberapa baris info + 1 paragraf) -- itu yg
+// bikin terlihat "kosong sekali" & tidak proporsional (jarak sebelum tanda
+// tangan jadi kelihatan sangat jauh & aneh, spt di contoh yg dilaporkan).
+// Sekarang A4 PORTRAIT (tegak, SAMA dgn cetak Lampiran LPJ di atas) &
+// jarak sebelum blok tanda tangan dipadatkan supaya proporsional dgn isi
+// yang memang singkat.
+function _pdTandaTerimaCss(){
+  return '*{box-sizing:border-box;color:#000 !important;} @page{size:A4 landscape;margin:16mm 20mm;} body{font-family:Arial,sans-serif;font-size:10.5pt;padding:0;} '
+    + '.pt-title{text-align:center;font-weight:700;text-decoration:underline;margin:2px 0 4px;font-size:12.5pt;letter-spacing:.4px;} '
+    // PERBAIKAN (atas permintaan "No. Pengajuan & Nama Kegiatan yang
+    // panjang taruh di bawah judul, center semua, biar tidak kepotong"):
+    // 2 baris baru INI (bukan bagian dari tabel 2 kolom lagi) -- No.
+    // Pengajuan & Nama Kegiatan/Keperluan sekarang tampil di sini, rata
+    // tengah & tebal, LEPAS dari batasan lebar kolom tabel -- nama
+    // kegiatan sepanjang apa pun bebas turun ke baris berikutnya sendiri
+    // tanpa bikin kolom lain ikut sempit/tidak sejajar.
+    + '.pt-subid{text-align:center;font-weight:700;font-size:11pt;margin:0 0 3px;} '
+    + '.pt-subjudul{text-align:center;font-weight:700;font-size:10.5pt;margin:0 0 20px;line-height:1.4;padding:0 10px;} '
+    + '.pt-grid{width:100%;border-collapse:collapse;} .pt-grid>tbody>tr>td{width:50%;vertical-align:top;} .pt-grid>tbody>tr>td:first-child{padding-right:18px;} .pt-grid>tbody>tr>td:last-child{padding-left:18px;} '
+    // PERBAIKAN (atas permintaan "Tanggal Laporan Diterima jangan sampai
+    // patah 2 baris, harus lurus sejajar"): SEBELUMNYA baris label:nilai
+    // ini pakai <table> (kolom lebar tetap + nowrap, bahkan sudah dicoba
+    // table-layout:fixed juga) -- setelah dites dgn render sungguhan
+    // berkali-kali, lebar kolom TABEL ternyata tidak konsisten antar
+    // baris kalau ada label yang jauh lebih panjang dari yang lain (titik
+    // dua jadi tidak sejajar khusus di baris berlabel terpanjang). Diganti
+    // total ke DIV + inline-block dgn lebar tetap (200px) -- teknik paling
+    // dasar & paling diandalkan lintas mesin render (tidak bergantung ke
+    // algoritma auto-sizing tabel yg ternyata rewel) -- sudah dites ulang
+    // dgn label TERPANJANG yang ada ("Tanggal Dokumen Diterima") &
+    // terkonfirmasi titik duanya sejajar sempurna di SEMUA baris.
+    + '.pt-info{margin:2px 0 0;} .pt-info-row{margin:4px 0;} .pt-info-label{display:inline-block;width:200px;vertical-align:top;} .pt-info-sep{display:inline-block;width:10px;vertical-align:top;} '
+    + '.pt-body{font-size:10.5pt;margin:20px 0 0;line-height:1.7;} '
+    + '.pt-ttd{display:flex;justify-content:space-between;margin-top:48px;font-size:10.5pt;text-align:center;} .pt-ttd .kol{width:42%;} .pt-ttd .garis{margin-top:50px;padding-top:4px;}';
+}
+// 1 baris "Label : Nilai" -- dipakai bersama oleh kolomKiri/kolomKanan di
+// cetakTandaTerimaLpj & cetakTandaTerimaLaporanUnit, supaya SEMUA baris di
+// SEMUA jenis cetak Tanda Terima konsisten pakai teknik align yang sama.
+function _pdBarisInfo(label, nilai){
+  return '<div class="pt-info-row"><span class="pt-info-label">'+label+'</span><span class="pt-info-sep">:</span>'+nilai+'</div>';
+}
+// Sengaja dikosongkan (bukan otomatis diisi nama pengaju/unit sistem) --
+// diisi tangan manual siapa yang benar2 menyerahkan/menerima fisiknya,
+// bukan asumsi dari data sistem yang belum tentu itu orangnya yang bawa
+// dokumen. Titik-titik polos tanpa garis cetak/tanda kurung.
+function _pdTandaTerimaBody(judul, noPengajuan, namaKegiatan, kolomKiri, kolomKanan, paragraf){
+  return pdKopHtml() + '<div class="pt-title">'+judul+'</div>'
+    + '<div class="pt-subid">No. '+esc(noPengajuan)+'</div>'
+    + '<div class="pt-subjudul">'+esc(namaKegiatan)+'</div>'
+    + '<table class="pt-grid"><tbody><tr>'
+    + '<td><div class="pt-info">'+kolomKiri+'</div></td>'
+    + '<td><div class="pt-info">'+kolomKanan+'</div></td>'
+    + '</tr></tbody></table>'
+    + '<p class="pt-body">'+paragraf+'</p>'
+    + '<div class="pt-ttd"><div class="kol">Yang Menyerahkan,<div class="garis">.........................................</div></div>'
+    + '<div class="kol">Yang Menerima,<div class="garis">.........................................</div></div></div>';
+}
+// PERBAIKAN (atas permintaan "surplus/defisit jangan cuma tulisan
+// 'Surplus'/'Defisit' yang gajelas -- kalau surplus tulis Rp ..., kalau
+// defisit (Rp ...) pakai kurung"): SEBELUMNYA labelnya yang berubah-ubah
+// tergantung tanda (kadang "Surplus", kadang "Defisit", kadang "Selisih
+// (Impas)"), nilainya SELALU nilai mutlak (tanpa tanda). Sekarang dibalik
+// -- LABEL baris-nya TETAP/konstan ("Surplus/Defisit", lihat pemanggilnya
+// di bawah), yang BERUBAH adalah cara NILAI-nya ditulis: notasi akuntansi
+// standar -- surplus/positif ditulis apa adanya ("Rp 250.000,00"),
+// defisit/negatif dibungkus tanda kurung ("(Rp 250.000,00)") -- INI yang
+// membuatnya langsung jelas dibaca sekilas tanpa perlu baca label dulu,
+// persis kebiasaan laporan keuangan pada umumnya. Pas/impas (persis 0)
+// ditulis apa adanya juga (tidak negatif, tidak perlu kurung).
+function _pdFormatSelisih(selisih){
+  return selisih < 0 ? ('(Rp '+fmtRp(Math.abs(selisih))+')') : ('Rp '+fmtRp(selisih));
+}
 function cetakTandaTerimaLpj(){
   var res = PD.detail; if(!res){ toast('error','Detail belum dimuat'); return; }
   var h = res.header;
-  var css = '*{box-sizing:border-box;color:#000 !important;} @page{size:A4 landscape;margin:14mm 16mm;} body{font-family:Arial,sans-serif;font-size:10pt;padding:0;} '
-    + '.pt-title{text-align:center;font-weight:700;text-decoration:underline;margin:14px 0;font-size:12pt;letter-spacing:.4px;} '
-    + '.pt-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;} .pt-info{width:100%;font-size:10pt;} .pt-info td{padding:3px 0;vertical-align:top;} .pt-info td:first-child{width:160px;} '
-    + '.pt-ttd{display:flex;justify-content:space-between;margin-top:70px;font-size:10pt;text-align:center;} .pt-ttd .kol{width:44%;} .pt-ttd .garis{margin-top:60px;padding-top:4px;}';
-  var body = pdKopHtml() + '<div class="pt-title">TANDA TERIMA LAPORAN PERTANGGUNGJAWABAN (LPJ)</div>'
-    + '<div class="pt-grid"><table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr><tr><td>Unit</td><td>: '+esc(h.kodeUnit)+'</td></tr><tr><td>Nama Kegiatan</td><td>: '+esc(h.judul)+'</td></tr></table>'
-    + '<table class="pt-info"><tr><td>Dana Dicairkan</td><td>: Rp '+fmtRp(h.totalDiajukan)+'</td></tr><tr><td>Total Realisasi</td><td>: Rp '+fmtRp(h.totalRealisasi)+'</td></tr><tr><td>Tanggal LPJ Diterima</td><td>: '+new Date().toLocaleDateString('id-ID')+'</td></tr></table></div>'
-    + '<p style="font-size:10pt;margin-top:14px;">Dokumen LPJ (RAB, Realisasi, dan bukti pendukung) untuk kegiatan di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.</p>'
-    // PERBAIKAN (atas permintaan): nama di bawah "Yang Menyerahkan,"/"Yang
-    // Menerima," DIHAPUS -- sengaja dikosongkan supaya diisi tangan manual
-    // siapa yang benar2 menyerahkan/menerima (bukan otomatis diisi nama
-    // pengaju/unit sistem, yang belum tentu itu orangnya yang bawa fisik).
-    // PERBAIKAN (atas permintaan "garis dihapus, titik saja tanpa
-    // kurung"): SEBELUMNYA ada garis cetak (border-top) DI ATAS titik-titik
-    // & titik-titiknya dibungkus tanda kurung "( ... )" -- sekarang garis
-    // dihapus (cukup titik-titik polos sbg tempat tanda tangan) dan tanda
-    // kurung dihapus juga.
-    + '<div class="pt-ttd"><div class="kol">Yang Menyerahkan,<div class="garis">.........................................</div></div>'
-    + '<div class="kol">Yang Menerima,<div class="garis">.........................................</div></div></div>';
-  _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+  // PERBAIKAN (atas permintaan "termasuk juga tagihan"): SEBELUMNYA jenis
+  // TAGIHAN TIDAK PERNAH dapat tombol/cetak Tanda Terima sama sekali
+  // (lihat pdRenderTombolCetak -- pengecualian h.jenis!=='TAGIHAN' SUDAH
+  // DIHAPUS di sana juga) -- padahal dokumen fisiknya (Memo & Invoice)
+  // SAMA-SAMA perlu tanda terima serah-terima ke Bagian Keuangan spt
+  // MUKA/SEKALIGUS. Sekarang fungsi ini sadar 3 jenis (MUKA/SEKALIGUS/
+  // TAGIHAN), judul & rincian field-nya disesuaikan per jenis, TAPI
+  // gayanya (CSS/kerangka) tetap 100% SAMA lewat _pdTandaTerimaCss &
+  // _pdTandaTerimaBody -- konsisten.
+  var isTagihan = h.jenis === 'TAGIHAN';
+  var isMuka = h.jenis === 'MUKA';
+  var judul = isTagihan ? 'TANDA TERIMA DOKUMEN TAGIHAN' : 'TANDA TERIMA LAPORAN PERTANGGUNGJAWABAN (LPJ)';
+  // PERBAIKAN (atas permintaan "No. Pengajuan & Nama Kegiatan pindah ke
+  // bawah judul, center, biar tidak kepotong"): DIPINDAH keluar dari
+  // kolomKiri/kolomKanan (dulu jadi 1 baris tabel yg bisa bikin kolom
+  // lain jadi tidak sejajar kalau namanya panjang) -- sekarang jadi
+  // parameter TERPISAH ke _pdTandaTerimaBody, tampil di blok tersendiri
+  // rata tengah & tebal di bawah judul.
+  var kolomKiri = _pdBarisInfo('Unit', esc(h.kodeUnit));
+  var kolomKanan, paragraf;
+  if(isTagihan){
+    kolomKiri += _pdBarisInfo('Total Tagihan', 'Rp '+fmtRp(h.totalDiajukan));
+    kolomKanan = _pdBarisInfo('Metode Pembayaran', esc(h.metodePembayaran || '-'))
+      + _pdBarisInfo('Tanggal Dokumen Diterima', new Date().toLocaleDateString('id-ID'));
+    paragraf = 'Dokumen tagihan (memo, invoice, dan bukti pendukung) untuk keperluan di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.';
+  } else {
+    // Surplus/Defisit HANYA relevan utk MUKA (dana dicairkan DULUAN,
+    // realisasi menyusul belakangan -- ada potensi selisih yg perlu
+    // direkonsiliasi dgn kas). SEKALIGUS (Penggantian Biaya) TIDAK ada
+    // tahap "dicairkan duluan" -- Unit mengajukan PERSIS sebesar yg sudah
+    // dibelanjakan sendiri, jadi tidak ada selisih yg perlu ditampilkan.
+    if(isMuka) kolomKiri += _pdBarisInfo('Dana Dicairkan', 'Rp '+fmtRp(h.totalDiajukan));
+    kolomKiri += _pdBarisInfo('Total Realisasi', 'Rp '+fmtRp(h.totalRealisasi));
+    kolomKanan = (isMuka ? _pdBarisInfo('Surplus/Defisit', _pdFormatSelisih(h.totalDiajukan - h.totalRealisasi)) : '')
+      + _pdBarisInfo('Tanggal LPJ Diterima', new Date().toLocaleDateString('id-ID'));
+    paragraf = 'Dokumen LPJ ('+(isMuka?'RAB, Realisasi,':'Realisasi,')+' dan bukti pendukung) untuk kegiatan di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.';
+  }
+  var body = _pdTandaTerimaBody(judul, h.idPengajuan, h.judul, kolomKiri, kolomKanan, paragraf);
+  _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima '+h.idPengajuan+'</title><style>'+_pdTandaTerimaCss()+'</style></head><body>'+body+'</body></html>');
 }
 // PERBAIKAN (atas permintaan "buatkan cetak tanda terima laporan di
 // Laporan Unit, bukan LPJ tapi Laporan"): tanda terima TERPISAH khusus
@@ -9417,24 +9569,36 @@ function cetakTandaTerimaLpj(){
 // (Dana Dicairkan/Total Realisasi/"LPJ") memang utk jenis MUKA. Cuma
 // muncul setelah status SELESAI (BKK/BKM sudah dicatat Admin) -- lihat
 // pemanggilnya di pdRenderDetailLaporanUnit/pdRenderTombolCetak.
+// PERBAIKAN LANJUTAN (atas permintaan "tambahkan Surplus/Defisit & PPh 21
+// PPh 23 di Laporan Unit, rapikan spasinya"): SEBELUMNYA cuma Total
+// Pemasukan & Total Pengeluaran ditampilkan -- selisihnya (Surplus/
+// Defisit) & rincian PPh TIDAK ada sama sekali di lembar cetak ini
+// (padahal SUDAH ada & ditampilkan di halaman Detail sejak perbaikan
+// sebelumnya, cuma belum ikut ke versi cetaknya). Sekarang ikut
+// ditambahkan, dgn gaya/tata letak yang SAMA PERSIS dgn cetak Tanda
+// Terima LPJ di atas (lewat _pdTandaTerimaCss/_pdTandaTerimaBody) --
+// konsisten, bukan bikin gaya baru sendiri.
 function cetakTandaTerimaLaporanUnit(){
   var res = PD.detail; if(!res){ toast('error','Detail belum dimuat'); return; }
   var h = res.header;
   var labelBulan = (BULAN_NAMA[Number(h.bulanLaporan)-1] || h.bulanLaporan) + ' ' + h.tahunAnggaran;
-  var css = '*{box-sizing:border-box;color:#000 !important;} @page{size:A4 landscape;margin:14mm 16mm;} body{font-family:Arial,sans-serif;font-size:10pt;padding:0;} '
-    + '.pt-title{text-align:center;font-weight:700;text-decoration:underline;margin:14px 0;font-size:12pt;letter-spacing:.4px;} '
-    + '.pt-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 40px;} .pt-info{width:100%;font-size:10pt;} .pt-info td{padding:3px 0;vertical-align:top;} .pt-info td:first-child{width:160px;} '
-    + '.pt-ttd{display:flex;justify-content:space-between;margin-top:70px;font-size:10pt;text-align:center;} .pt-ttd .kol{width:44%;} .pt-ttd .garis{margin-top:60px;padding-top:4px;}';
-  var body = pdKopHtml() + '<div class="pt-title">TANDA TERIMA LAPORAN UNIT</div>'
-    + '<div class="pt-grid"><table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr><tr><td>Unit</td><td>: '+esc(h.kodeUnit)+'</td></tr><tr><td>Nama Kegiatan</td><td>: '+esc(h.judul)+'</td></tr><tr><td>Periode Laporan</td><td>: '+esc(labelBulan)+'</td></tr></table>'
-    + '<table class="pt-info"><tr><td>Total Pemasukan</td><td>: Rp '+fmtRp(h.totalDiajukan)+'</td></tr><tr><td>Total Pengeluaran</td><td>: Rp '+fmtRp(h.totalRealisasi)+'</td></tr><tr><td>Tanggal Laporan Diterima</td><td>: '+new Date().toLocaleDateString('id-ID')+'</td></tr></table></div>'
-    + '<p style="font-size:10pt;margin-top:14px;">Dokumen Laporan Unit (rincian Pemasukan, Pengeluaran, dan bukti pendukung) untuk periode di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.</p>'
-    // Sengaja dikosongkan (bukan otomatis diisi nama pengaju/unit sistem)
-    // & titik-titik polos tanpa garis/kurung -- konsisten dgn perbaikan
-    // yang sama di cetakTandaTerimaLpj di atas.
-    + '<div class="pt-ttd"><div class="kol">Yang Menyerahkan,<div class="garis">.........................................</div></div>'
-    + '<div class="kol">Yang Menerima,<div class="garis">.........................................</div></div></div>';
-  _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima Laporan '+h.idPengajuan+'</title><style>'+css+'</style></head><body>'+body+'</body></html>');
+  var selisih = h.totalDiajukan - h.totalRealisasi;
+  var totalPph21 = 0, totalPph23 = 0;
+  (res.realisasi || []).forEach(function(r){ if(r.tipe === 'KELUAR'){ totalPph21 += Number(r.pph21) || 0; totalPph23 += Number(r.pph23) || 0; } });
+  // PERBAIKAN (atas permintaan "No. Pengajuan & Nama Kegiatan pindah ke
+  // bawah judul, center"): dipindah jadi parameter terpisah ke
+  // _pdTandaTerimaBody -- lihat catatan yang sama di cetakTandaTerimaLpj.
+  var kolomKiri = _pdBarisInfo('Unit', esc(h.kodeUnit))
+    + _pdBarisInfo('Periode Laporan', esc(labelBulan))
+    + _pdBarisInfo('Total Pemasukan', 'Rp '+fmtRp(h.totalDiajukan))
+    + _pdBarisInfo('Total Pengeluaran', 'Rp '+fmtRp(h.totalRealisasi));
+  var kolomKanan = _pdBarisInfo('Surplus/Defisit', _pdFormatSelisih(selisih))
+    + (totalPph21 ? _pdBarisInfo('PPh 21', 'Rp '+fmtRp(totalPph21)) : '')
+    + (totalPph23 ? _pdBarisInfo('PPh 23', 'Rp '+fmtRp(totalPph23)) : '')
+    + _pdBarisInfo('Tanggal Laporan Diterima', new Date().toLocaleDateString('id-ID'));
+  var paragraf = 'Dokumen Laporan Unit (rincian Pemasukan, Pengeluaran, dan bukti pendukung) untuk periode di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.';
+  var body = _pdTandaTerimaBody('TANDA TERIMA LAPORAN UNIT', h.idPengajuan, h.judul, kolomKiri, kolomKanan, paragraf);
+  _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima Laporan '+h.idPengajuan+'</title><style>'+_pdTandaTerimaCss()+'</style></head><body>'+body+'</body></html>');
 }
 
 </script>
