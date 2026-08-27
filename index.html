@@ -226,6 +226,25 @@
 .pd-cmt-who{ font-weight:700; font-size:.78rem; }
 .pd-cmt-txt{ font-size:.82rem; color:#374151; }
 .pd-cmt-time{ font-size:.68rem; color:#9ca3af; }
+/* FITUR BARU: panel "Riwayat Keputusan" -- timeline vertikal tanggal tiap
+   keputusan (Diajukan/Disetujui/Ditolak/Revisi/Dicairkan/dst), ditaruh di
+   BAWAH mini-stepper (di dalam <details>, tertutup by default supaya tidak
+   memenuhi layar kalau siklus revisinya panjang -- tinggal klik utk buka). */
+.pd-riwayat-wrap{ margin-bottom:1rem; }
+.pd-riwayat-wrap summary{ cursor:pointer; font-size:.82rem; font-weight:700; color:var(--maroon); list-style:none; display:flex; align-items:center; gap:6px; }
+.pd-riwayat-wrap summary::-webkit-details-marker{ display:none; }
+.pd-riwayat-wrap summary .fa-chevron-right{ transition:.15s; font-size:.68rem; }
+.pd-riwayat-wrap[open] summary .fa-chevron-right{ transform:rotate(90deg); }
+.pd-riwayat-list{ margin-top:10px; padding-left:2px; }
+.pd-riwayat-item{ display:flex; gap:10px; padding:7px 0; border-top:1px dashed #e5e7eb; }
+.pd-riwayat-item:first-child{ border-top:none; }
+.pd-riwayat-dot{ width:9px; height:9px; border-radius:50%; background:var(--maroon); margin-top:5px; flex-shrink:0; }
+.pd-riwayat-item.rv-revisi .pd-riwayat-dot{ background:#f97316; }
+.pd-riwayat-item.rv-ditolak .pd-riwayat-dot{ background:#dc2626; }
+.pd-riwayat-item.rv-selesai .pd-riwayat-dot{ background:#16a34a; }
+.pd-riwayat-aksi{ font-weight:700; font-size:.8rem; color:#374151; }
+.pd-riwayat-meta{ font-size:.68rem; color:#9ca3af; }
+.pd-riwayat-catatan{ font-size:.78rem; color:#4b5563; margin-top:2px; }
 
 </style>
 </head>
@@ -1178,6 +1197,8 @@
         <div class="card mb-3"><div class="card-body">
           <div class="pd-ministep" id="pd-ministep"></div>
         </div></div>
+
+        <div id="pd-riwayat"></div>
 
         <div id="pd-blocks"></div>
       </div>
@@ -2786,6 +2807,7 @@ function editTransaksi(id, btn){
   }).then(function(res){
     if(!res.isConfirmed) return;
     var hasil = res.value;
+    _resetSaranKetCache(); // Pos/status verifikasi mungkin berubah -- lihat catatan di deklarasi fungsi ini
     if(hasil.kembalikanKeBelumJelas){
       toast('success','Tersimpan & dikembalikan ke daftar Belum Jelas Pos-nya');
       // Pindah BUCKET (dari Pos spesifik ke "Belum Jelas") -- bukan sekadar
@@ -3015,6 +3037,7 @@ function editTransaksiRK(id, btn){
   }).then(function(res){
     if(!res.isConfirmed) return;
     var v = res.value;
+    _resetSaranKetCache(); // Pos/status verifikasi mungkin berubah -- lihat catatan di deklarasi fungsi ini
     delete CACHE.rekap[STATE.tahunAktif + '_' + bulan]; // data yang sama juga tampil di "Input Rekap Bulanan" -> jangan sampai basi di sana (pakai bulan di HALAMAN INI, bukan filter halaman lain)
     delete CACHE.tambahan[STATE.tahunAktif + '_' + bulan]; // juga tampil di "Input Non Unit"
     delete CACHE.belumVerifikasi[STATE.tahunAktif + '_' + bulan];
@@ -3457,6 +3480,25 @@ window.addEventListener('resize', function(){ if(_gcKetActiveId!=null) _gcKetPla
 var _tbKetFiltered = [];
 var _tbKetHiIdx = -1;
 var _tbRiwayatKetCache = {}; // kodeKategori -> {data:array, waktu:timestamp} (selesai, ada TTL) ATAU {promise:Promise} (sedang dimuat)
+// PERBAIKAN BUG NYATA (atas laporan: "transaksi yang sudah di-ACC/
+// diverifikasi Unit -- baik di Input Rekap Bulanan Unit maupun Non-Unit --
+// tidak pernah muncul lagi di saran Keterangan berikutnya, padahal
+// tercatat ada"): TTL 2 menit di _gcMuatRiwayatKet/_tbMuatRiwayatKet di
+// atas SUDAH menangani staleness DARI WAKTU KE WAKTU, TAPI belum proaktif
+// dibersihkan TEPAT SAAT sebuah transaksi berpindah Pos/status verifikasi
+// (klaim "Belum Jelas" -> Pos asli, ubah Pos, kembalikan ke "Belum
+// Jelas", atau diedit manual dari Daftar Transaksi/Rekening Koran/
+// Konsolidasi) -- kalau user langsung pindah ke Input Rekap Bulanan dalam
+// jendela 2 menit itu, saran yang tampil MASIH versi LAMA (belum
+// termasuk transaksi yang baru saja pindah), persis laporan di atas.
+// Dipanggil di SEMUA titik yang bisa mengubah Pos/status verifikasi
+// transaksi (lihat pemanggilnya masing-masing) supaya saran PASTI segar
+// seketika itu juga, tanpa perlu menunggu TTL habis. Direset PENUH
+// (bukan cuma 1 kodePos/kodeKategori tertentu) -- lebih aman & sederhana
+// drpd menghitung persis kodePos mana saja yang terpengaruh di tiap
+// titik, dan biayanya murah (aggregasi ini kecil & jarang dipanggil,
+// cuma sesudah aksi ubah Pos, bukan tiap keystroke).
+function _resetSaranKetCache(){ _gcRiwayatKetCache = {}; _tbRiwayatKetCache = {}; }
 function _tbKetDd(){ return document.getElementById('tb-ket-dd'); }
 function _tbKetPlace(){
   var inp=document.getElementById('tb-keterangan'); var dd=_tbKetDd(); if(!inp||!dd) return;
@@ -3797,6 +3839,7 @@ function bukaVerifikasiTransaksi(id){
   }).then(function(res){
     if(!res.isConfirmed) return;
     toast('success','Dikonfirmasi, transaksi dipindahkan ke Pos terpilih');
+    _resetSaranKetCache(); // baru saja diklaim ke Pos ini -- lihat catatan di deklarasi fungsi ini
     delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
     delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
     // PERBAIKAN BUG: sebelumnya cache Rekap Konsolidasi & Rekonsiliasi Bank
@@ -3843,6 +3886,7 @@ function bukaUbahPosVerifikasi(id, kodePosSaatIni){
   }).then(function(res){
     if(!res.isConfirmed) return;
     toast('success','Pos berhasil diubah');
+    _resetSaranKetCache(); // pindah Pos -- lihat catatan di deklarasi fungsi ini
     delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
     delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
     loadViewVerifikasiData();
@@ -3871,6 +3915,7 @@ function kembalikanTransaksiVerifikasi(id){
   }).then(function(res){
     if(!res.isConfirmed) return;
     toast('success','Transaksi dikembalikan ke daftar Belum Jelas Pos-nya');
+    _resetSaranKetCache(); // dikembalikan ke Belum Jelas -- lihat catatan di deklarasi fungsi ini
     delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
     delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
     delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
@@ -4403,6 +4448,7 @@ function editTransaksiKonso(id, bulan){
     }
   }).then(function(res){
     if(!res.isConfirmed) return;
+    _resetSaranKetCache(); // Pos mungkin berubah (kodePosBaru) -- lihat catatan di deklarasi fungsi ini
     delete _konsolidasiRawCache[key]; // data sudah berubah -- paksa ambil ulang, jangan pakai cache basi
     delete CACHE.rekap[key]; // ikut tampil di "Input Rekap Bulanan" juga
     toast('success','Tersimpan');
@@ -4429,6 +4475,7 @@ function kembalikanTransaksiKonso(id, bulan){
   }).then(function(res){
     if(!res.isConfirmed) return;
     var key = STATE.tahunAktif + '_' + bulan;
+    _resetSaranKetCache(); // dikembalikan ke Belum Jelas -- lihat catatan di deklarasi fungsi ini
     delete _konsolidasiRawCache[key];
     delete CACHE.rekap[key];
     delete CACHE.belumVerifikasi[key];
@@ -8317,6 +8364,11 @@ function pdRenderMinistep(labels, t, revisiTahap, ditolakTahap){
   }
   return html;
 }
+// Format tanggal+jam konsisten (dipakai bareng oleh badge tanggal
+// keputusan inline & panel Riwayat Keputusan) -- '-' kalau kosong.
+function pdFmtWaktu(w){
+  return w ? new Date(w).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
+}
 function pdBlock(icon, judul, state, badgeHtml, bodyHtml){
   return '<div class="pd-block '+state+'"><div class="card"><div class="card-body">'
     + '<div class="pd-block-head"><div class="section-title"><i class="fas '+icon+'"></i>'+judul+'</div>'+(badgeHtml||'')+'</div>'
@@ -8403,6 +8455,43 @@ function pdFileVersiTerakhir(fileArr, tipe){
   return punya.filter(function(f){ return f.versiKe===maxV; })[0];
 }
 
+// ============================================================
+// FITUR BARU (atas permintaan: "tambahkan tanggal setiap keputusannya --
+// misal revisi, disetujui, dikembalikan utk revisi, dll -- supaya saya bisa
+// mengetahui tracknya") -- panel "Riwayat Keputusan": daftar TANGGAL & JAM
+// persis tiap keputusan yang pernah terjadi di 1 pengajuan (Diajukan,
+// Diminta Revisi, Disetujui, Ditolak, Dikirim Ulang, Dicairkan, LPJ
+// Dikirim, dst), diambil dari res.riwayat (lihat _lampiranDetailPengajuan &
+// _catatRiwayatPengajuan di Code.gs -- data ini SUDAH terurut dari yang
+// PALING AWAL ke PALING BARU). Ditaruh DI BAWAH mini-stepper (sesuai
+// permintaan "dibawah track boleh"), dibungkus <details> BAWAAN BROWSER
+// (tanpa JS tambahan, jadi TIDAK menambah beban render) -- tertutup by
+// default supaya tidak memenuhi layar kalau siklus revisi-nya sudah
+// panjang, tinggal diklik utk dibuka. Dipanggil SEKALI dari pdRenderDetail
+// (titik masuk BERSAMA utk ke-3 jenis tampilan Detail: MUKA/Singkat/
+// Laporan Unit) supaya tidak perlu diduplikasi 3x.
+function pdRiwayatKelasBaris(aksi){
+  var a = (aksi || '').toLowerCase();
+  if(a.indexOf('revisi') !== -1) return 'rv-revisi';
+  if(a.indexOf('ditolak') !== -1) return 'rv-ditolak';
+  if(a.indexOf('selesai') !== -1 || a.indexOf('dicairkan') !== -1) return 'rv-selesai';
+  return '';
+}
+function pdRenderRiwayat(riwayat){
+  var wrap = document.getElementById('pd-riwayat');
+  if(!wrap) return;
+  if(!riwayat || !riwayat.length){ wrap.innerHTML = ''; return; }
+  var items = riwayat.map(function(r){
+    var waktu = r.waktu ? new Date(r.waktu).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
+    return '<div class="pd-riwayat-item '+pdRiwayatKelasBaris(r.aksi)+'"><div class="pd-riwayat-dot"></div><div>'
+      + '<div class="pd-riwayat-aksi">'+esc(r.aksi)+'</div>'
+      + '<div class="pd-riwayat-meta">'+waktu+(r.namaOleh ? (' \u00b7 '+esc(r.namaOleh)) : '')+'</div>'
+      + (r.catatan ? '<div class="pd-riwayat-catatan">'+esc(r.catatan)+'</div>' : '')
+      + '</div></div>';
+  }).join('');
+  wrap.innerHTML = '<details class="pd-riwayat-wrap card"><summary class="card-body py-2 px-3"><i class="fas fa-chevron-right"></i><i class="fas fa-clock-rotate-left"></i>Riwayat Keputusan ('+riwayat.length+')</summary>'
+    + '<div class="card-body pt-0"><div class="pd-riwayat-list">'+items+'</div></div></details>';
+}
 function pdRenderDetail(res){
   var h = res.header;
   // PERBAIKAN BUG PENTING ("kalau Tunai jadi narik upload dari yang lain"):
@@ -8426,6 +8515,7 @@ function pdRenderDetail(res){
   var bs = PD_BADGE_STATUS[h.status] || ['badge-pd', h.status];
   var badge = document.getElementById('pd-d-status-badge');
   badge.className = 'badge-pd d-inline-block mt-1 ' + bs[0]; badge.textContent = pdLabelStatus(h);
+  pdRenderRiwayat(res.riwayat);
 
   if(h.jenis === 'MUKA') pdRenderDetailMuka(res);
   else if(h.jenis === 'LAPORAN_UNIT') pdRenderDetailLaporanUnit(res);
@@ -8457,7 +8547,7 @@ function pdRenderDetailMuka(res){
     PD.rab = res.detail.length ? res.detail.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal}; }) : [{namaKomponen:'',keterangan:'',nominal:0}];
     PD.suratFile = null;
     html += pdBlock('fa-file-lines','1. Pengajuan Dana','revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
-      (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
+      (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisiTerakhir.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
       + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit memperbaiki & mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki RAB &amp; surat, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:32%">Nama Komponen</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-rab-revisi"></tbody></table></div>'
@@ -8478,7 +8568,7 @@ function pdRenderDetailMuka(res){
   // lagi tahap 1) ATAU Tolak (alur berhenti, tetap seperti sebelumnya).
   if(map.ditolak===2){
     html += pdBlock('fa-gavel','2. Persetujuan Admin','done','<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
-      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
+      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
     document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
   }
   if(h.status==='PERLU_REVISI' && !h.tglDicairkan){
@@ -8502,7 +8592,7 @@ function pdRenderDetailMuka(res){
       ? '<div class="pd-locked-note" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-top:10px;"><i class="fas fa-sack-dollar"></i><div>Pengajuan sudah disetujui. Silakan lakukan pencairan dana di Bagian Keuangan dengan membawa <b>surat pengajuan asli (hardcopy)</b> sebagai syarat pencairan.</div></div>'
       : '';
     html += pdBlock('fa-gavel','2. Persetujuan Admin','done','<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
       + infoPencairan);
   } else {
     html += pdBlock('fa-gavel','2. Persetujuan Admin','locked','', pdLockedBody('Menunggu tahap Pengajuan selesai diproses.'));
@@ -8530,7 +8620,7 @@ function pdRenderDetailMuka(res){
     PD.lpjFileEdit = null;
     PD.komponenTerbatasRealisasi = res.detail.map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
-      (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
+      (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisiTerakhir.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
       + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki realisasi &amp; bukti LPJ, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
@@ -8742,7 +8832,7 @@ function pdRenderDetailSingkat(res){
     PD.lpjFileEdit = null;
     PD.komponenTerbatasRealisasi = null; // Penggantian Biaya tidak punya RAB -- tetap pakai daftar komponen lengkap
     html += pdBlock('fa-receipt', judul1, 'revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
-      (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
+      (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisi.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
       + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki rincian, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
@@ -8771,7 +8861,7 @@ function pdRenderDetailSingkat(res){
   // tahap 3 terpisah (lihat di bawah), SETELAH disetujui di sini.
   if(map.ditolak===2){
     html += pdBlock('fa-gavel', judul2, 'done', '<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
-      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
+      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
     document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
   }
   if(st(2)==='active'){
@@ -8810,7 +8900,7 @@ function pdRenderDetailSingkat(res){
           : '<div class="pd-locked-note" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-top:10px;"><i class="fas fa-sack-dollar"></i><div>Pengajuan sudah disetujui. Silakan serahkan bukti LPJ asli (hardcopy) beserta bukti-bukti penyerta ke Bagian Keuangan sebagai syarat pencairan penggantian dana.</div></div>')
       : '';
     html += pdBlock('fa-gavel', judul2, 'done', '<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
       + infoPencairan2);
   } else {
     html += pdBlock('fa-gavel', judul2, 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
@@ -9112,7 +9202,7 @@ function pdRenderDetailLaporanUnit(res){
     if(!PD.laporanEditKeluar.length) PD.laporanEditKeluar = [{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.laporanEditBuktiFile = null;
     html += pdBlock('fa-store', '1. Laporan '+labelBulan, 'revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
-      (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
+      (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisi.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
       + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki rincian Pemasukan/Pengeluaran & bukti, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="fw-bold small text-success mb-1"><i class="fas fa-circle-plus me-1"></i>Pemasukan</div>'
@@ -9159,7 +9249,7 @@ function pdRenderDetailLaporanUnit(res){
   // Kasir di tahap 3 terpisah (lihat di bawah), SETELAH disetujui di sini.
   if(map.ditolak===2){
     html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'done', '<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
-      '<div class="fw-bold small" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
+      '<div class="fw-bold small" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
     document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
   }
   if(st(2)==='active'){
@@ -9171,7 +9261,7 @@ function pdRenderDetailLaporanUnit(res){
         : pdCatatanTunggu('Menunggu diverifikasi Admin Pusat.'));
   } else if(st(2)==='done'){
     html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'done', '<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>');
+      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>');
   } else {
     html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
   }
