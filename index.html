@@ -56,6 +56,21 @@
   .tbl tbody tr:hover { background:#fafafa; }
   .tbl tfoot td { font-weight:700; background:#fff0f0; color:var(--maroon); }
   .tbl tr.row-optimistic { opacity:.55; }
+  /* PERBAIKAN (atas laporan: kolom Tanggal & Nominal di tabel "Daftar
+     Pengajuan" pecah/terbelah jadi 2 baris -- mis. "Rp" & "83.833.353,00"
+     jadi 2 baris, "27 Agu" & "2026" jadi 2 baris -- gara2 kolom Kegiatan
+     (judul, sering panjang) merebut sisa lebar tabel tanpa batas, jadi
+     kolom lain kehabisan tempat & browser memaksa membungkus di spasi
+     terdekat). Kolom Tanggal/Nominal DIPAKSA 1 baris (tidak boleh pecah),
+     sedangkan kolom Kegiatan DIBATASI lebarnya (boleh melipat ke bawah
+     kalau judulnya panjang) supaya sisa lebar cukup utk kolom lain --
+     sesuai saran: "keterangan bisa diperpendek lebarnya". Class ini
+     SENGAJA dibuat khusus (bukan menimpa ".tbl td" global) supaya TIDAK
+     ikut memengaruhi tabel lain yang juga memakai class ".tbl" di
+     seluruh halaman (RAB, Realisasi, Laporan, dst). */
+  #pd-tbody td.pd-col-tgl, #pd-tbody td.pd-col-nominal { white-space:nowrap; }
+  #pd-tbody td.pd-col-kegiatan { max-width:280px; }
+  @media (min-width:1200px){ #pd-tbody td.pd-col-kegiatan { max-width:380px; } }
   /* Ringkasan Laporan Unit (Saldo Awal -> Pemasukan/Pengeluaran -> Saldo
      Akhir) -- sengaja dibuat seperti "alur hitungan" berwarna, bukan tabel
      polos, supaya (a) pemasukan vs pengeluaran gampang dibedakan sekilas
@@ -7548,8 +7563,8 @@ function pdRenderDaftarTable(){
       var tglD = p.tglPengajuan ? new Date(p.tglPengajuan).toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '-';
       return '<tr>'
         + '<td class="text-nowrap"><span class="text-muted small">&mdash;</span><br><span class="badge-pd" style="background:'+bjD[0]+';color:'+bjD[1]+';">'+bjD[2]+'</span></td>'
-        + '<td>'+esc(p.judul)+'</td><td class="text-muted small">&mdash; belum dikirim &mdash;</td><td>'+tglD+'</td>'
-        + '<td class="text-end">-</td>'
+        + '<td class="pd-col-kegiatan">'+esc(p.judul)+'</td><td class="text-muted small">&mdash; belum dikirim &mdash;</td><td class="pd-col-tgl">'+tglD+'</td>'
+        + '<td class="text-end pd-col-nominal">-</td>'
         + '<td><span class="badge-pd badge-pd-draft">Draft</span></td>'
         + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick="pdLanjutkanDraftBaru(\''+p.__draftKey+'\', this)" title="Lanjutkan mengedit"><i class="fas fa-pen"></i></button>'
         + '<button class="btn btn-sm btn-outline-danger" onclick="pdHapusDraftUI(\''+p.__draftKey+'\', this)" title="Hapus Draft"><i class="fas fa-trash"></i></button></td>'
@@ -7574,13 +7589,13 @@ function pdRenderDaftarTable(){
       // Atas permintaan: cuma angkanya saja, tanpa tulisan "Surplus"/"Defisit"
       // -- defisit dibedakan lewat tanda minus & warna saja (bukan teks).
       var selisihLu = (Number(p.totalDiajukan)||0) - (Number(p.totalRealisasi)||0);
-      kolomNominal = '<td class="text-end" style="color:'+(selisihLu>=0?'#166534':'#9a3412')+';">'+(selisihLu<0?'-':'')+'Rp '+fmtRp(Math.abs(selisihLu))+'</td>';
+      kolomNominal = '<td class="text-end pd-col-nominal" style="color:'+(selisihLu>=0?'#166534':'#9a3412')+';">'+(selisihLu<0?'-':'')+'Rp '+fmtRp(Math.abs(selisihLu))+'</td>';
     } else {
-      kolomNominal = '<td class="text-end">Rp '+fmtRp(p.totalDiajukan)+'</td>';
+      kolomNominal = '<td class="text-end pd-col-nominal">Rp '+fmtRp(p.totalDiajukan)+'</td>';
     }
     return '<tr>'
       + '<td class="text-nowrap"><b>'+p.idPengajuan+'</b><br><span class="badge-pd" style="background:'+bj[0]+';color:'+bj[1]+';">'+bj[2]+'</span></td>'
-      + '<td>'+esc(p.judul)+(p.jumlahKomentar>0 ? ' <span class="text-muted small" title="Ada '+p.jumlahKomentar+' komentar"><i class="fas fa-comment-dots"></i> '+p.jumlahKomentar+'</span>' : '')+'</td><td>'+esc(p.diajukanOlehNama || p.diajukanOleh || p.kodeUnit)+'</td><td>'+tgl+'</td>'
+      + '<td class="pd-col-kegiatan">'+esc(p.judul)+(p.jumlahKomentar>0 ? ' <span class="text-muted small" title="Ada '+p.jumlahKomentar+' komentar"><i class="fas fa-comment-dots"></i> '+p.jumlahKomentar+'</span>' : '')+'</td><td>'+esc(p.diajukanOlehNama || p.diajukanOleh || p.kodeUnit)+'</td><td class="pd-col-tgl">'+tgl+'</td>'
       + kolomNominal
       + '<td><span class="badge-pd '+bs[0]+'">'+labelStatusUtama+'</span></td>'
       + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick="pdBukaDetail(\''+p.idPengajuan+'\', this)" title="Lihat Detail"><i class="fas fa-list"></i></button>'
