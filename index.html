@@ -260,6 +260,8 @@
 .pd-riwayat-aksi{ font-weight:700; font-size:.8rem; color:#374151; }
 .pd-riwayat-meta{ font-size:.68rem; color:#9ca3af; }
 .pd-riwayat-catatan{ font-size:.78rem; color:#4b5563; margin-top:2px; }
+.pd-judul-edit-icon{ color:#9ca3af; font-size:.85rem; cursor:pointer; transition:color .15s; background:none; border:none; padding:0 2px; }
+.pd-judul-edit-icon:hover{ color:#6b7280; }
 
 </style>
 </head>
@@ -1199,7 +1201,7 @@
       <div id="pd-sub-detail" class="d-none">
         <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
           <div>
-            <h5 class="page-title d-inline-flex align-items-center gap-2" id="pd-d-judul-wrap"><span id="pd-d-judul">&nbsp;</span><button type="button" class="btn btn-sm btn-outline-secondary admin-only py-0 px-2" id="pd-d-judul-edit-btn" title="Edit judul" onclick="pdEditJudul()" style="font-size:.75rem;line-height:1.6;"><i class="fas fa-edit"></i></button></h5>
+            <h5 class="page-title d-inline-flex align-items-center gap-2" id="pd-d-judul-wrap"><span id="pd-d-judul">&nbsp;</span><button type="button" class="pd-judul-edit-icon admin-only" id="pd-d-judul-edit-btn" title="Edit judul" onclick="pdEditJudul()"><i class="fas fa-edit"></i></button></h5>
             <div class="text-muted small" id="pd-d-sub">&nbsp;</div>
             <span class="badge-pd d-inline-block mt-1" id="pd-d-status-badge">&nbsp;</span>
           </div>
@@ -9500,14 +9502,10 @@ function _pdCetak(fullHtml){
 function pdRenderTombolCetak(h, tampilkanLampiran){
   var el = document.getElementById('pd-d-cetak-tombol');
   var html = '';
-  // PERBAIKAN (atas permintaan "buatkan cetak tanda terima laporan di
-  // Laporan Unit, muncul setelah BKK/BKM selesai dicatat -- bukan Lampiran
-  // LPJ, tapi Tanda Terima LAPORAN"): jenis LAPORAN_UNIT strukturnya beda
-  // (Pemasukan/Pengeluaran, bukan RAB/Realisasi) jadi TIDAK relevan dgn
-  // "Lampiran LPJ" -- dapat tombol cetak SENDIRI ("Cetak Tanda Terima
-  // Laporan"), pakai cetakTandaTerimaLaporanUnit() yang terpisah dari
-  // cetakTandaTerimaLpj() (judul & rincian disesuaikan: Total
-  // Pemasukan/Pengeluaran, bukan Dana Dicairkan/Total Realisasi/LPJ).
+  // Jenis LAPORAN_UNIT strukturnya beda (Pemasukan/Pengeluaran, bukan
+  // RAB/Realisasi) jadi TIDAK relevan dgn "Lampiran LPJ" -- dapat tombol
+  // cetak SENDIRI ("Cetak Tanda Terima Laporan"), pakai
+  // cetakTandaTerimaLaporanUnit() yang terpisah dari cetakTandaTerimaLpj().
   if(h.jenis === 'LAPORAN_UNIT'){
     if(tampilkanLampiran && STATE.role==='ADMIN') html += '<button class="btn btn-sm btn-outline-secondary" onclick="cetakTandaTerimaLaporanUnit()"><i class="fas fa-print me-1"></i>Cetak Tanda Terima Laporan</button>';
     el.innerHTML = html;
@@ -9809,22 +9807,14 @@ function cetakTandaTerimaLpj(){
   var body = _pdTandaTerimaBody(judul, h.idPengajuan, h.judul, kolomKiri, kolomKanan, paragraf);
   _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima '+h.idPengajuan+'</title><style>'+_pdTandaTerimaCss()+'</style></head><body>'+body+'</body></html>');
 }
-// PERBAIKAN (atas permintaan "buatkan cetak tanda terima laporan di
-// Laporan Unit, bukan LPJ tapi Laporan"): tanda terima TERPISAH khusus
-// jenis LAPORAN_UNIT (Pemasukan/Pengeluaran usaha bulanan) -- BUKAN
-// dipaksa pakai cetakTandaTerimaLpj() yang istilah & rinciannya
-// (Dana Dicairkan/Total Realisasi/"LPJ") memang utk jenis MUKA. Cuma
-// muncul setelah status SELESAI (BKK/BKM sudah dicatat Admin) -- lihat
-// pemanggilnya di pdRenderDetailLaporanUnit/pdRenderTombolCetak.
-// PERBAIKAN LANJUTAN (atas permintaan "tambahkan Surplus/Defisit & PPh 21
-// PPh 23 di Laporan Unit, rapikan spasinya"): SEBELUMNYA cuma Total
-// Pemasukan & Total Pengeluaran ditampilkan -- selisihnya (Surplus/
-// Defisit) & rincian PPh TIDAK ada sama sekali di lembar cetak ini
-// (padahal SUDAH ada & ditampilkan di halaman Detail sejak perbaikan
-// sebelumnya, cuma belum ikut ke versi cetaknya). Sekarang ikut
-// ditambahkan, dgn gaya/tata letak yang SAMA PERSIS dgn cetak Tanda
-// Terima LPJ di atas (lewat _pdTandaTerimaCss/_pdTandaTerimaBody) --
-// konsisten, bukan bikin gaya baru sendiri.
+// Tanda terima KHUSUS jenis LAPORAN_UNIT (Pemasukan/Pengeluaran usaha
+// bulanan) -- beda dari cetakTandaTerimaLpj() yang istilahnya utk jenis
+// MUKA (Dana Dicairkan/LPJ). Muncul setelah status SELESAI (BKK/BKM
+// sudah dicatat Admin) -- lihat pemanggilnya di
+// pdRenderDetailLaporanUnit/pdRenderTombolCetak. Menampilkan
+// Surplus/Defisit & rincian PPh 21/23, dgn gaya/tata letak SAMA PERSIS
+// dgn cetak Tanda Terima LPJ (lewat _pdTandaTerimaCss/_pdTandaTerimaBody)
+// supaya konsisten.
 function cetakTandaTerimaLaporanUnit(){
   var res = PD.detail; if(!res){ toast('error','Detail belum dimuat'); return; }
   var h = res.header;
