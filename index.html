@@ -1199,7 +1199,7 @@
       <div id="pd-sub-detail" class="d-none">
         <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
           <div>
-            <h5 class="page-title" id="pd-d-judul">&nbsp;</h5>
+            <h5 class="page-title d-inline-flex align-items-center gap-2" id="pd-d-judul-wrap"><span id="pd-d-judul">&nbsp;</span><button type="button" class="btn btn-sm btn-outline-secondary admin-only py-0 px-2" id="pd-d-judul-edit-btn" title="Edit judul" onclick="pdEditJudul()" style="font-size:.75rem;line-height:1.6;"><i class="fas fa-edit"></i></button></h5>
             <div class="text-muted small" id="pd-d-sub">&nbsp;</div>
             <span class="badge-pd d-inline-block mt-1" id="pd-d-status-badge">&nbsp;</span>
           </div>
@@ -2279,10 +2279,28 @@ function _renderBannerPengajuanDashboard(res){
   if(!el) return;
   if(!res || !res.success){ el.innerHTML = ''; return; }
   var bagian = [];
-  if(res.jumlahPerluRevisi > 0) bagian.push('<div class="d-flex align-items-center gap-2"><i class="fas fa-rotate-left" style="color:#d97706;"></i><b>'+res.jumlahPerluRevisi+'</b>&nbsp;perlu direvisi</div>');
-  if(res.jumlahBaru > 0) bagian.push('<div class="d-flex align-items-center gap-2"><i class="fas fa-hourglass-half" style="color:#800000;"></i><b>'+res.jumlahBaru+'</b>&nbsp;menunggu diproses</div>');
+  // PERBAIKAN BUG NYATA (atas laporan: klik notifikasi "perlu direvisi" di
+  // sini malah membuka tab "Pengajuan Baru", BUKAN tabel yang benar-benar
+  // berisi pengajuan yang perlu direvisi -- padahal status PERLU_REVISI
+  // sebenarnya masuk kategori tab "Proses", lihat PD_KATEGORI_STATUS).
+  // SEBELUMNYA seluruh kartu ini cuma py 1 onclick besar (gotoView tanpa
+  // pdSetKategori sama sekali) yang SELALU jatuh ke tab default "Pengajuan
+  // Baru" apa pun isinya. Sekarang tiap baris klik ke tab kategorinya
+  // masing-masing lewat pdBukaKategori (fungsi yg SAMA PERSIS dipakai
+  // kartu ringkasan di halaman Pengajuan Dana sendiri, jadi perilakunya
+  // sudah teruji) -- "perlu direvisi" -> tab Proses, "menunggu diproses"
+  // -> tab Pengajuan Baru. event.stopPropagation() dipakai supaya klik di
+  // 1 baris tidak ikut memicu onclick kartu luar (lihat di bawah).
+  if(res.jumlahPerluRevisi > 0) bagian.push('<div class="d-flex align-items-center gap-2" style="cursor:pointer;" onclick="event.stopPropagation();pdBukaKategori(\'PROSES\');"><i class="fas fa-rotate-left" style="color:#d97706;"></i><b>'+res.jumlahPerluRevisi+'</b>&nbsp;perlu direvisi</div>');
+  if(res.jumlahBaru > 0) bagian.push('<div class="d-flex align-items-center gap-2" style="cursor:pointer;" onclick="event.stopPropagation();pdBukaKategori(\'BARU\');"><i class="fas fa-hourglass-half" style="color:#800000;"></i><b>'+res.jumlahBaru+'</b>&nbsp;menunggu diproses</div>');
   if(!bagian.length){ el.innerHTML = ''; return; }
-  el.innerHTML = '<div class="card mb-3" style="border-left:4px solid #800000;cursor:pointer;" onclick="gotoView(\'pengajuan\')">'
+  // Klik area kartu SELAIN baris di atas (judul, tombol "Lihat
+  // Selengkapnya", dst) -- tetap ke tab yang PALING mendesak: "perlu
+  // direvisi" kalau ada, kalau tidak baru "menunggu diproses". Dulu
+  // selalu ke Pengajuan Baru berapa pun isinya, sekarang ikut prioritas
+  // yang sama seperti urutan tampil di atas.
+  var kategoriUtama = res.jumlahPerluRevisi > 0 ? 'PROSES' : 'BARU';
+  el.innerHTML = '<div class="card mb-3" style="border-left:4px solid #800000;cursor:pointer;" onclick="pdBukaKategori(\''+kategoriUtama+'\')">'
     + '<div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">'
     + '<div><div class="fw-bold mb-1"><i class="fas fa-hand-holding-dollar me-2" style="color:#800000;"></i>Pengajuan Dana</div>'
     + '<div class="d-flex gap-4 flex-wrap small">'+bagian.join('')+'</div></div>'
@@ -2471,11 +2489,25 @@ function _muatInputGabungan(){
   if(!bulan) return;
   var key = _rekapCacheKey();
   var elPanelNonUnit = document.getElementById('panel-input-nonunit');
-  var perluTambahan = STATE.role==='ADMIN' && elPanelNonUnit && !elPanelNonUnit.classList.contains('d-none');
+  // PERBAIKAN (atas laporan: "input non unit tidak bareng loadingnya
+  // dengan input unit") -- SEBELUMNYA data Non-Unit (Tambahan+Kategori)
+  // HANYA ikut diminta di batch ini kalau panel-nya SEDANG TERLIHAT
+  // (`!classList.contains('d-none')`) -- karena tab "Input Non Unit" baru
+  // ditampilkan lewat switchInputMode() SESUDAH batch ini biasanya sudah
+  // selesai/jalan duluan, jadi tiap kali user baru pindah ke tab itu,
+  // loadTambahanForInput() terpaksa jalan LAGI dari nol scr terpisah --
+  // muncul loading TERSENDIRI yang tidak sinkron dgn Input Unit (yg sudah
+  // siap duluan). Sekarang utk ADMIN, data Non-Unit SELALU ikut diminta
+  // bareng Input Unit di SATU batch yang sama begitu bulan dibuka/diganti
+  // -- apa pun tab yang sedang aktif -- supaya begitu user klik tab
+  // "Input Non Unit", datanya sudah siap (dari cache), tanpa loading
+  // terpisah lagi. Biayanya kecil (Item Non-Unit per bulan biasanya
+  // sedikit) dan role UNIT tetap TIDAK ikut memuat ini sama sekali.
+  var perluTambahan = STATE.role==='ADMIN' && !!elPanelNonUnit;
 
   // 1) Tampilkan cache instan kalau ada (masing-masing bagian independen)
   if(CACHE.rekap[key]){ renderTransaksiTable(); } else { showBar(); }
-  if(perluTambahan){ if(CACHE.tambahan[key] && CACHE.kategoriTambahan) renderTambahanInputPanel(); else showBar(); }
+  if(perluTambahan){ _tbSiapkanTanggalDefault(); if(CACHE.tambahan[key] && CACHE.kategoriTambahan) renderTambahanInputPanel(); else showBar(); }
 
   // 2) SATU batch gabungan utk semua yang dibutuhkan halaman ini saat ini
   var calls = [
@@ -2822,7 +2854,13 @@ function editTransaksi(id, btn){
   }).then(function(res){
     if(!res.isConfirmed) return;
     var hasil = res.value;
-    _resetSaranKetCache(); // Pos/status verifikasi mungkin berubah -- lihat catatan di deklarasi fungsi ini
+    // hasil.kodePos = Pos asalnya (sebelum diedit), hasil.kodePosBaru =
+    // Pos baru kalau dipindah, hasil.kembalikanKeBelumJelas = pindah ke
+    // bucket "Belum Jelas" -- lihat catatan lengkap di deklarasi
+    // _hapusSaranKetPos.
+    _hapusSaranKetPos(hasil.kodePos);
+    _hapusSaranKetPos(hasil.kodePosBaru);
+    if(hasil.kembalikanKeBelumJelas) _hapusSaranKetPos(POS_BELUM_JELAS);
     if(hasil.kembalikanKeBelumJelas){
       toast('success','Tersimpan & dikembalikan ke daftar Belum Jelas Pos-nya');
       // Pindah BUCKET (dari Pos spesifik ke "Belum Jelas") -- bukan sekadar
@@ -3052,7 +3090,15 @@ function editTransaksiRK(id, btn){
   }).then(function(res){
     if(!res.isConfirmed) return;
     var v = res.value;
-    _resetSaranKetCache(); // Pos/status verifikasi mungkin berubah -- lihat catatan di deklarasi fungsi ini
+    // Beda dgn editTransaksi biasa: form ini menangani 2 SUMBER sekaligus
+    // (transaksi ber-Pos ATAU Item Non-Unit ber-Kategori, lihat isTambahan)
+    // -- jadi cache yang perlu dibersihkan pun beda tergantung sumbernya.
+    if(isTambahan) _hapusSaranKetKategori(r.kodeKategori);
+    else {
+      _hapusSaranKetPos(r.kodePos);
+      _hapusSaranKetPos(v.kodePosBaru);
+      if(v.kembalikanKeBelumJelas) _hapusSaranKetPos(POS_BELUM_JELAS);
+    }
     delete CACHE.rekap[STATE.tahunAktif + '_' + bulan]; // data yang sama juga tampil di "Input Rekap Bulanan" -> jangan sampai basi di sana (pakai bulan di HALAMAN INI, bukan filter halaman lain)
     delete CACHE.tambahan[STATE.tahunAktif + '_' + bulan]; // juga tampil di "Input Non Unit"
     delete CACHE.belumVerifikasi[STATE.tahunAktif + '_' + bulan];
@@ -3139,6 +3185,22 @@ function _gcTglDefault(){
   var now = new Date();
   if(Number(th)===now.getFullYear() && bulan===(now.getMonth()+1)) return th+'-'+mm+'-'+('0'+now.getDate()).slice(-2);
   return th+'-'+mm+'-01';
+}
+// PERBAIKAN (atas laporan: "tgl di form Tambah Item Non-Unit masih dd/mm/
+// yyyy, tidak ke tanggal terkini" -- beda dgn Input Unit yg baris barunya
+// SUDAH otomatis terisi tanggal hari ini/awal bulan lewat _gcTglDefault()
+// di atas). Dipanggil tiap kali bulan input berganti / panel Non-Unit
+// siap dipakai (lihat pemanggilnya). HANYA mengisi kalau field MASIH
+// KOSONG -- jangan sampai menimpa tanggal yg sedang diketik/dipilih user,
+// karena fungsi ini juga ikut terpanggil ulang oleh auto-refresh diam2
+// tiap 10 detik (lihat catatan di renderTambahanInputPanel) dan oleh
+// _muatInputGabungan tiap kali bulan disegarkan.
+function _tbSiapkanTanggalDefault(){
+  var el = document.getElementById('tb-tanggal');
+  if(!el) return;
+  var rentang = _rentangTanggalBulanInput();
+  el.min = rentang.min; el.max = rentang.max;
+  if(!el.value) el.value = _gcTglDefault();
 }
 
 function _gcNewRow(carry){
@@ -3508,11 +3570,24 @@ var _tbRiwayatKetCache = {}; // kodeKategori -> {data:array, waktu:timestamp} (s
 // termasuk transaksi yang baru saja pindah), persis laporan di atas.
 // Dipanggil di SEMUA titik yang bisa mengubah Pos/status verifikasi
 // transaksi (lihat pemanggilnya masing-masing) supaya saran PASTI segar
-// seketika itu juga, tanpa perlu menunggu TTL habis. Direset PENUH
-// (bukan cuma 1 kodePos/kodeKategori tertentu) -- lebih aman & sederhana
-// drpd menghitung persis kodePos mana saja yang terpengaruh di tiap
-// titik, dan biayanya murah (aggregasi ini kecil & jarang dipanggil,
-// cuma sesudah aksi ubah Pos, bukan tiap keystroke).
+// seketika itu juga, tanpa perlu menunggu TTL habis.
+//
+// PERBAIKAN LANJUTAN (atas laporan: "saran jadi lambat/harus menunggu
+// lama sesudah ada yang diverifikasi Unit"): versi SEBELUMNYA me-reset
+// SELURUH cache (_resetSaranKetCache, semua kodePos & kodeKategori
+// sekaligus) supaya sederhana -- tapi akibatnya SETIAP fokus berikutnya
+// ke Pos MANA PUN (bukan cuma Pos yang benar2 berubah) terpaksa menunggu
+// giliran ambil ulang dari server, terasa lambat kalau user sedang
+// menginput banyak baris utk Pos berbeda-beda tak lama sesudah 1
+// verifikasi. Sekarang HANYA kodePos/kodeKategori yang BENAR-BENAR
+// terpengaruh yang dibersihkan (_hapusSaranKetPos utk transaksi ber-Pos,
+// _hapusSaranKetKategori utk Item Non-Unit) -- Pos/kategori lain yang
+// TIDAK terpengaruh tetap memakai cache hangatnya, tetap instan spt
+// biasa. _resetSaranKetCache() (reset penuh) TETAP disimpan sbg jalan
+// aman kalau suatu saat ada titik baru yang kodePos-nya sungguh tidak
+// diketahui di sana.
+function _hapusSaranKetPos(kodePos){ if(kodePos) delete _gcRiwayatKetCache[kodePos]; }
+function _hapusSaranKetKategori(kodeKategori){ if(kodeKategori) delete _tbRiwayatKetCache[kodeKategori]; }
 function _resetSaranKetCache(){ _gcRiwayatKetCache = {}; _tbRiwayatKetCache = {}; }
 function _tbKetDd(){ return document.getElementById('tb-ket-dd'); }
 function _tbKetPlace(){
@@ -3834,6 +3909,7 @@ function bukaVerifikasiTransaksi(id){
   var opsi = (STATE.myPos||[]).map(function(p){ return '<option value="'+p.kodePos+'">'+p.namaPos+'</option>'; }).join('');
   if(!opsi){ toast('error','Akun Anda belum terhubung ke Pos manapun.'); return; }
   var bulan = document.getElementById('sel-bulan-verifikasi').value;
+  var kodePosDipilih = null; // diisi di preConfirm, dipakai di .then() utk invalidasi cache saran yang PRESISI (lihat _hapusSaranKetPos)
   Swal.fire({
     title:'Verifikasi Transaksi', html:
       '<div class="sw-field"><label>Masukkan ke Pos</label><select id="sw-pos" class="swal2-select">'+opsi+'</select></div>',
@@ -3845,6 +3921,7 @@ function bukaVerifikasiTransaksi(id){
     // selesai, jadi tidak lagi terasa "diam" tanpa tanda apa pun.
     preConfirm: function(){
       var kodePos = document.getElementById('sw-pos').value;
+      kodePosDipilih = kodePos;
       Swal.showLoading();
       return gasCall('verifikasiTransaksi', STATE.tahunAktif, bulan, id, kodePos, STATE.token).then(function(r){
         if(!r.success){ Swal.showValidationMessage(r.message); return false; }
@@ -3854,7 +3931,7 @@ function bukaVerifikasiTransaksi(id){
   }).then(function(res){
     if(!res.isConfirmed) return;
     toast('success','Dikonfirmasi, transaksi dipindahkan ke Pos terpilih');
-    _resetSaranKetCache(); // baru saja diklaim ke Pos ini -- lihat catatan di deklarasi fungsi ini
+    _hapusSaranKetPos(kodePosDipilih); // baru saja diklaim ke Pos ini -- lihat catatan di deklarasi fungsi ini
     delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
     delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
     // PERBAIKAN BUG: sebelumnya cache Rekap Konsolidasi & Rekonsiliasi Bank
@@ -3884,6 +3961,7 @@ function bukaUbahPosVerifikasi(id, kodePosSaatIni){
   var opsi = (STATE.myPos||[]).map(function(p){ return '<option value="'+p.kodePos+'"'+(p.kodePos===kodePosSaatIni?' selected':'')+'>'+p.namaPos+'</option>'; }).join('');
   if(!opsi){ toast('error','Akun Anda belum terhubung ke Pos manapun.'); return; }
   var bulan = document.getElementById('sel-bulan-verifikasi').value;
+  var kodePosBaruDipilih = kodePosSaatIni; // diisi ulang di preConfirm kalau memang berubah
   Swal.fire({
     title:'Ubah Pos', html:
       '<div class="sw-field"><label>Pindahkan ke Pos</label><select id="sw-pos-ubah" class="swal2-select">'+opsi+'</select></div>',
@@ -3891,6 +3969,7 @@ function bukaUbahPosVerifikasi(id, kodePosSaatIni){
     allowOutsideClick:false, allowEscapeKey:false,
     preConfirm: function(){
       var kodePosBaru = document.getElementById('sw-pos-ubah').value;
+      kodePosBaruDipilih = kodePosBaru;
       if(kodePosBaru === kodePosSaatIni) return true; // tidak berubah, tidak perlu panggil server
       Swal.showLoading();
       return gasCall('ubahPosVerifikasi', STATE.tahunAktif, bulan, id, kodePosBaru, STATE.token).then(function(r){
@@ -3901,7 +3980,8 @@ function bukaUbahPosVerifikasi(id, kodePosSaatIni){
   }).then(function(res){
     if(!res.isConfirmed) return;
     toast('success','Pos berhasil diubah');
-    _resetSaranKetCache(); // pindah Pos -- lihat catatan di deklarasi fungsi ini
+    _hapusSaranKetPos(kodePosSaatIni); // pindah Pos (dari & ke) -- lihat catatan di deklarasi fungsi ini
+    _hapusSaranKetPos(kodePosBaruDipilih);
     delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
     delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
     loadViewVerifikasiData();
@@ -3930,7 +4010,12 @@ function kembalikanTransaksiVerifikasi(id){
   }).then(function(res){
     if(!res.isConfirmed) return;
     toast('success','Transaksi dikembalikan ke daftar Belum Jelas Pos-nya');
-    _resetSaranKetCache(); // dikembalikan ke Belum Jelas -- lihat catatan di deklarasi fungsi ini
+    // Fungsi ini cuma terima `id` (tanpa kodePos) -- cari dulu dari
+    // _vfRiwayat SEBELUM loadViewVerifikasiData() menimpanya dgn data baru
+    // di bawah, supaya tahu PERSIS Pos mana yang barusan ditinggalkan.
+    var _rvfLama = _vfRiwayat.filter(function(x){ return x.id===id; })[0];
+    _hapusSaranKetPos(_rvfLama && _rvfLama.kodePos); // Pos yg ditinggalkan
+    _hapusSaranKetPos(POS_BELUM_JELAS); // ...dan masuk ke bucket Belum Jelas -- lihat catatan di deklarasi fungsi ini
     delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
     delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
     delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
@@ -4463,7 +4548,8 @@ function editTransaksiKonso(id, bulan){
     }
   }).then(function(res){
     if(!res.isConfirmed) return;
-    _resetSaranKetCache(); // Pos mungkin berubah (kodePosBaru) -- lihat catatan di deklarasi fungsi ini
+    _hapusSaranKetPos(r.kodePos); // Pos asal -- lihat catatan di deklarasi fungsi ini
+    _hapusSaranKetPos(res.value && res.value.kodePosBaru); // Pos baru kalau dipindah
     delete _konsolidasiRawCache[key]; // data sudah berubah -- paksa ambil ulang, jangan pakai cache basi
     delete CACHE.rekap[key]; // ikut tampil di "Input Rekap Bulanan" juga
     toast('success','Tersimpan');
@@ -4490,7 +4576,13 @@ function kembalikanTransaksiKonso(id, bulan){
   }).then(function(res){
     if(!res.isConfirmed) return;
     var key = STATE.tahunAktif + '_' + bulan;
-    _resetSaranKetCache(); // dikembalikan ke Belum Jelas -- lihat catatan di deklarasi fungsi ini
+    // Fungsi ini cuma terima `id` (tanpa kodePos) -- cari dulu dari
+    // _konsolidasiRawCache SEBELUM dihapus di bawah, persis pola yang
+    // sama dipakai editTransaksiKonso di atas.
+    var _cacheLama = _konsolidasiRawCache[key];
+    var _rowLama = _cacheLama && _cacheLama[0] && _cacheLama[0].data ? _cacheLama[0].data.filter(function(d){ return d.id===id; })[0] : null;
+    _hapusSaranKetPos(_rowLama && _rowLama.kodePos); // Pos yg ditinggalkan
+    _hapusSaranKetPos(POS_BELUM_JELAS); // ...dan masuk ke bucket Belum Jelas -- lihat catatan di deklarasi fungsi ini
     delete _konsolidasiRawCache[key];
     delete CACHE.rekap[key];
     delete CACHE.belumVerifikasi[key];
@@ -4961,9 +5053,7 @@ function loadTambahanForInput(){
   if(STATE.role!=='ADMIN') return; // item non-unit memang cuma untuk Admin
   var bulan = document.getElementById('sel-bulan-input').value;
   if(!bulan) return;
-  var rentangTb = _rentangTanggalBulanInput();
-  var elTbTgl = document.getElementById('tb-tanggal');
-  if(elTbTgl){ elTbTgl.min = rentangTb.min; elTbTgl.max = rentangTb.max; }
+  _tbSiapkanTanggalDefault();
   var key = STATE.tahunAktif + '_' + bulan;
   if(CACHE.tambahan[key] && CACHE.kategoriTambahan) renderTambahanInputPanel(); else showBar();
   Promise.all([
@@ -8365,6 +8455,51 @@ function pdTerapkanDetailDariAksi(res){
   pdRenderDetail(res);
   pdSub('detail');
 }
+// FITUR BARU (atas permintaan: "tambahkan fitur edit pencil kecil untuk
+// edit judul karena kalau typo tidak bisa diedit, diadmin saja, hanya
+// judul, tapi harus sinkron semua, karena acuan idnya adalah nomor
+// pengajuan") -- tombol pensilnya ada di markup statis (lihat
+// #pd-d-judul-edit-btn, sudah pakai class "admin-only" jadi otomatis
+// tersembunyi utk role UNIT). PD.idDetailAktif/PD.judulDetailAktif
+// diisi tiap kali pdRenderDetail() jalan (lihat di atas), jadi di sini
+// tinggal dipakai apa adanya -- tidak perlu baca ulang dari DOM.
+function pdEditJudul(){
+  var id = PD.idDetailAktif, judulLama = PD.judulDetailAktif;
+  if(!id) return;
+  Swal.fire({
+    title:'Edit Judul Pengajuan',
+    html:'<div class="sw-field" style="text-align:left;"><label>Judul</label>'
+      + '<input type="text" id="sw-judul-baru" class="swal2-input" value="'+_gcEsc(judulLama||'')+'" maxlength="300" style="width:100%;margin:6px 0 0;"></div>'
+      + '<div class="text-muted small mt-2" style="text-align:left;">Hanya judul yang berubah — nomor pengajuan ('+_gcEsc(id)+') dan data lain tidak ikut berubah.</div>',
+    confirmButtonText:'Simpan', confirmButtonColor:'#800000', showCancelButton:true, cancelButtonText:'Batal',
+    allowOutsideClick:false, allowEscapeKey:false,
+    didOpen:function(){ var el=document.getElementById('sw-judul-baru'); if(el){ el.focus(); el.select(); } },
+    preConfirm:function(){
+      var judulBaru = (document.getElementById('sw-judul-baru').value||'').trim();
+      if(!judulBaru){ Swal.showValidationMessage('Judul tidak boleh kosong.'); return false; }
+      if(judulBaru === judulLama) return null; // tidak berubah -- tutup diam-diam, tidak perlu panggil server sama sekali
+      Swal.showLoading();
+      return gasCall('updateJudulPengajuan', id, judulBaru, STATE.token).then(function(r){
+        if(!r || !r.success){ Swal.showValidationMessage((r && r.message) || 'Gagal menyimpan, coba lagi.'); return false; }
+        return r;
+      }).catch(function(){ Swal.showValidationMessage('Gagal menyimpan, coba lagi.'); return false; });
+    }
+  }).then(function(res){
+    if(!res.isConfirmed || !res.value) return;
+    // Backend mengembalikan BUNDEL LENGKAP (header+detail+riwayat+dst,
+    // lihat _lampiranDetailPengajuan) PERSIS spt aksi lain -- pakai jalur
+    // yang SAMA (pdTerapkanDetailDariAksi) supaya seluruh tampilan Detail
+    // (termasuk panel Riwayat Keputusan yg baru saja bertambah 1 entri)
+    // ikut tersegarkan sekaligus, tanpa permintaan terpisah lagi.
+    pdTerapkanDetailDariAksi(res.value);
+    // Sinkron juga ke larik PD.daftar (di memori) -- supaya begitu balik
+    // ke tab "Daftar Pengajuan" TANPA reload, judul barunya SUDAH ikut
+    // berubah di situ juga (acuannya idPengajuan, sesuai permintaan).
+    var idx = PD.daftar.findIndex(function(p){ return p.idPengajuan===id; });
+    if(idx>-1){ PD.daftar[idx].judul = res.value.header.judul; pdRenderDaftarTable(); }
+    toast('success','Judul berhasil diperbarui');
+  });
+}
 function pdRenderMinistep(labels, t, revisiTahap, ditolakTahap){
   var total = labels.length;
   var html = '';
@@ -8525,6 +8660,13 @@ function pdRenderDetail(res){
   // bisa lagi kebawa dari pengajuan lain yang sempat dibuka sebelumnya.
   PD.buktiBayarFile = null;
   PD.buktiTransferSekaligus = null;
+  // FITUR BARU (tombol pensil edit judul, admin-only) -- disimpan di sini
+  // (SATU-satunya titik yang SELALU jalan tiap kali Detail dirender,
+  // dibuka baru ATAUPUN disegarkan sesudah aksi apa pun) supaya
+  // pdEditJudul() di bawah selalu tahu PERSIS pengajuan mana yang sedang
+  // dibuka & judul TERKINI-nya, tanpa perlu baca ulang dari DOM.
+  PD.idDetailAktif = h.idPengajuan;
+  PD.judulDetailAktif = h.judul;
   document.getElementById('pd-d-judul').textContent = h.idPengajuan + ' \u00b7 ' + h.judul;
   document.getElementById('pd-d-sub').textContent = 'Diajukan oleh ' + (h.diajukanOlehNama || h.diajukanOleh) + ' \u00b7 ' + (h.tglPengajuan ? new Date(h.tglPengajuan).toLocaleDateString('id-ID') : '-');
   var bs = PD_BADGE_STATUS[h.status] || ['badge-pd', h.status];
