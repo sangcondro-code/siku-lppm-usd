@@ -8201,6 +8201,151 @@ function pdTabelRabReadonly(rows){
 }
 
 // ============================================================
+// EDIT LANGSUNG oleh ADMIN -- RAB, Realisasi, & Tagihan -- FITUR BARU (atas
+// permintaan "admin sepertinya perlu ada fitur edit untuk memperbaiki
+// semua detail pengajuan apabila ada yang salah ... sebaiknya ada fitur
+// edit RAB dan Realisasi"). State (PD.rabAdminEdit/PD.realisasiAdminEdit)
+// & elemen tbody-nya SENGAJA TERPISAH SEPENUHNYA dari PD.rab/
+// PD.realisasiEdit yang dipakai form "Ajukan Baru" & alur revisi kirim-
+// ulang milik Unit -- supaya tombol Edit (Admin) di sini TIDAK PERNAH
+// bentrok/menimpa data yang sedang disiapkan di form lain manapun. Toggle
+// disembunyikan dulu (harus diklik "Edit RAB"/"Edit Realisasi" dulu) supaya
+// tidak mengganggu tampilan normal / tidak terpencet tidak sengaja. BEDA
+// dgn "Kembalikan untuk Revisi" (pdBlokKembalikan) di atas: ini menimpa
+// LANGSUNG tanpa mengubah status/tahap alur kerja sama sekali -- backend-
+// nya (adminEditRab/adminEditRealisasi/adminEditTagihan di Code.gs) sendiri
+// yang membatasi kapan boleh dipakai (lihat catatan di masing2 fungsi itu).
+// ============================================================
+function pdBlokEditRabAdmin(idPengajuan){
+  return '<div class="mt-2"><a href="javascript:void(0)" id="pd-editrab-link-'+idPengajuan+'" class="small" onclick="pdToggleEditRab(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit RAB (Admin)</a>'
+    + '<div id="pd-editrab-box-'+idPengajuan+'" class="d-none mt-2" style="background:#fef9f9;border:1px solid #f3d9d9;border-radius:8px;padding:10px;">'
+      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Admin (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Admin sendiri sudah tahu perbaikannya.</div>'
+      + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:32%">Nama Komponen</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-rab-admin"></tbody></table></div>'
+      + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRabAdmin()"><i class="fas fa-plus me-1"></i>Baris</button>'
+      + '<div class="text-end mb-2"><b>Total: </b><span id="pd-total-rab-admin">Rp 0</span></div>'
+      + '<button class="btn btn-sm btn-outline-danger" id="btn-simpan-rab-admin-'+idPengajuan+'" onclick="pdAksiSimpanEditRab(\''+idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Perubahan RAB</button>'
+    + '</div></div>';
+}
+function pdToggleEditRab(idPengajuan){
+  var box = document.getElementById('pd-editrab-box-'+idPengajuan);
+  if(!box) return;
+  var akanDibuka = box.classList.contains('d-none');
+  box.classList.toggle('d-none');
+  if(akanDibuka){
+    var rowsAsli = PD.rabAdminAsli || [];
+    PD.rabAdminEdit = rowsAsli.length ? rowsAsli.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal}; }) : [{namaKomponen:'',keterangan:'',nominal:0}];
+    pdPastikanKomponenList(function(){ pdRenderTabelRabAdmin(); });
+  }
+}
+function pdTambahBarisRabAdmin(){ PD.rabAdminEdit.push({namaKomponen:'',keterangan:'',nominal:0}); pdRenderTabelRabAdmin(); }
+function pdHapusBarisRabAdmin(i){ PD.rabAdminEdit.splice(i,1); if(!PD.rabAdminEdit.length) PD.rabAdminEdit.push({namaKomponen:'',keterangan:'',nominal:0}); pdRenderTabelRabAdmin(); }
+function pdUbahRabAdmin(i, field, val){ PD.rabAdminEdit[i][field] = (field==='nominal') ? angkaKeAngka(val) : val; pdRenderTotalRabAdmin(); }
+function pdRenderTotalRabAdmin(){
+  var el = document.getElementById('pd-total-rab-admin');
+  if(!el) return;
+  var total = PD.rabAdminEdit.reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
+  el.textContent = 'Rp ' + fmtRp(total);
+}
+function pdRenderTabelRabAdmin(){
+  var body = document.getElementById('pd-tbody-rab-admin');
+  if(!body) return;
+  body.innerHTML = PD.rabAdminEdit.map(function(r,i){
+    return '<tr><td><select class="form-select form-select-sm" onchange="pdUbahRabAdmin('+i+',\'namaKomponen\',this.value)">'+pdOpsiKomponen(r.namaKomponen)+'</select></td>'
+      + '<td><input class="form-control form-control-sm" value="'+esc(r.keterangan)+'" oninput="pdUbahRabAdmin('+i+',\'keterangan\',this.value)"></td>'
+      + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRabAdmin('+i+',\'nominal\',this.value)"></td>'
+      + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisRabAdmin('+i+')"><i class="fas fa-trash"></i></button></td></tr>';
+  }).join('');
+  pdRenderTotalRabAdmin();
+}
+function pdAksiSimpanEditRab(id, btn){
+  var rab = PD.rabAdminEdit.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
+  if(!rab.length){ toast('error','RAB minimal 1 komponen dengan nominal > 0'); return; }
+  pdJalankanAksi('adminEditRab', [id, rab, STATE.token, _idemKey('admin_edit_rab', {id:id, rab:rab})], btn, 'RAB tersimpan').then(function(res){
+    if(res){ var box = document.getElementById('pd-editrab-box-'+id); if(box) box.classList.add('d-none'); }
+  });
+}
+function pdBlokEditRealisasiAdmin(idPengajuan){
+  return '<div class="mt-2"><a href="javascript:void(0)" id="pd-editrealisasi-link-'+idPengajuan+'" class="small" onclick="pdToggleEditRealisasi(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit Realisasi (Admin)</a>'
+    + '<div id="pd-editrealisasi-box-'+idPengajuan+'" class="d-none mt-2" style="background:#fef9f9;border:1px solid #f3d9d9;border-radius:8px;padding:10px;">'
+      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Admin (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Admin sendiri sudah tahu perbaikannya.</div>'
+      + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-admin"></tbody></table></div>'
+      + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRealisasiAdmin()"><i class="fas fa-plus me-1"></i>Baris</button>'
+      + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasi-admin">Rp 0</span></div>'
+      + '<button class="btn btn-sm btn-outline-danger" id="btn-simpan-realisasi-admin-'+idPengajuan+'" onclick="pdAksiSimpanEditRealisasi(\''+idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Perubahan Realisasi</button>'
+    + '</div></div>';
+}
+function pdToggleEditRealisasi(idPengajuan){
+  var box = document.getElementById('pd-editrealisasi-box-'+idPengajuan);
+  if(!box) return;
+  var akanDibuka = box.classList.contains('d-none');
+  box.classList.toggle('d-none');
+  if(akanDibuka){
+    var rowsAsli = PD.realisasiAdminAsli || [];
+    PD.realisasiAdminEdit = rowsAsli.length ? rowsAsli.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
+    PD.komponenTerbatasRealisasiAdmin = null;
+    pdPastikanKomponenList(function(){ pdRenderTabelRealisasiAdmin(); });
+  }
+}
+function pdTambahBarisRealisasiAdmin(){ PD.realisasiAdminEdit.push({namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}); pdRenderTabelRealisasiAdmin(); }
+function pdHapusBarisRealisasiAdmin(i){ PD.realisasiAdminEdit.splice(i,1); if(!PD.realisasiAdminEdit.length) PD.realisasiAdminEdit.push({namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}); pdRenderTabelRealisasiAdmin(); }
+function pdUbahRealisasiAdmin(i, field, val){ PD.realisasiAdminEdit[i][field] = (['nominal','pph21','pph23'].indexOf(field)!==-1) ? angkaKeAngka(val) : val; pdRenderTotalRealisasiAdmin(); }
+function pdRenderTotalRealisasiAdmin(){
+  var el = document.getElementById('pd-total-realisasi-admin');
+  if(!el) return;
+  var total = PD.realisasiAdminEdit.reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
+  el.textContent = 'Rp ' + fmtRp(total);
+}
+function pdRenderTabelRealisasiAdmin(){
+  var body = document.getElementById('pd-tbody-realisasi-admin');
+  if(!body) return;
+  body.innerHTML = PD.realisasiAdminEdit.map(function(r,i){
+    return '<tr><td><select class="form-select form-select-sm" onchange="pdUbahRealisasiAdmin('+i+',\'namaKomponen\',this.value)">'+pdOpsiKomponen(r.namaKomponen, PD.komponenTerbatasRealisasiAdmin)+'</select></td>'
+      + '<td><input class="form-control form-control-sm" value="'+esc(r.keterangan)+'" oninput="pdUbahRealisasiAdmin('+i+',\'keterangan\',this.value)"></td>'
+      + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasiAdmin('+i+',\'nominal\',this.value)"></td>'
+      + '<td><input class="form-control form-control-sm text-end" value="'+(r.pph21?fmtRp(r.pph21):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasiAdmin('+i+',\'pph21\',this.value)"></td>'
+      + '<td><input class="form-control form-control-sm text-end" value="'+(r.pph23?fmtRp(r.pph23):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasiAdmin('+i+',\'pph23\',this.value)"></td>'
+      + '<td><input class="form-control form-control-sm" value="'+esc(r.noBukti)+'" oninput="pdUbahRealisasiAdmin('+i+',\'noBukti\',this.value)"></td>'
+      + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisRealisasiAdmin('+i+')"><i class="fas fa-trash"></i></button></td></tr>';
+  }).join('');
+  pdRenderTotalRealisasiAdmin();
+}
+function pdAksiSimpanEditRealisasi(id, btn){
+  var realisasi = PD.realisasiAdminEdit.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
+  if(!realisasi.length){ toast('error','Realisasi minimal 1 komponen dengan nominal > 0'); return; }
+  pdJalankanAksi('adminEditRealisasi', [id, realisasi, STATE.token, _idemKey('admin_edit_realisasi', {id:id, realisasi:realisasi})], btn, 'Realisasi tersimpan').then(function(res){
+    if(res){ var box = document.getElementById('pd-editrealisasi-box-'+id); if(box) box.classList.add('d-none'); }
+  });
+}
+// Tagihan tidak punya larik "realisasi" (cuma 1 nominal di header) -- edit
+// langsung field-per-field (judul/dibayarkan kepada/nominal), mirip pola
+// updateJudulPengajuan tapi mencakup beberapa field sekaligus.
+function pdBlokEditTagihanAdmin(idPengajuan, h){
+  return '<div class="mt-2"><a href="javascript:void(0)" id="pd-edittagihan-link-'+idPengajuan+'" class="small" onclick="pdToggleEditTagihan(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit Tagihan (Admin)</a>'
+    + '<div id="pd-edittagihan-box-'+idPengajuan+'" class="d-none mt-2" style="background:#fef9f9;border:1px solid #f3d9d9;border-radius:8px;padding:10px;">'
+      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Admin (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Admin sendiri sudah tahu perbaikannya.</div>'
+      + '<div class="mb-2"><label class="form-label small mb-1">Nama Tagihan</label><input type="text" class="form-control form-control-sm" id="pd-judul-tagihan-admin-'+idPengajuan+'" value="'+esc(h.judul)+'"></div>'
+      + '<div class="mb-2"><label class="form-label small mb-1">Dibayarkan Kepada</label><input type="text" class="form-control form-control-sm" id="pd-kepada-tagihan-admin-'+idPengajuan+'" value="'+esc(h.dibayarkanKepada)+'"></div>'
+      + '<div class="mb-2"><label class="form-label small mb-1">Nominal Tagihan</label><input class="form-control form-control-sm text-end" id="pd-nominal-tagihan-admin-'+idPengajuan+'" value="'+fmtRp(h.totalDiajukan)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)"></div>'
+      + '<button class="btn btn-sm btn-outline-danger" id="btn-simpan-tagihan-admin-'+idPengajuan+'" onclick="pdAksiSimpanEditTagihan(\''+idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Perubahan</button>'
+    + '</div></div>';
+}
+function pdToggleEditTagihan(idPengajuan){
+  var box = document.getElementById('pd-edittagihan-box-'+idPengajuan);
+  if(box) box.classList.toggle('d-none');
+}
+function pdAksiSimpanEditTagihan(id, btn){
+  var judul = document.getElementById('pd-judul-tagihan-admin-'+id).value.trim();
+  var kepada = document.getElementById('pd-kepada-tagihan-admin-'+id).value.trim();
+  var nominal = angkaKeAngka(document.getElementById('pd-nominal-tagihan-admin-'+id).value);
+  if(!judul){ toast('error','Nama tagihan wajib diisi'); return; }
+  if(!kepada){ toast('error','Dibayarkan kepada wajib diisi'); return; }
+  if(!nominal){ toast('error','Nominal tagihan wajib diisi'); return; }
+  pdJalankanAksi('adminEditTagihan', [id, {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal}, STATE.token, _idemKey('admin_edit_tagihan', {id:id, judul:judul, kepada:kepada, nominal:nominal})], btn, 'Tagihan tersimpan').then(function(res){
+    if(res){ var box = document.getElementById('pd-edittagihan-box-'+id); if(box) box.classList.add('d-none'); }
+  });
+}
+
+// ============================================================
 // UPLOAD FILE (PDF, base64, maks 10MB) -- validasi client-side dulu supaya
 // gagalnya cepat kelihatan, backend TETAP validasi ulang (jangan percaya
 // client sepenuhnya).
@@ -8718,7 +8863,10 @@ function pdRenderDetailMuka(res){
           + '<button class="btn btn-sm" id="btn-kirim-ulang-'+h.idPengajuan+'" onclick="pdAksiKirimUlang(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-paper-plane me-1"></i>Kirim Ulang</button>')));
     setTimeout(function(){ pdPastikanKomponenList(pdRenderTabelRab); }, 0);
   } else {
+    PD.rabAdminAsli = res.detail;
+    var blokEditRab = (isAdmin && !h.tglDicairkan) ? pdBlokEditRabAdmin(h.idPengajuan) : '';
     html += pdBlock('fa-file-lines','1. Pengajuan Dana','done','', pdTabelRabReadonly(res.detail)
+      + blokEditRab
       + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">SURAT PENGAJUAN</div>'+pdFileChip(suratFile)+'</div>'
       + pdKomentarThreadHtml(h.idPengajuan, res.komentar));
   }
@@ -8750,9 +8898,16 @@ function pdRenderDetailMuka(res){
     var infoPencairan = (st(3)!=='done')
       ? '<div class="pd-locked-note" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-top:10px;"><i class="fas fa-sack-dollar"></i><div>Pengajuan sudah disetujui. Silakan lakukan pencairan dana di Bagian Keuangan dengan membawa <b>surat pengajuan asli (hardcopy)</b> sebagai syarat pencairan.</div></div>'
       : '';
+    // FITUR BARU (atas permintaan "kembalikan ... sudah disetujui"): SELAMA
+    // dana BELUM dicairkan, Admin masih bisa menarik kembali RAB yang sudah
+    // disetujui ini utk direvisi Unit (mis. Unit lapor RAB perlu diubah) --
+    // begitu SUDAH dicairkan (st(3)==='done'), tombol ini TIDAK ditampilkan
+    // lagi (lihat catatan di revisiPengajuan Code.gs -- uang sudah keluar
+    // berdasarkan RAB itu, tidak masuk cakupan "kembalikan" ini lagi).
+    var blokKembalikanRab = (isAdmin && st(3)!=='done') ? pdBlokKembalikan('pd-kembalikan-rab-'+h.idPengajuan, 'pdAksiKembalikanRab', h.idPengajuan) : '';
     html += pdBlock('fa-gavel','2. Persetujuan Admin','done','<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
       '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
-      + infoPencairan);
+      + infoPencairan + blokKembalikanRab);
   } else {
     html += pdBlock('fa-gavel','2. Persetujuan Admin','locked','', pdLockedBody('Menunggu tahap Pengajuan selesai diproses.'));
   }
@@ -8817,12 +8972,15 @@ function pdRenderDetailMuka(res){
     // dihitung ulang) -- PPh 21/23 cuma ditampilkan sbg RINCIAN INFORMATIF
     // di bawah (pdInfoPphHtml), bukan pengurang Total Realisasi.
     var selisih = h.totalDiajukan - h.totalRealisasi; // PURE: dana dicairkan - realisasi apa adanya
+    PD.realisasiAdminAsli = res.realisasi;
+    var blokEditRealisasi4 = isAdmin ? pdBlokEditRealisasiAdmin(h.idPengajuan) : '';
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','done','', pdTabelRealisasiReadonly(res.realisasi)
       + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
       + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
       + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisih===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisih))+(selisih>0?' (surplus, dikembalikan)':(selisih<0?' (defisit, kurang)':' (sesuai)'))+'</div></div></div></div>'
       + pdInfoPphHtml(res.realisasi, h.judul)
-      + '<div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(lpjFile));
+      + '<div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(lpjFile)
+      + blokEditRealisasi4);
       // No. Bukti Kas Masuk/Keluar TIDAK lagi ditampilkan di sini -- sekarang
       // bagian tahap 6 "Pencatatan Kasir" (lihat di bawah), karena bukti kas
       // itu hasil pencatatan Kasir, bukan bagian dari Realisasi & LPJ.
@@ -8841,8 +8999,10 @@ function pdRenderDetailMuka(res){
         + '<button class="btn btn-sm btn-outline-danger" id="btn-verif-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLpj(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button>')
         : pdCatatanTunggu('LPJ sudah dikirim, menunggu diverifikasi Admin Pusat.'));
   } else if(st(5)==='done'){
+    var blokKembalikanLpj5 = isAdmin ? pdBlokKembalikan('pd-kembalikan-lpj5-'+h.idPengajuan, 'pdAksiKembalikanLpj', h.idPengajuan) : '';
     html += pdBlock('fa-flag-checkered','5. Verifikasi LPJ oleh Admin','done','<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small" style="color:#166534;">LPJ disetujui oleh '+esc(h.disetujuiOleh)+'.</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>');
+      '<div class="fw-bold small" style="color:#166534;">LPJ disetujui oleh '+esc(h.disetujuiOleh)+'.</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      + blokKembalikanLpj5);
   } else {
     html += pdBlock('fa-flag-checkered','5. Verifikasi LPJ oleh Admin','locked','', pdLockedBody('Menunggu LPJ diunggah.'));
   }
@@ -8937,11 +9097,13 @@ function pdRenderDetailMuka(res){
     var ringkasanSelesai = 'Selesai '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')
       + (selisihB!==0 ? (' \u00b7 Rp '+fmtRp(Math.abs(selisihB))) : ' \u00b7 tidak ada selisih (pas)');
     var infoPenyetorDone = h.namaPenyetor ? ('<div class="small text-muted mb-2">Data Penyetor: <b>'+esc(h.namaPenyetor)+'</b> ('+esc(h.npmNimPenyetor)+') &middot; '+esc(h.noHpPenyetor)+'</div>') : '';
+    var blokKembalikanLpj6 = isAdmin ? pdBlokKembalikan('pd-kembalikan-lpj6-'+h.idPengajuan, 'pdAksiKembalikanLpj', h.idPengajuan) : '';
     html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','done','<span class="badge-pd badge-pd-selesai">Selesai</span>',
       '<div class="fw-bold small mb-2" style="color:#166534;">'+ringkasanSelesai+'</div>'
       + infoPenyetorDone
       + pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk (surplus dikembalikan)', h.noBuktiKasMasuk)
-      + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar (kekurangan dibayar)', h.noBuktiKasKeluarTambahan));
+      + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar (kekurangan dibayar)', h.noBuktiKasKeluarTambahan)
+      + blokKembalikanLpj6);
   } else {
     html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','locked','', pdLockedBody('Menunggu LPJ disetujui Admin.'));
   }
@@ -8985,7 +9147,42 @@ function pdRenderDetailSingkat(res){
   var html = '';
 
   // Tahap 1
-  if(h.status==='PERLU_REVISI'){
+  if(h.status==='PERLU_REVISI' && h.jenis==='TAGIHAN'){
+    // FITUR BARU (atas permintaan "pengajuan reimburse dan tagihan belum
+    // ada fitur revisi"): form kirim-ulang KHUSUS Tagihan -- Tagihan TIDAK
+    // punya larik "realisasi" spt SEKALIGUS/MUKA (cuma 1 nominal), jadi
+    // formnya field-per-field (judul/dibayarkan kepada/nominal/metode
+    // bayar/memo), BUKAN tabel rincian. Prefix elemen metode pembayaran
+    // sengaja 'tagihan-revisi' (beda dari 'tagihan' di form Ajukan Baru)
+    // supaya tidak tabrakan ID kalau kebetulan kedua form pernah dirender
+    // bersamaan dalam 1 sesi (pdToggleMetodeBayar dipakai bersama, lihat
+    // fungsinya -- generik berdasarkan prefix).
+    var catatanRevisiTg = res.komentar.length ? res.komentar[res.komentar.length-1] : null;
+    PD.memoFileTagihanRevisi = null;
+    html += pdBlock('fa-file-invoice-dollar', judul1, 'revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
+      (catatanRevisiTg ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisiTg.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTg.teks)+'</span></div></div>' : '')
+      + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
+        : ('<p class="text-muted small mb-2">Perbaiki rincian tagihan, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
+          + '<div class="mb-2"><label class="form-label small mb-1">Nama Tagihan</label><input type="text" class="form-control form-control-sm" id="pd-judul-tagihan-revisi" value="'+esc(h.judul)+'"></div>'
+          + '<div class="mb-2"><label class="form-label small mb-1">Dibayarkan Kepada</label><input type="text" class="form-control form-control-sm" id="pd-kepada-tagihan-revisi" value="'+esc(h.dibayarkanKepada)+'"></div>'
+          + '<div class="mb-3"><label class="form-label small mb-1">Nominal Tagihan</label><input class="form-control form-control-sm text-end" id="pd-nominal-tagihan-revisi" value="'+fmtRp(h.totalDiajukan)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)"></div>'
+          + '<div class="small fw-bold mb-1 text-muted">METODE PEMBAYARAN</div>'
+          + '<div class="d-flex gap-2 mb-3" id="pd-metode-tagihan-revisi-toggle">'
+            + '<div class="pos-tab'+(h.metodePembayaran!=='TRANSFER'?' active':'')+'" data-metode="TUNAI" onclick="pdToggleMetodeBayar(\'tagihan-revisi\',\'TUNAI\')"><i class="fas fa-money-bill-wave"></i>Tunai</div>'
+            + '<div class="pos-tab'+(h.metodePembayaran==='TRANSFER'?' active':'')+'" data-metode="TRANSFER" onclick="pdToggleMetodeBayar(\'tagihan-revisi\',\'TRANSFER\')"><i class="fas fa-building-columns"></i>Transfer</div>'
+          + '</div>'
+          + '<div id="pd-rekening-tagihan-revisi" class="'+(h.metodePembayaran==='TRANSFER'?'':'d-none')+'">'
+            + '<div class="row g-2 mb-3">'
+              + '<div class="col-md-4"><label class="form-label small mb-1">No. Rekening</label><input type="text" class="form-control form-control-sm" id="pd-no-rek-tagihan-revisi" value="'+esc(h.noRekening||'')+'"></div>'
+              + '<div class="col-md-4"><label class="form-label small mb-1">Nama Pemilik Rekening</label><input type="text" class="form-control form-control-sm" id="pd-nama-rek-tagihan-revisi" value="'+esc(h.namaRekening||'')+'"></div>'
+              + '<div class="col-md-4"><label class="form-label small mb-1">Nama Bank</label><input type="text" class="form-control form-control-sm" id="pd-nama-bank-tagihan-revisi" value="'+esc(h.namaBank||'')+'"></div>'
+            + '</div>'
+          + '</div>'
+          + '<div class="small fw-bold mb-1 text-muted">MEMO & INVOICE</div>'
+          + (fileUtama ? ('<div class="mb-2">'+pdFileChip(fileUtama)+'<div class="small text-muted mt-1">File di atas ini yang tersimpan sekarang -- unggah baru di bawah HANYA kalau mau diganti.</div></div>') : '')
+          + '<div class="pd-drop mb-2" id="pd-drop-memo-tagihan-revisi" style="max-width:420px;" onclick="document.getElementById(\'pd-file-memo-tagihan-revisi\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret memo/invoice '+(fileUtama?'pengganti':'baru')+' (PDF) ke sini</div><input type="file" id="pd-file-memo-tagihan-revisi" accept="application/pdf" class="d-none" data-drop-id="pd-drop-memo-tagihan-revisi" onchange="pdPilihFile(this,\'memoFileTagihanRevisi\')"></div>'
+          + '<button class="btn btn-sm" id="btn-kirim-revisi-'+h.idPengajuan+'" onclick="pdAksiKirimRevisiTagihan(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang</button>')));
+  } else if(h.status==='PERLU_REVISI'){
     var catatanRevisi = res.komentar.length ? res.komentar[res.komentar.length-1] : null;
     PD.realisasiEdit = res.realisasi.length ? res.realisasi.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.lpjFileEdit = null;
@@ -9007,10 +9204,14 @@ function pdRenderDetailSingkat(res){
       + (h.metodePembayaran==='TRANSFER' ? ('<div class="small text-muted mt-2">'+esc(h.namaRekening)+' &mdash; '+esc(h.namaBank)+' &mdash; No. Rek. '+esc(h.noRekening)+'</div>') : '')
       + '</div>';
     if(h.jenis==='TAGIHAN'){
+      var blokEditTagihan = isAdmin ? pdBlokEditTagihanAdmin(h.idPengajuan, h) : '';
       bodyTahap1 = '<table class="table tbl mb-0"><tbody><tr><td class="text-muted" style="width:180px;">Dibayarkan Kepada</td><td>'+esc(h.dibayarkanKepada)+'</td></tr><tr><td class="text-muted">Nominal Tagihan</td><td class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</td></tr></tbody></table>'
+        + blokEditTagihan
         + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">MEMO & INVOICE</div>'+pdFileChip(fileUtama)+'</div>' + infoMetode + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
     } else {
-      bodyTahap1 = pdTabelRealisasiReadonly(res.realisasi) + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(fileUtama)+'</div>' + infoMetode + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
+      PD.realisasiAdminAsli = res.realisasi;
+      var blokEditRealisasiSk = isAdmin ? pdBlokEditRealisasiAdmin(h.idPengajuan) : '';
+      bodyTahap1 = pdTabelRealisasiReadonly(res.realisasi) + blokEditRealisasiSk + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(fileUtama)+'</div>' + infoMetode + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
     }
     html += pdBlock(h.jenis==='TAGIHAN'?'fa-file-invoice-dollar':'fa-receipt', judul1, 'done', '', bodyTahap1);
   }
@@ -9026,9 +9227,10 @@ function pdRenderDetailSingkat(res){
   if(st(2)==='active'){
     if(h.jenis==='TAGIHAN'){
       html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
-        isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-tagihan-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Tolak)"></textarea>'
+        isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-tagihan-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi/Tolak)"></textarea>'
           + '<button class="btn btn-sm" id="btn-tagihan-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenTagihan(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
-          + '<button class="btn btn-sm btn-outline-danger" id="btn-tagihan-tolak-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenTagihan(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
+          + '<button class="btn btn-sm btn-outline-danger" id="btn-tagihan-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenTagihan(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
+          + '<button class="btn btn-sm btn-outline-secondary" id="btn-tagihan-tolak-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenTagihan(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
           : pdCatatanTunggu('Menunggu Admin memverifikasi dokumen tagihan.'));
     } else {
       html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
@@ -9058,9 +9260,10 @@ function pdRenderDetailSingkat(res){
           ? '<div class="pd-locked-note" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-top:10px;"><i class="fas fa-sack-dollar"></i><div>Pengajuan sudah disetujui. Silakan serahkan memo &amp; invoice asli (hardcopy) beserta bukti-bukti penyerta ke Bagian Keuangan sebagai syarat pembayaran tagihan.</div></div>'
           : '<div class="pd-locked-note" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-top:10px;"><i class="fas fa-sack-dollar"></i><div>Pengajuan sudah disetujui. Silakan serahkan bukti LPJ asli (hardcopy) beserta bukti-bukti penyerta ke Bagian Keuangan sebagai syarat pencairan penggantian dana.</div></div>')
       : '';
+    var blokKembalikanSk2 = isAdmin ? pdBlokKembalikan('pd-kembalikan-sk2-'+h.idPengajuan, (h.jenis==='TAGIHAN'?'pdAksiKembalikanTagihan':'pdAksiKembalikanLpj'), h.idPengajuan) : '';
     html += pdBlock('fa-gavel', judul2, 'done', '<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
       '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
-      + infoPencairan2);
+      + infoPencairan2 + blokKembalikanSk2);
   } else {
     html += pdBlock('fa-gavel', judul2, 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
   }
@@ -9115,16 +9318,20 @@ function pdRenderDetailSingkat(res){
   if(st(4)==='done'){
     if(h.jenis==='TAGIHAN'){
       var buktiBayar = pdFileVersiTerakhir(res.file,'BUKTI_BAYAR');
+      var blokKembalikanTg4 = isAdmin ? pdBlokKembalikan('pd-kembalikan-tg4-'+h.idPengajuan, 'pdAksiKembalikanTagihan', h.idPengajuan) : '';
       html += pdBlock('fa-flag-checkered', judul4, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
         '<div class="fw-bold small mb-2" style="color:#166534;">Dibayar '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' \u00b7 Rp '+fmtRp(h.totalRealisasi)+'</div>'
         + (buktiBayar ? ('<div class="small fw-bold mb-1 text-muted">BUKTI BAYAR (diunggah Admin)</div>'+pdFileChip(buktiBayar)) : '') // opsional utk Tunai -- kalau tidak diunggah, bagian ini disembunyikan saja (tidak nampilkan label tanpa isi)
-        + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
+        + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar)
+        + blokKembalikanTg4);
     } else {
       var selisih2 = h.totalDiajukan - h.totalRealisasi;
+      var blokKembalikanSk4 = isAdmin ? pdBlokKembalikan('pd-kembalikan-sk4-'+h.idPengajuan, 'pdAksiKembalikanLpj', h.idPengajuan) : '';
       html += pdBlock('fa-flag-checkered', judul4, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
         '<div class="row g-2 mb-2"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
         + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih2===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold">Rp '+fmtRp(Math.abs(selisih2))+'</div></div></div></div>'
-        + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
+        + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar)
+        + blokKembalikanSk4);
     }
   } else {
     html += pdBlock('fa-flag-checkered', judul4, 'locked', '', pdLockedBody('Menunggu tahap Pencatatan BKK/BKM selesai.'));
@@ -9137,6 +9344,72 @@ function pdRenderDetailSingkat(res){
 // ============================================================
 // AKSI (semua panggil backend asli, refresh detail sesudahnya)
 // ============================================================
+// ============================================================
+// "KEMBALIKAN UNTUK REVISI" -- FITUR BARU (atas permintaan "tidak ada fitur
+// kembalikan atau edit ketika sudah disetujui, di semua pengajuan" & "ada
+// kembalikan juga sudah disetujui tapi unit minta dikembalikan karena ada
+// perubahan"): tombol kecil (KHUSUS Admin) yang dipasang di tahap-tahap
+// yang SUDAH disetujui/selesai -- membuka textarea alasan (WAJIB diisi)
+// lalu konfirmasi, sebelum memanggil backend yang SAMA PERSIS dgn tombol
+// "Minta Revisi" di tahap verifikasi biasa (bedanya cuma status ASALNYA --
+// backend Code.gs yang menentukan status apa saja yg boleh "ditarik
+// kembali" dari titik itu, lihat catatan di revisiPengajuan/
+// setujuiDokumenLpj/setujuiDokumenTagihan/setujuiDokumenLaporanUnit).
+// Dipasang sbg blok yg TERSEMBUNYI DULU (toggle) di bawah ringkasan
+// "Disetujui"/"Selesai" yg sudah ada -- supaya tidak mengganggu tampilan
+// normal & tidak terpencet tidak sengaja, tapi tetap gampang ditemukan.
+function pdBlokKembalikan(toggleId, fnJs, idPengajuan){
+  return '<div class="mt-3 pt-2" style="border-top:1px dashed #e2c9c9;">'
+    + '<a href="javascript:void(0)" class="small text-danger" onclick="pdToggleKembalikan(\''+toggleId+'\')"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</a>'
+    + '<div id="'+toggleId+'" class="d-none mt-2">'
+      + '<div class="small text-muted mb-2">Dipakai kalau ternyata ada yang perlu diperbaiki setelah disetujui/selesai (mis. Unit lapor ada perubahan/kesalahan) -- pengajuan ini akan dibuka lagi supaya Unit bisa memperbaiki &amp; mengirim ulang.</div>'
+      + '<textarea class="form-control form-control-sm mb-2" id="'+toggleId+'-catatan" rows="2" placeholder="Alasan dikembalikan (WAJIB diisi)"></textarea>'
+      + '<button class="btn btn-sm btn-outline-danger" onclick="'+fnJs+'(\''+idPengajuan+'\', \''+toggleId+'\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan</button>'
+    + '</div></div>';
+}
+function pdToggleKembalikan(toggleId){
+  var el = document.getElementById(toggleId);
+  if(el) el.classList.toggle('d-none');
+}
+// Helper BERSAMA -- baca catatan, konfirmasi, lalu jalankan RPC. buatArgs =
+// function(idPengajuan, catatan) -> array argumen RPC (urutan & bentuknya
+// beda per jenis, lihat masing2 fungsi pembungkus di bawah).
+function pdAksiKembalikanUmum(idPengajuan, toggleId, fnRpc, buatArgs, btn){
+  var catatan = (document.getElementById(toggleId+'-catatan')||{}).value.trim();
+  if(!catatan){ toast('error','Alasan pengembalian wajib diisi'); return; }
+  Swal.fire({
+    title:'Kembalikan pengajuan ini untuk direvisi?',
+    html:'Pengajuan yang sudah disetujui/selesai akan dibuka lagi supaya Unit bisa memperbaiki &amp; mengirim ulang.<br><span class="text-muted small">Alasan: "'+esc(catatan)+'"</span>',
+    icon:'warning', showCancelButton:true, confirmButtonText:'Ya, Kembalikan', confirmButtonColor:'#dc2626', cancelButtonText:'Batal'
+  }).then(function(r){
+    if(!r.isConfirmed) return;
+    pdJalankanAksi(fnRpc, buatArgs(idPengajuan, catatan), btn, 'Pengajuan dikembalikan untuk direvisi');
+  });
+}
+// RAB (jenis MUKA, pra-cair) -- backend: revisiPengajuan(idPengajuan, catatan, token, idKey)
+function pdAksiKembalikanRab(id, toggleId, btn){
+  pdAksiKembalikanUmum(id, toggleId, 'revisiPengajuan', function(idP, catatan){
+    return [idP, catatan, STATE.token, _idemKey('kembalikan_rab', {id:idP, catatan:catatan})];
+  }, btn);
+}
+// LPJ MUKA & Penggantian Biaya -- backend: setujuiDokumenLpj(idPengajuan, keputusan, catatan, token, idKey)
+function pdAksiKembalikanLpj(id, toggleId, btn){
+  pdAksiKembalikanUmum(id, toggleId, 'setujuiDokumenLpj', function(idP, catatan){
+    return [idP, 'PERLU_REVISI', catatan, STATE.token, _idemKey('kembalikan_lpj', {id:idP, catatan:catatan})];
+  }, btn);
+}
+// Tagihan -- backend: setujuiDokumenTagihan(idPengajuan, keputusan, catatan, token, idKey)
+function pdAksiKembalikanTagihan(id, toggleId, btn){
+  pdAksiKembalikanUmum(id, toggleId, 'setujuiDokumenTagihan', function(idP, catatan){
+    return [idP, 'PERLU_REVISI', catatan, STATE.token, _idemKey('kembalikan_tagihan', {id:idP, catatan:catatan})];
+  }, btn);
+}
+// Laporan Unit -- backend: setujuiDokumenLaporanUnit(idPengajuan, keputusan, catatan, token, idKey)
+function pdAksiKembalikanLaporan(id, toggleId, btn){
+  pdAksiKembalikanUmum(id, toggleId, 'setujuiDokumenLaporanUnit', function(idP, catatan){
+    return [idP, 'PERLU_REVISI', catatan, STATE.token, _idemKey('kembalikan_laporan', {id:idP, catatan:catatan})];
+  }, btn);
+}
 function pdAksiSetujui(id, btn){
   var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
   pdJalankanAksi('setujuiPermohonanDana', [id, catatan, STATE.token, _idemKey('setuju_muka', {id:id, catatan:catatan})], btn, 'Pengajuan disetujui');
@@ -9273,13 +9546,32 @@ function pdAksiCatatKasirSekaligus(id, btn){
   }
   pdJalankanAksi('catatKasirPenggantianBiaya', [id, noBukti, buktiTransferFile, STATE.token, _idemKey('kasir_sekaligus', {id:id, noBukti:noBukti, punyaFile:!!buktiTransferFile})], btn, 'Dana tercatat, pengajuan selesai');
 }
-// TAHAP 1/2 (Admin): Verifikasi DOKUMEN Tagihan (SENGAJA tidak ada
-// 'PERLU_REVISI' utk Tagihan, sesuai desain lama -- cuma Setuju/Tolak).
+// TAHAP 1/2 (Admin): Verifikasi DOKUMEN Tagihan. FITUR BARU (atas
+// permintaan "pengajuan reimburse dan tagihan belum ada fitur revisi"):
+// SEKARANG ikut punya 'PERLU_REVISI', SAMA seperti Penggantian Biaya
+// (pdAksiSetujuiDokumenSekaligus) -- sebelumnya cuma Setuju/Tolak.
 // SENGAJA TIDAK ada input bukti bayar/BKK di sini -- itu tahap 2.
 function pdAksiSetujuiDokumenTagihan(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-tagihan-'+id)||{}).value || '';
-  if(keputusan==='DITOLAK' && !catatan){ toast('error','Catatan alasan penolakan wajib diisi'); return; }
+  if(keputusan!=='DISETUJUI' && !catatan){ toast('error','Catatan wajib diisi kalau Minta Revisi/Tolak'); return; }
   pdJalankanAksi('setujuiDokumenTagihan', [id, keputusan, catatan, STATE.token, _idemKey('setuju_tagihan', {id:id, keputusan:keputusan, catatan:catatan})], btn, keputusan==='DISETUJUI' ? 'Tagihan disetujui' : 'Tersimpan');
+}
+// Unit kirim ULANG Tagihan sesudah diminta revisi -- FITUR BARU, pola SAMA
+// dgn pdAksiKirimRevisiSekaligus di atas, cuma field-nya field tunggal
+// (bukan tabel rincian) krn Tagihan memang cuma 1 nominal.
+function pdAksiKirimRevisiTagihan(id, btn){
+  var judul = document.getElementById('pd-judul-tagihan-revisi').value.trim();
+  var kepada = document.getElementById('pd-kepada-tagihan-revisi').value.trim();
+  var nominal = angkaKeAngka(document.getElementById('pd-nominal-tagihan-revisi').value);
+  if(!judul){ toast('error','Nama tagihan wajib diisi'); return; }
+  if(!kepada){ toast('error','Dibayarkan kepada wajib diisi'); return; }
+  if(!nominal){ toast('error','Nominal tagihan wajib diisi'); return; }
+  var metode = document.querySelector('#pd-metode-tagihan-revisi-toggle .pos-tab.active').dataset.metode;
+  var noRekening = document.getElementById('pd-no-rek-tagihan-revisi').value.trim();
+  var namaRekening = document.getElementById('pd-nama-rek-tagihan-revisi').value.trim();
+  var namaBank = document.getElementById('pd-nama-bank-tagihan-revisi').value.trim();
+  if(metode==='TRANSFER' && (!noRekening || !namaRekening || !namaBank)){ toast('error','No. Rekening, Nama Pemilik Rekening, dan Nama Bank wajib diisi kalau metode Transfer'); return; }
+  pdJalankanAksi('kirimTagihanRevisi', [id, {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihanRevisi, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank}, STATE.token], btn, 'Tagihan dikirim ulang');
 }
 // TAHAP 2/2 (KASIR): mencatat bukti bayar/BKK setelah Tagihan DISETUJUI di
 // tahap 1. Bukti Bayar (PDF) cuma wajib kalau metode Transfer -- kalau
@@ -9419,8 +9711,10 @@ function pdRenderDetailLaporanUnit(res){
         + '<button class="btn btn-sm btn-outline-secondary" id="btn-lap-tolak-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLaporanUnit(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
         : pdCatatanTunggu('Menunggu diverifikasi Admin Pusat.'));
   } else if(st(2)==='done'){
+    var blokKembalikanLap2 = isAdmin ? pdBlokKembalikan('pd-kembalikan-lap2-'+h.idPengajuan, 'pdAksiKembalikanLaporan', h.idPengajuan) : '';
     html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'done', '<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>');
+      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      + blokKembalikanLap2);
   } else {
     html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
   }
@@ -9445,12 +9739,14 @@ function pdRenderDetailLaporanUnit(res){
   // Tahap 4 -- Selesai
   if(st(4)==='done'){
     var selisihLap = h.totalDiajukan - h.totalRealisasi;
+    var blokKembalikanLap4 = isAdmin ? pdBlokKembalikan('pd-kembalikan-lap4-'+h.idPengajuan, 'pdAksiKembalikanLaporan', h.idPengajuan) : '';
     html += pdBlock('fa-flag-checkered', '4. Selesai — Sudah Dicatat', 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
       '<div class="row g-2 mb-2"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Pemasukan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
       + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Pengeluaran</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
       + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisihLap>=0?'ok':'warn')+'"><div class="small text-muted">Selisih (Laba/Rugi Bulan Ini)</div><div class="fw-bold">Rp '+fmtRp(Math.abs(selisihLap))+'</div></div></div></div>'
       + pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk', h.noBuktiKasMasuk)
-      + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
+      + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar)
+      + blokKembalikanLap4);
   } else {
     html += pdBlock('fa-flag-checkered', '4. Selesai', 'locked', '', pdLockedBody('Menunggu tahap Pencatatan BKK/BKM selesai diproses.'));
   }
