@@ -758,6 +758,7 @@
           <div class="col-md-6"><div class="text-muted small">Nama Bank <span class="text-muted fw-normal">(judul cetak "Rekap Rekening Giro ...")</span></div><div class="fw-bold" id="st-v-bank">-</div></div>
           <div class="col-md-6"><div class="text-muted small">Kode Rekening Kas/Bank (CoA)</div><div class="fw-bold" id="st-v-rekening-kasbank">-</div></div>
           <div class="col-md-6"><div class="text-muted small">Email Notifikasi</div><div class="fw-bold" id="st-v-email">-</div></div>
+          <div class="col-md-6"><div class="text-muted small">Email Ketua LPPM <span class="text-muted fw-normal">(info pengajuan dana baru)</span></div><div class="fw-bold" id="st-v-email-ketua">-</div></div>
           <div class="col-md-6"><div class="text-muted small">Jeda Arsip Otomatis Pengajuan Dana</div><div class="fw-bold" id="st-v-arsip-min-tahun">-</div></div>
         </div>
         <form class="row g-3 d-none" id="st-form" onsubmit="submitSetup(event)">
@@ -765,6 +766,7 @@
           <div class="col-md-6"><label class="form-label small mb-1">Nama Bank <span class="text-muted">(untuk judul cetak "Rekap Rekening Giro ...")</span></label><input class="form-control form-control-sm" id="st-bank" placeholder="mis. CIMB Niaga"></div>
           <div class="col-md-6"><label class="form-label small mb-1">Kode Rekening Kas/Bank (CoA) <span class="text-muted">— dipakai di Jurnal Memorial</span></label><input class="form-control form-control-sm" id="st-rekening-kasbank" placeholder="mis. 102-000-102"></div>
           <div class="col-md-6"><label class="form-label small mb-1">Email Notifikasi</label><input class="form-control form-control-sm" id="st-email"></div>
+          <div class="col-md-6"><label class="form-label small mb-1">Email Ketua LPPM <span class="text-muted">(info pengajuan dana baru — lihat kartu "Notifikasi ke Ketua LPPM" di bawah)</span></label><input class="form-control form-control-sm" id="st-email-ketua" placeholder="mis. ketua.lppm@usd.ac.id"></div>
           <div class="col-md-6"><label class="form-label small mb-1">Jeda Arsip Otomatis Pengajuan Dana <span class="text-muted">(tahun)</span></label><input type="number" min="0" class="form-control form-control-sm" id="st-arsip-min-tahun" placeholder="mis. 1">
             <div class="form-text small">Pengajuan Selesai/Ditolak baru diarsipkan OTOMATIS saat Rollover kalau Tahun Anggarannya sudah sebanyak ini tahun berlalu. Isi 0 supaya langsung diarsipkan di rollover pertama setelah selesai. Tidak memengaruhi tombol Arsipkan manual di menu ini -- itu bisa dipakai kapan saja tanpa menunggu jeda ini.</div>
           </div>
@@ -780,6 +782,17 @@
             <input class="form-check-input" type="checkbox" id="st-pengingat-toggle" onchange="toggleStPengingat(this)">
           </div>
           <span id="st-pengingat-label" class="small text-muted">Memuat...</span>
+        </div>
+      </div></div>
+
+      <div class="card mb-3"><div class="card-body">
+        <div class="section-title mb-2"><i class="fas fa-envelope-open-text"></i>Notifikasi ke Ketua LPPM</div>
+        <p class="text-muted small mb-2">Kalau aktif, setiap ada Pengajuan Dana Kegiatan baru (pengajuan RAB pertama kali), Ketua LPPM otomatis menerima email berisi rincian RAB & surat pengajuan (PDF) terlampir. Murni tembusan informasi — Ketua LPPM tidak perlu (dan tidak punya) akun untuk login ke sistem ini. Isi dulu "Email Ketua LPPM" di kartu Pengaturan Umum di atas sebelum bisa diaktifkan.</p>
+        <div class="d-flex align-items-center gap-2">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="st-notif-ketua-toggle" onchange="toggleStNotifKetua(this)">
+          </div>
+          <span id="st-notif-ketua-label" class="small text-muted">Memuat...</span>
         </div>
       </div></div>
 
@@ -5999,12 +6012,16 @@ function loadSetupView(){
     document.getElementById('st-bank').value = res.namaBank || '';
     document.getElementById('st-rekening-kasbank').value = res.kodeRekeningKasBank || '';
     document.getElementById('st-email').value = res.emailNotifikasi;
+    document.getElementById('st-email-ketua').value = res.emailKetuaLppm || '';
     document.getElementById('st-arsip-min-tahun').value = res.pengajuanArsipMinTahun;
     document.getElementById('st-v-institusi').textContent = res.namaInstitusi || '-';
     document.getElementById('st-v-bank').textContent = res.namaBank || '-';
     document.getElementById('st-v-rekening-kasbank').textContent = res.kodeRekeningKasBank || '-';
     document.getElementById('st-v-email').textContent = res.emailNotifikasi || '-';
+    document.getElementById('st-v-email-ketua').textContent = res.emailKetuaLppm || '-';
     document.getElementById('st-v-arsip-min-tahun').textContent = (res.pengajuanArsipMinTahun===0 ? '0' : res.pengajuanArsipMinTahun) + ' tahun';
+    document.getElementById('st-notif-ketua-toggle').checked = res.notifKetuaLppmAktif;
+    document.getElementById('st-notif-ketua-label').textContent = res.notifKetuaLppmAktif ? 'Aktif — email otomatis terkirim ke Ketua LPPM tiap ada Pengajuan Dana Kegiatan baru' : 'Nonaktif';
     STATE.namaBank = res.namaBank || STATE.namaBank;
     STATE.kodeRekeningKasBank = res.kodeRekeningKasBank || '';
   });
@@ -6026,6 +6043,22 @@ function toggleStPengingat(chk){
     if(!res.success){ chk.checked = !chk.checked; toast('error', res.message); return; }
     label.textContent = chk.checked ? 'Aktif — email dikirim tiap Senin pagi kalau ada yang menumpuk' : 'Nonaktif';
     toast('success', chk.checked ? 'Pengingat mingguan diaktifkan' : 'Pengingat mingguan dinonaktifkan');
+  }).catch(function(){ chk.disabled = false; chk.checked = !chk.checked; toast('error','Gagal mengubah pengaturan'); });
+}
+// FITUR BARU -- Notifikasi Ketua LPPM: pola SAMA PERSIS dgn toggleStPengingat
+// di atas (toggle instan, tanpa perlu tombol Simpan terpisah). Kalau
+// diaktifkan padahal Email Ketua LPPM belum diisi, backend akan menolak
+// (aktifkanNotifKetuaLppm) & pesannya ditampilkan di sini, togglenya
+// otomatis kembali ke posisi semula.
+function toggleStNotifKetua(chk){
+  var label = document.getElementById('st-notif-ketua-label');
+  chk.disabled = true;
+  var fn = chk.checked ? 'aktifkanNotifKetuaLppm' : 'nonaktifkanNotifKetuaLppm';
+  gasCall(fn, STATE.token).then(function(res){
+    chk.disabled = false;
+    if(!res.success){ chk.checked = !chk.checked; toast('error', res.message); return; }
+    label.textContent = chk.checked ? 'Aktif — email otomatis terkirim ke Ketua LPPM tiap ada Pengajuan Dana Kegiatan baru' : 'Nonaktif';
+    toast('success', chk.checked ? 'Notifikasi Ketua LPPM diaktifkan' : 'Notifikasi Ketua LPPM dinonaktifkan');
   }).catch(function(){ chk.disabled = false; chk.checked = !chk.checked; toast('error','Gagal mengubah pengaturan'); });
 }
 function tesKoneksiSimk(){
@@ -6130,7 +6163,7 @@ function stBatalEdit(){
 }
 function submitSetup(e){
   e.preventDefault();
-  var data = { namaInstitusi:document.getElementById('st-institusi').value, namaBank:document.getElementById('st-bank').value, kodeRekeningKasBank:document.getElementById('st-rekening-kasbank').value, emailNotifikasi:document.getElementById('st-email').value, pengajuanArsipMinTahun:document.getElementById('st-arsip-min-tahun').value };
+  var data = { namaInstitusi:document.getElementById('st-institusi').value, namaBank:document.getElementById('st-bank').value, kodeRekeningKasBank:document.getElementById('st-rekening-kasbank').value, emailNotifikasi:document.getElementById('st-email').value, emailKetuaLppm:document.getElementById('st-email-ketua').value, pengajuanArsipMinTahun:document.getElementById('st-arsip-min-tahun').value };
   var btn = e.target.querySelector('button[type="submit"], button');
   btnBusy(btn, true);
   gasCall('saveSetup', data, STATE.username, STATE.token).then(function(res){
