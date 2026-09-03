@@ -2884,6 +2884,19 @@ function editTransaksi(id, btn){
       delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
       delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
       delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: data juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
+      // PERBAIKAN BUG (atas permintaan "kadang data fresh cukup lama...
+      // seperti ada yang basi"): halaman "Verifikasi Transaksi" (_vfCache)
+      // SEBELUMNYA TIDAK IKUT dibersihkan di sini padahal transaksi yg baru
+      // saja dikembalikan ke "Belum Jelas" itu JUGA tampil di sana --
+      // akibatnya kalau halaman itu dibuka lagi dalam 8 detik (lihat
+      // VIEW_REFRESH_DEBOUNCE_MS/_bolehSegarkan), yang muncul masih data
+      // LAMA dari cache, BUKAN yang baru saja berubah -- terasa "kok belum
+      // fresh, harus nunggu beberapa detik". Sekarang ikut dibersihkan di
+      // SEMUA titik yg mengubah status verifikasi/Pos transaksi (lihat juga
+      // titik serupa lain: ubahPosVerifikasi, verifikasiTransaksi,
+      // kembalikanTransaksiVerifikasi, kembalikanTransaksiKonso, & 1 lagi
+      // di updateTransaksi/Tambahan pada halaman Rekening Koran).
+      delete _vfCache[STATE.tahunAktif+'_'+bulan];
       loadRekapBulan();
     } else {
       var arr = _arrTransaksiAktif();
@@ -3118,6 +3131,7 @@ function editTransaksiRK(id, btn){
     delete CACHE.tambahan[STATE.tahunAktif + '_' + bulan]; // juga tampil di "Input Non Unit"
     delete CACHE.belumVerifikasi[STATE.tahunAktif + '_' + bulan];
     delete _konsolidasiRawCache[STATE.tahunAktif + '_' + bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
+    delete _vfCache[STATE.tahunAktif + '_' + bulan]; // PERBAIKAN BUG: juga tampil di halaman "Verifikasi Transaksi" -- jangan sampai basi di sana (lihat catatan lengkap di editTransaksi)
     if(v.kembalikanKeBelumJelas){
       toast('success','Tersimpan & dikembalikan ke daftar Belum Jelas Pos-nya');
       loadRekapRekeningKoran(); // pindah BUCKET -- ambil ulang dari server, bukan sekadar ubah 1 field
@@ -3148,7 +3162,9 @@ function hapusTransaksiRK(id){
         if(!r2.success){ Swal.showValidationMessage(r2.message); return false; }
         delete CACHE.rekap[STATE.tahunAktif + '_' + bulan];
         delete CACHE.tambahan[STATE.tahunAktif + '_' + bulan];
+        delete CACHE.belumVerifikasi[STATE.tahunAktif + '_' + bulan]; // PERBAIKAN BUG: transaksi yg dihapus ini mungkin masih ada di daftar "Belum Jelas Pos-nya" -- jangan sampai basi di sana
         delete _konsolidasiRawCache[STATE.tahunAktif + '_' + bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
+        delete _vfCache[STATE.tahunAktif + '_' + bulan]; // PERBAIKAN BUG: transaksi yg dihapus ini mungkin sudah terlanjur diverifikasi -- jangan sampai masih nyangkut di halaman "Verifikasi Transaksi" (lihat catatan lengkap di editTransaksi)
         return true;
       }).catch(function(){ Swal.showValidationMessage('Gagal menghapus, coba lagi.'); return false; });
     }
@@ -3774,6 +3790,7 @@ function gcSimpanSemua(){
       initGridCepat();
       delete CACHE.rekap[_rekapCacheKey()];
       delete _konsolidasiRawCache[_rekapCacheKey()]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
+      if(adaBV) delete _vfCache[_rekapCacheKey()]; // PERBAIKAN BUG: kalau ada baris yg masuk ke "Belum Jelas Pos-nya", transaksi baru itu juga perlu tampil di halaman "Verifikasi Transaksi" -- jangan sampai basi di sana
       loadRekapBulan();
       if(adaBV) loadPerluVerifikasi();
     }
@@ -3958,6 +3975,15 @@ function bukaVerifikasiTransaksi(id){
     // dibatalkan di sini juga, supaya begitu dibuka, langsung ambil data
     // terbaru dari server tanpa sempat menampilkan yang lama sama sekali.
     delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan];
+    // PERBAIKAN BUG (atas permintaan "kadang data fresh cukup lama... kaya
+    // ada yang basi"): halaman ini SENDIRI (Verifikasi Transaksi, _vfCache)
+    // SEBELUMNYA malah TIDAK ikut dibersihkan di sini, padahal transaksi
+    // yg BARU SAJA diverifikasi INI JUGA tampil di halaman ini -- makanya
+    // kalau loadViewVerifikasiData() di bawah dipanggil dlm 8 detik sejak
+    // terakhir dimuat (lihat VIEW_REFRESH_DEBOUNCE_MS/_bolehSegarkan),
+    // yang tampil masih data LAMA dari cache (transaksi ini kelihatan
+    // masih "belum diverifikasi", padahal server sudah berhasil).
+    delete _vfCache[STATE.tahunAktif+'_'+bulan];
     loadViewVerifikasiData();
   });
 }
@@ -3999,6 +4025,7 @@ function bukaUbahPosVerifikasi(id, kodePosSaatIni){
     _hapusSaranKetPos(kodePosBaruDipilih);
     delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
     delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
+    delete _vfCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: halaman ini SENDIRI juga perlu dibersihkan (lihat catatan lengkap di bukaVerifikasiTransaksi)
     loadViewVerifikasiData();
   });
 }
@@ -4034,6 +4061,7 @@ function kembalikanTransaksiVerifikasi(id){
     delete CACHE.rekap[STATE.tahunAktif+'_'+bulan];
     delete CACHE.belumVerifikasi[STATE.tahunAktif+'_'+bulan];
     delete _konsolidasiRawCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: juga tampil di Rekap Konsolidasi -- jangan sampai basi di sana
+    delete _vfCache[STATE.tahunAktif+'_'+bulan]; // PERBAIKAN BUG: halaman ini SENDIRI juga perlu dibersihkan (lihat catatan lengkap di bukaVerifikasiTransaksi)
     loadViewVerifikasiData();
   });
 }
@@ -4462,7 +4490,7 @@ function bukaImportExcel(){
       if(idx >= batches.length){
         hideLoading();
         toast('success', totalMasuk + (isBelumJelas ? ' baris tersimpan sebagai Belum Terverifikasi' : ' baris berhasil diimpor'));
-        if(isBelumJelas){ loadPerluVerifikasi(); } else { delete CACHE.rekap[_rekapCacheKey()]; delete _konsolidasiRawCache[_rekapCacheKey()]; loadRekapBulan(); }
+        if(isBelumJelas){ delete _vfCache[_rekapCacheKey()]; loadPerluVerifikasi(); } else { delete CACHE.rekap[_rekapCacheKey()]; delete _konsolidasiRawCache[_rekapCacheKey()]; loadRekapBulan(); }
         return;
       }
       showLoading('Mengimpor baris ' + (idx*UKURAN_BATCH+1) + '–' + Math.min((idx+1)*UKURAN_BATCH, semuaBaris.length) + ' dari ' + semuaBaris.length + '...');
@@ -4601,6 +4629,7 @@ function kembalikanTransaksiKonso(id, bulan){
     delete _konsolidasiRawCache[key];
     delete CACHE.rekap[key];
     delete CACHE.belumVerifikasi[key];
+    delete _vfCache[key]; // PERBAIKAN BUG: juga tampil di halaman "Verifikasi Transaksi" -- jangan sampai basi di sana (lihat catatan lengkap di editTransaksi)
     toast('success','Transaksi dikembalikan ke daftar Belum Jelas Pos-nya');
     loadKonsolidasi();
   });
