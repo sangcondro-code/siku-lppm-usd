@@ -8264,10 +8264,12 @@ function pdAksiSimpanEditRab(id, btn){
     if(res){ var box = document.getElementById('pd-editrab-box-'+id); if(box) box.classList.add('d-none'); }
   });
 }
-function pdBlokEditRealisasiAdmin(idPengajuan){
+function pdBlokEditRealisasiAdmin(idPengajuan, statusSaatIni){
+  var infoSelesai = (statusSaatIni==='SELESAI') ? '<div class="small mb-2" style="color:#9a3412;"><i class="fas fa-triangle-exclamation me-1"></i>Pengajuan ini sudah <b>Selesai</b> (bukti kas sudah dicatat) -- kalau nominalnya berubah cukup jauh, cek lagi No. Bukti Kas di bawah, apakah masih sesuai.</div>' : '';
   return '<div class="mt-2"><a href="javascript:void(0)" id="pd-editrealisasi-link-'+idPengajuan+'" class="small" onclick="pdToggleEditRealisasi(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit Realisasi (Admin)</a>'
     + '<div id="pd-editrealisasi-box-'+idPengajuan+'" class="d-none mt-2" style="background:#fef9f9;border:1px solid #f3d9d9;border-radius:8px;padding:10px;">'
       + '<div class="small text-muted mb-2">Perbaikan langsung oleh Admin (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Admin sendiri sudah tahu perbaikannya.</div>'
+      + infoSelesai
       + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-admin"></tbody></table></div>'
       + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRealisasiAdmin()"><i class="fas fa-plus me-1"></i>Baris</button>'
       + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasi-admin">Rp 0</span></div>'
@@ -8320,9 +8322,11 @@ function pdAksiSimpanEditRealisasi(id, btn){
 // langsung field-per-field (judul/dibayarkan kepada/nominal), mirip pola
 // updateJudulPengajuan tapi mencakup beberapa field sekaligus.
 function pdBlokEditTagihanAdmin(idPengajuan, h){
+  var infoSelesaiTg = (h.status==='SELESAI') ? '<div class="small mb-2" style="color:#9a3412;"><i class="fas fa-triangle-exclamation me-1"></i>Tagihan ini sudah <b>Selesai</b> (bukti kas sudah dicatat) -- kalau nominalnya berubah cukup jauh, cek lagi No. Bukti Kas Keluar di bawah, apakah masih sesuai.</div>' : '';
   return '<div class="mt-2"><a href="javascript:void(0)" id="pd-edittagihan-link-'+idPengajuan+'" class="small" onclick="pdToggleEditTagihan(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit Tagihan (Admin)</a>'
     + '<div id="pd-edittagihan-box-'+idPengajuan+'" class="d-none mt-2" style="background:#fef9f9;border:1px solid #f3d9d9;border-radius:8px;padding:10px;">'
       + '<div class="small text-muted mb-2">Perbaikan langsung oleh Admin (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Admin sendiri sudah tahu perbaikannya.</div>'
+      + infoSelesaiTg
       + '<div class="mb-2"><label class="form-label small mb-1">Nama Tagihan</label><input type="text" class="form-control form-control-sm" id="pd-judul-tagihan-admin-'+idPengajuan+'" value="'+esc(h.judul)+'"></div>'
       + '<div class="mb-2"><label class="form-label small mb-1">Dibayarkan Kepada</label><input type="text" class="form-control form-control-sm" id="pd-kepada-tagihan-admin-'+idPengajuan+'" value="'+esc(h.dibayarkanKepada)+'"></div>'
       + '<div class="mb-2"><label class="form-label small mb-1">Nominal Tagihan</label><input class="form-control form-control-sm text-end" id="pd-nominal-tagihan-admin-'+idPengajuan+'" value="'+fmtRp(h.totalDiajukan)+'" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)"></div>'
@@ -8907,7 +8911,7 @@ function pdRenderDetailMuka(res){
     setTimeout(function(){ pdPastikanKomponenList(pdRenderTabelRab); }, 0);
   } else {
     PD.rabAdminAsli = res.detail;
-    var blokEditRab = (isAdmin && !h.tglDicairkan) ? pdBlokEditRabAdmin(h.idPengajuan) : '';
+    var blokEditRab = (isAdmin && !h.tglDicairkan && h.status !== 'DITOLAK') ? pdBlokEditRabAdmin(h.idPengajuan) : '';
     html += pdBlock('fa-file-lines','1. Pengajuan Dana','done','', pdTabelRabReadonly(res.detail)
       + blokEditRab
       + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">SURAT PENGAJUAN</div>'+pdFileChip(suratFile)+'</div>'
@@ -9016,7 +9020,7 @@ function pdRenderDetailMuka(res){
     // di bawah (pdInfoPphHtml), bukan pengurang Total Realisasi.
     var selisih = h.totalDiajukan - h.totalRealisasi; // PURE: dana dicairkan - realisasi apa adanya
     PD.realisasiAdminAsli = res.realisasi;
-    var blokEditRealisasi4 = isAdmin ? pdBlokEditRealisasiAdmin(h.idPengajuan) : '';
+    var blokEditRealisasi4 = (isAdmin && h.status !== 'DITOLAK') ? pdBlokEditRealisasiAdmin(h.idPengajuan, h.status) : '';
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','done','', pdTabelRealisasiReadonly(res.realisasi)
       + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
       + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
@@ -9247,13 +9251,13 @@ function pdRenderDetailSingkat(res){
       + (h.metodePembayaran==='TRANSFER' ? ('<div class="small text-muted mt-2">'+esc(h.namaRekening)+' &mdash; '+esc(h.namaBank)+' &mdash; No. Rek. '+esc(h.noRekening)+'</div>') : '')
       + '</div>';
     if(h.jenis==='TAGIHAN'){
-      var blokEditTagihan = isAdmin ? pdBlokEditTagihanAdmin(h.idPengajuan, h) : '';
+      var blokEditTagihan = (isAdmin && h.status !== 'DITOLAK') ? pdBlokEditTagihanAdmin(h.idPengajuan, h) : '';
       bodyTahap1 = '<table class="table tbl mb-0"><tbody><tr><td class="text-muted" style="width:180px;">Dibayarkan Kepada</td><td>'+esc(h.dibayarkanKepada)+'</td></tr><tr><td class="text-muted">Nominal Tagihan</td><td class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</td></tr></tbody></table>'
         + blokEditTagihan
         + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">MEMO & INVOICE</div>'+pdFileChip(fileUtama)+'</div>' + infoMetode + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
     } else {
       PD.realisasiAdminAsli = res.realisasi;
-      var blokEditRealisasiSk = isAdmin ? pdBlokEditRealisasiAdmin(h.idPengajuan) : '';
+      var blokEditRealisasiSk = (isAdmin && h.status !== 'DITOLAK') ? pdBlokEditRealisasiAdmin(h.idPengajuan, h.status) : '';
       bodyTahap1 = pdTabelRealisasiReadonly(res.realisasi) + blokEditRealisasiSk + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(fileUtama)+'</div>' + infoMetode + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
     }
     html += pdBlock(h.jenis==='TAGIHAN'?'fa-file-invoice-dollar':'fa-receipt', judul1, 'done', '', bodyTahap1);
@@ -9727,7 +9731,7 @@ function pdRenderDetailLaporanUnit(res){
     // akhir setelah semuanya diproses.
     var selisihAwal = h.totalDiajukan - h.totalRealisasi;
     PD.laporanAdminAsli = res.realisasi;
-    var blokEditLaporan1 = isAdmin ? pdBlokEditLaporanAdmin(h.idPengajuan) : '';
+    var blokEditLaporan1 = (isAdmin && h.status !== 'DITOLAK') ? pdBlokEditLaporanAdmin(h.idPengajuan) : '';
     html += pdBlock('fa-store', '1. Laporan '+labelBulan, 'done', '',
       pdTabelLaporanReadonly(res.realisasi, 'MASUK') + pdTabelLaporanReadonly(res.realisasi, 'KELUAR')
       + '<div class="pd-total-box '+(selisihAwal>=0?'ok':'warn')+' mb-3"><div class="small text-muted">Selisih (Pemasukan &minus; Pengeluaran)</div><div class="fw-bold" style="color:'+(selisihAwal>=0?'#166534':'#9a3412')+';">'+(selisihAwal<0?'-':'')+'Rp '+fmtRp(Math.abs(selisihAwal))+'</div></div>'
