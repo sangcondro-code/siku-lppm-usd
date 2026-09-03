@@ -8036,7 +8036,7 @@ function pdRenderTabelRealisasi(target){
 // maupun form revisi/edit) -- dipakai utk menentukan apakah kolom PPh
 // 21/PPh 23/No. Bukti perlu dirender di pdBarisLaporanHtml.
 function _pdLaporanAdalahPengeluaran(target){
-  return target === 'laporanPengeluaran' || target === 'laporanEditKeluar';
+  return target === 'laporanPengeluaran' || target === 'laporanEditKeluar' || target === 'laporanAdminKeluar';
 }
 function pdTambahBarisLaporan(target){
   PD[target].push({tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''});
@@ -8132,7 +8132,7 @@ function pdBarisLaporanHtml(target, r, i){
   return '<tr>' + kolomDasar + kolomPph + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisLaporan(\''+target+'\','+i+')"><i class="fas fa-trash"></i></button></td></tr>';
 }
 function pdRenderTabelLaporan(target){
-  var idMap = { laporanPemasukan:'pd-tbody-laporan-masuk', laporanPengeluaran:'pd-tbody-laporan-keluar', laporanEditMasuk:'pd-tbody-laporan-edit-masuk', laporanEditKeluar:'pd-tbody-laporan-edit-keluar' };
+  var idMap = { laporanPemasukan:'pd-tbody-laporan-masuk', laporanPengeluaran:'pd-tbody-laporan-keluar', laporanEditMasuk:'pd-tbody-laporan-edit-masuk', laporanEditKeluar:'pd-tbody-laporan-edit-keluar', laporanAdminMasuk:'pd-tbody-laporan-admin-masuk', laporanAdminKeluar:'pd-tbody-laporan-admin-keluar' };
   var body = document.getElementById(idMap[target]);
   if(!body) return;
   body.innerHTML = PD[target].map(function(r,i){ return pdBarisLaporanHtml(target, r, i); }).join('');
@@ -8342,6 +8342,49 @@ function pdAksiSimpanEditTagihan(id, btn){
   if(!nominal){ toast('error','Nominal tagihan wajib diisi'); return; }
   pdJalankanAksi('adminEditTagihan', [id, {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal}, STATE.token, _idemKey('admin_edit_tagihan', {id:id, judul:judul, kepada:kepada, nominal:nominal})], btn, 'Tagihan tersimpan').then(function(res){
     if(res){ var box = document.getElementById('pd-edittagihan-box-'+id); if(box) box.classList.add('d-none'); }
+  });
+}
+// Laporan Unit (Pemasukan/Pengeluaran) -- FUNGSI TERPISAH dari RAB/
+// Realisasi di atas krn skema barisnya beda (tipe MASUK/KELUAR + tanggal
+// per baris, bukan namaKomponen bebas) -- backend-nya juga fungsi
+// TERSENDIRI (adminEditLaporanUnit), BUKAN adminEditRealisasi, supaya
+// field tipe/tanggal itu tidak hilang/tertimpa 0 kalau dipaksa pakai
+// fungsi yg sama dgn RAB/Realisasi MUKA & Penggantian Biaya.
+function pdBlokEditLaporanAdmin(idPengajuan){
+  return '<div class="mt-3"><a href="javascript:void(0)" id="pd-editlaporan-link-'+idPengajuan+'" class="small" onclick="pdToggleEditLaporan(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit Pemasukan/Pengeluaran (Admin)</a>'
+    + '<div id="pd-editlaporan-box-'+idPengajuan+'" class="d-none mt-2" style="background:#fef9f9;border:1px solid #f3d9d9;border-radius:8px;padding:10px;">'
+      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Admin (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Admin sendiri sudah tahu perbaikannya.</div>'
+      + '<div class="fw-bold small text-success mb-1"><i class="fas fa-circle-plus me-1"></i>Pemasukan</div>'
+      + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:20%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-laporan-admin-masuk"></tbody></table></div>'
+      + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisLaporan(\'laporanAdminMasuk\')"><i class="fas fa-plus me-1"></i>Baris</button>'
+      + '<div class="mb-3"><b>Total Pemasukan: </b><span id="pd-total-laporanAdminMasuk">Rp 0</span></div>'
+      + '<div class="fw-bold small text-danger mb-1"><i class="fas fa-circle-minus me-1"></i>Pengeluaran</div>'
+      + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:14%">Tanggal</th><th style="width:34%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:14%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-laporan-admin-keluar"></tbody></table></div>'
+      + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisLaporan(\'laporanAdminKeluar\')"><i class="fas fa-plus me-1"></i>Baris</button>'
+      + '<div class="mb-3"><b>Total Pengeluaran: </b><span id="pd-total-laporanAdminKeluar">Rp 0</span></div>'
+      + '<button class="btn btn-sm btn-outline-danger" id="btn-simpan-laporan-admin-'+idPengajuan+'" onclick="pdAksiSimpanEditLaporan(\''+idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Perubahan</button>'
+    + '</div></div>';
+}
+function pdToggleEditLaporan(idPengajuan){
+  var box = document.getElementById('pd-editlaporan-box-'+idPengajuan);
+  if(!box) return;
+  var akanDibuka = box.classList.contains('d-none');
+  box.classList.toggle('d-none');
+  if(akanDibuka){
+    var rowsAsli = PD.laporanAdminAsli || [];
+    PD.laporanAdminMasuk = rowsAsli.filter(function(r){ return r.tipe==='MASUK'; }).map(function(r){ return {tanggal:r.tanggal,keterangan:r.keterangan,nominal:r.nominal,pph21:0,pph23:0,noBukti:''}; });
+    PD.laporanAdminKeluar = rowsAsli.filter(function(r){ return r.tipe==='KELUAR'; }).map(function(r){ return {tanggal:r.tanggal,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; });
+    if(!PD.laporanAdminMasuk.length) PD.laporanAdminMasuk = [{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
+    if(!PD.laporanAdminKeluar.length) PD.laporanAdminKeluar = [{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
+    pdRenderTabelLaporan('laporanAdminMasuk'); pdRenderTabelLaporan('laporanAdminKeluar');
+  }
+}
+function pdAksiSimpanEditLaporan(id, btn){
+  var pemasukan = PD.laporanAdminMasuk.filter(function(r){ return r.keterangan && r.tanggal && Number(r.nominal)>0; });
+  var pengeluaran = PD.laporanAdminKeluar.filter(function(r){ return r.keterangan && r.tanggal && Number(r.nominal)>0; });
+  if(!pemasukan.length && !pengeluaran.length){ toast('error','Isi minimal 1 baris Pemasukan atau Pengeluaran'); return; }
+  pdJalankanAksi('adminEditLaporanUnit', [id, pemasukan, pengeluaran, STATE.token, _idemKey('admin_edit_laporan', {id:id, pemasukan:pemasukan, pengeluaran:pengeluaran})], btn, 'Laporan tersimpan').then(function(res){
+    if(res){ var box = document.getElementById('pd-editlaporan-box-'+id); if(box) box.classList.add('d-none'); }
   });
 }
 
@@ -9683,6 +9726,8 @@ function pdRenderDetailLaporanUnit(res){
     // juga -- konsisten utk Admin MAUPUN Unit, dari awal, bukan cuma di
     // akhir setelah semuanya diproses.
     var selisihAwal = h.totalDiajukan - h.totalRealisasi;
+    PD.laporanAdminAsli = res.realisasi;
+    var blokEditLaporan1 = isAdmin ? pdBlokEditLaporanAdmin(h.idPengajuan) : '';
     html += pdBlock('fa-store', '1. Laporan '+labelBulan, 'done', '',
       pdTabelLaporanReadonly(res.realisasi, 'MASUK') + pdTabelLaporanReadonly(res.realisasi, 'KELUAR')
       + '<div class="pd-total-box '+(selisihAwal>=0?'ok':'warn')+' mb-3"><div class="small text-muted">Selisih (Pemasukan &minus; Pengeluaran)</div><div class="fw-bold" style="color:'+(selisihAwal>=0?'#166534':'#9a3412')+';">'+(selisihAwal<0?'-':'')+'Rp '+fmtRp(Math.abs(selisihAwal))+'</div></div>'
@@ -9692,6 +9737,7 @@ function pdRenderDetailLaporanUnit(res){
       // Cuma baris Pengeluaran (tipe KELUAR) yang relevan, Pemasukan selalu 0.
       + pdInfoPphHtml(res.realisasi.filter(function(r){return r.tipe==='KELUAR';}), h.judul)
       + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI PENDUKUNG</div>'+pdFileChip(fileUtama)+'</div>'
+      + blokEditLaporan1
       + pdKomentarThreadHtml(h.idPengajuan, res.komentar));
   }
 
