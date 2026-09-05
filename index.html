@@ -125,6 +125,7 @@
   .badge-role { font-size:.68rem; padding:2px 8px; border-radius:4px; font-weight:700; }
   .badge-admin { background:#fce7f3; color:#9d174d; }
   .badge-unit { background:#dbeafe; color:#1d4ed8; }
+  .badge-ketua { background:#fef3c7; color:#92400e; }
   .badge-pendapatan { background:#dcfce7; color:#166534; font-size:.66rem; padding:2px 7px; border-radius:4px; font-weight:700; }
   .badge-pengeluaran { background:#fee2e2; color:#991b1b; font-size:.66rem; padding:2px 7px; border-radius:4px; font-weight:700; }
   .pos-tab { cursor:pointer; padding:8px 14px; border-radius:8px; border:1px solid #e5e7eb; font-weight:600; font-size:.8rem; white-space:nowrap; display:flex; align-items:center; gap:6px; }
@@ -191,6 +192,7 @@
 .badge-pd-selesai{ background:#dcfce7; color:#166534; }
 .badge-pd-draft{ background:#f3f4f6; color:#374151; border:1px dashed #9ca3af; } /* garis putus-putus -- pembeda visual jelas dari status resmi lain, menandakan "belum benar-benar terkirim" */
 .badge-pd-menunggu-pencatatan{ background:#e0f2fe; color:#075985; } /* biru muda -- beda dari kuning "Menunggu ACC" & ungu "Menunggu Verifikasi", menandakan tahap KHUSUS menunggu Kasir, bukan menunggu Admin lagi */
+.badge-pd-defisit{ background:#fecaca; color:#991b1b; } /* FITUR BARU -- Ketua LPPM: merah muda, beda dari semua badge lain -- menandakan perlu perhatian/keputusan finansial khusus (defisit), bukan sekadar "menunggu" biasa */
 
 .pd-back{ color:#6b7280; font-size:.82rem; font-weight:600; cursor:pointer; }
 .pd-back:hover{ color:var(--maroon); }
@@ -340,10 +342,10 @@
     <div class="nav-item" data-view="pengajuan" onclick="gotoView('pengajuan')"><i class="fas fa-hand-holding-dollar"></i> Pengajuan Dana<span id="pengajuan-badge" class="badge-pesan d-none">0</span></div>
     <div class="nav-label">Rekap Giro Bank</div>
     <div class="nav-item admin-only" data-view="input" onclick="gotoView('input')"><i class="fas fa-edit"></i> <span id="nav-label-input">Input Rekap Bulanan</span></div>
-    <div class="nav-item" data-view="verifikasi" onclick="gotoView('verifikasi')"><i class="fas fa-check-circle"></i> Verifikasi Transaksi</div>
-    <div class="nav-item admin-only" data-view="rekkoran" onclick="gotoView('rekkoran')"><i class="fas fa-list-ol"></i> Rekap Rekening Koran</div>
+    <div class="nav-item no-ketua" data-view="verifikasi" onclick="gotoView('verifikasi')"><i class="fas fa-check-circle"></i> Verifikasi Transaksi</div>
+    <div class="nav-item admin-ketua-only" data-view="rekkoran" onclick="gotoView('rekkoran')"><i class="fas fa-list-ol"></i> Rekap Rekening Koran</div>
     <div class="nav-item" data-view="konsolidasi" onclick="gotoView('konsolidasi')"><i class="fas fa-layer-group"></i> Rekap Konsolidasi</div>
-    <div class="nav-item admin-only" data-view="memorial" onclick="gotoView('memorial')"><i class="fas fa-file-invoice"></i> Jurnal Memorial</div>
+    <div class="nav-item admin-ketua-only" data-view="memorial" onclick="gotoView('memorial')"><i class="fas fa-file-invoice"></i> Jurnal Memorial</div>
     <div class="nav-label">Laporan</div>
     <div class="nav-item" data-view="laporanunit" onclick="gotoView('laporanunit')"><i class="fas fa-file-invoice-dollar"></i> Laporan Unit</div>
     <div class="nav-label">Kontak</div>
@@ -354,9 +356,9 @@
     <div class="nav-item admin-only" data-view="tahun" onclick="gotoView('tahun')"><i class="fas fa-calendar-plus"></i> Rollover Tahun</div>
     <div class="nav-item admin-only" data-view="setup" onclick="gotoView('setup')"><i class="fas fa-cog"></i> Pengaturan</div>
     <div class="nav-item admin-only" data-view="log" onclick="gotoView('log')"><i class="fas fa-history"></i> Log Aktivitas</div>
-    <div class="nav-label unit-only">Administrasi</div>
-    <div class="nav-item unit-only" data-view="userunit" onclick="gotoView('userunit')"><i class="fas fa-users"></i> Kelola User</div>
-    <div class="nav-item unit-only" data-view="logunit" onclick="gotoView('logunit')"><i class="fas fa-history"></i> Log Aktivitas</div>
+    <div class="nav-label unit-ketua-only">Administrasi</div>
+    <div class="nav-item unit-ketua-only" data-view="userunit" onclick="gotoView('userunit')"><i class="fas fa-users"></i> Kelola User</div>
+    <div class="nav-item unit-ketua-only" data-view="logunit" onclick="gotoView('logunit')"><i class="fas fa-history"></i> Log Aktivitas</div>
   </div>
 
   <div class="main">
@@ -509,7 +511,7 @@
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h5 class="page-title">Laporan Unit <span class="text-muted small" id="lu-nama-unit-label"></span></h5>
         <div class="d-flex gap-2 align-items-center flex-wrap">
-          <select id="lu-pilih-unit" class="form-select form-select-sm admin-only" style="width:auto;" onchange="_luPerbaruiLabelUnit(); loadLaporanUnitIsi();"></select>
+          <select id="lu-pilih-unit" class="form-select form-select-sm admin-ketua-only" style="width:auto;" onchange="_luPerbaruiLabelUnit(); loadLaporanUnitIsi();"></select>
           <select id="lu-pilih-bulan" class="form-select form-select-sm" style="width:auto;" onchange="loadLaporanUnitIsi()">
             <option value="">Semua Bulan (1 Tahun)</option>
           </select>
@@ -595,7 +597,7 @@
         </tbody></table>
       </div></div>
 
-      <div class="card mb-3 konso-admin-only"><div class="card-body">
+      <div class="card mb-3 konso-admin-ketua-only"><div class="card-body">
         <div class="section-title"><i class="fas fa-list-ol"></i>REKAP PER POS — <span id="rp-bulan-label">Bulan Ini</span></div>
         <p class="text-muted small mb-2">Sama persis dengan yang dicetak (Halaman "REKAP REKENING KORAN"). Untuk menambah/mengubah item non-unit, buka <a href="#" onclick="gotoView('input');switchInputMode('nonunit');return false;">Input Rekap Bulanan &rarr; Input Non Unit</a>.</p>
 
@@ -687,7 +689,7 @@
           <div class="col-6 col-md-2"><input class="form-control form-control-sm" id="us-nama" placeholder="Nama"></div>
           <div class="col-6 col-md-2"><input class="form-control form-control-sm" id="us-email" placeholder="Email" type="email"></div>
           <div class="col-6 col-md-2"><input class="form-control form-control-sm" id="us-password" placeholder="Password (kosongkan jika tidak ganti)" type="password"></div>
-          <div class="col-6 col-md-2"><select class="form-select form-select-sm" id="us-role" onchange="onRoleUserChange()"><option value="UNIT">UNIT</option><option value="ADMIN">ADMIN</option></select></div>
+          <div class="col-6 col-md-2"><select class="form-select form-select-sm" id="us-role" onchange="onRoleUserChange()"><option value="UNIT">UNIT</option><option value="ADMIN">ADMIN</option><option value="KETUA">KETUA LPPM</option></select></div>
           <div class="col-6 col-md-2"><button class="btn btn-sm w-100" style="background:var(--maroon);color:white;">Simpan</button></div>
           <div class="col-12" id="us-unit-wrap"><label class="form-label small mb-1">Unit yang diurus (bisa lebih dari satu)</label><div id="us-unit-checks" class="d-flex flex-wrap gap-2"></div></div>
         </form>
@@ -700,16 +702,16 @@
     <!-- USER UNIT (khusus akun UNIT, terbatas ke Unit sendiri) -->
     <div id="view-userunit" class="view d-none">
       <h5 class="page-title mb-3">Kelola User</h5>
-      <p class="text-muted small mb-3">Ganti password akun-akun yang terhubung ke Unit Anda. Menambah atau menghapus akun tetap wewenang Admin.</p>
+      <p class="text-muted small mb-3" id="userunit-desc">Ganti password akun-akun yang terhubung ke Unit Anda. Menambah atau menghapus akun tetap wewenang Admin.</p>
       <div class="card"><div class="card-body">
         <table class="table tbl mb-0"><thead><tr><th>Username</th><th>Nama</th><th>Email</th><th>Aktif</th><th></th></tr></thead><tbody id="tbody-user-unit"></tbody></table>
       </div></div>
     </div>
 
-    <!-- LOG AKTIVITAS UNIT (khusus akun UNIT, terbatas ke aktivitas Unit sendiri) -->
+    <!-- LOG AKTIVITAS UNIT (khusus akun UNIT & KETUA LPPM, terbatas ke aktivitas sendiri -- lihat unit-ketua-only) -->
     <div id="view-logunit" class="view d-none">
       <h5 class="page-title mb-3">Log Aktivitas</h5>
-      <p class="text-muted small mb-3">Riwayat aktivitas seluruh akun yang terhubung ke Unit Anda (login, pengajuan, dsb).</p>
+      <p class="text-muted small mb-3" id="logunit-desc">Riwayat aktivitas seluruh akun yang terhubung ke Unit Anda (login, pengajuan, dsb).</p>
       <div class="card"><div class="card-body">
         <table class="table tbl mb-0"><thead><tr><th>Waktu</th><th>Username</th><th>Aksi</th><th>Detail</th></tr></thead><tbody id="tbody-log-unit"></tbody></table>
       </div></div>
@@ -832,12 +834,12 @@
         <h5 class="page-title">Jurnal Memorial</h5>
         <div class="d-flex gap-2 align-items-center flex-wrap">
           <select id="sel-bulan-memorial" class="form-select form-select-sm" style="width:auto;"></select>
-          <div class="input-group input-group-sm" style="width:230px;">
+          <div class="input-group input-group-sm admin-only" style="width:230px;">
             <span class="input-group-text">Ambang Rp</span>
             <input type="text" inputmode="decimal" class="form-control text-end" id="mem-ambang" value="10.000.000,00" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this)" onfocus="this.select()">
           </div>
-          <button class="btn btn-sm btn-outline-secondary no-print" onclick="loadJurnalMemorial()"><i class="fas fa-sync me-1"></i>Terapkan</button>
-          <button class="btn btn-sm btn-outline-secondary no-print" id="btn-kunci-memorial" onclick="kunciMemorial()"><i class="fas fa-lock me-1"></i>Kunci</button>
+          <button class="btn btn-sm btn-outline-secondary no-print admin-only" onclick="loadJurnalMemorial()"><i class="fas fa-sync me-1"></i>Terapkan</button>
+          <button class="btn btn-sm btn-outline-secondary no-print admin-only" id="btn-kunci-memorial" onclick="kunciMemorial()"><i class="fas fa-lock me-1"></i>Kunci</button>
           <button class="btn btn-sm no-print" style="background:var(--maroon);color:white;" onclick="cetakJurnalMemorial()"><i class="fas fa-print me-1"></i>Cetak Semua</button>
         </div>
       </div>
@@ -845,12 +847,12 @@
 
       <div id="memorial-lock-banner"></div>
 
-      <div class="d-flex gap-2 mb-3 no-print" id="memorial-mode-toggle">
+      <div class="d-flex gap-2 mb-3 no-print admin-only" id="memorial-mode-toggle">
         <div class="pos-tab active" data-mode="checklist" onclick="switchMemorialMode('checklist')"><i class="fas fa-list-check"></i>Pilih Transaksi yang Dipisah Jadi Memo Sendiri</div>
         <div class="pos-tab" data-mode="preview" onclick="switchMemorialMode('preview')"><i class="fas fa-file-invoice"></i>Preview Bukti Memorial</div>
       </div>
 
-      <div class="card mb-3" id="memorial-checklist-card">
+      <div class="card mb-3 admin-only" id="memorial-checklist-card">
         <div class="card-body">
         <div class="section-title mb-2"><i class="fas fa-list-check"></i>Pilih Transaksi yang Dipisah Jadi Memo Sendiri</div>
         <div id="memorial-checklist"></div>
@@ -906,7 +908,7 @@
               <option value="TAGIHAN">Tagihan</option>
               <option value="LAPORAN_UNIT">Laporan Unit (Usaha/Proyek/Penelitian/dll)</option>
             </select>
-            <button class="btn btn-sm" style="background:var(--maroon);color:#fff;" onclick="pdBukaFormBaru()"><i class="fas fa-plus me-1"></i>Ajukan Baru</button>
+            <button class="btn btn-sm no-ketua" style="background:var(--maroon);color:#fff;" onclick="pdBukaFormBaru()"><i class="fas fa-plus me-1"></i>Ajukan Baru</button>
           </div>
         </div>
 
@@ -928,6 +930,7 @@
                 <option value="DISETUJUI">Disetujui</option>
                 <option value="DICAIRKAN">Dicairkan</option>
                 <option value="MENUNGGU_VERIFIKASI">Menunggu Verifikasi</option>
+                <option value="MENUNGGU_APPROVAL_DEFISIT">Menunggu Approval Defisit</option>
                 <option value="MENUNGGU_PENCATATAN">Menunggu Pencatatan Kas/Transfer</option>
                 <option value="PERLU_REVISI">Perlu Revisi</option>
                 <option value="SELESAI">Selesai</option>
@@ -1718,7 +1721,7 @@ function afterLogin(){
   document.getElementById('nav-nama-user').textContent = STATE.nama;
   var badge = document.getElementById('nav-role-badge');
   badge.textContent = STATE.role;
-  badge.className = 'badge-role ' + (STATE.role==='ADMIN' ? 'badge-admin' : 'badge-unit');
+  badge.className = 'badge-role ' + (STATE.role==='ADMIN' ? 'badge-admin' : (STATE.role==='KETUA' ? 'badge-ketua' : 'badge-unit'));
   // PERBAIKAN BUG: sebelumnya pakai el.style.display='none' -- ini KALAH
   // kalau elemennya juga punya class Bootstrap seperti d-flex/d-grid, yang
   // ditulis dengan "!important" (mis. #input-mode-toggle, class="d-flex
@@ -1728,7 +1731,34 @@ function afterLogin(){
   // apa pun), sekaligus lebih aman untuk SEMUA elemen admin-only/unit-only
   // yang mungkin ditambah lagi nanti.
   document.querySelectorAll('.admin-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role!=='ADMIN'); });
-  document.querySelectorAll('.unit-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role==='ADMIN'); });
+  // PERBAIKAN BUG (ditemukan saat menambah role KETUA): SEBELUMNYA baris di
+  // bawah ini menyembunyikan elemen unit-only kalau role==='ADMIN' --
+  // asumsinya cuma ada 2 role (ADMIN vs "bukan ADMIN" = pasti UNIT). Sejak
+  // ada role KETUA, asumsi itu SALAH: KETUA bukan 'ADMIN', jadi kondisi
+  // lama ini (role==='ADMIN') bernilai FALSE utk KETUA -> elemen unit-only
+  // (mis. menu "Kelola User"/"Log Aktivitas" versi terbatas milik Unit)
+  // malah IKUT KELIHATAN utk KETUA, padahal jelas bukan menu Ketua LPPM.
+  // Sekarang dibalik jadi cek POSITIF "role harus PERSIS UNIT baru
+  // ditampilkan" -- otomatis benar utk role apa pun yg ada SEKARANG
+  // maupun yang mungkin ditambah lagi nanti.
+  document.querySelectorAll('.unit-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role!=='UNIT'); });
+  // FITUR BARU -- Ketua LPPM: 2 kelas baru KHUSUS dipakai di menu sidebar
+  // (lihat HTML-nya) utk 2 kasus yang TIDAK cocok dgn admin-only/unit-only
+  // biasa (sengaja TIDAK mengubah semantik admin-only yang sudah dipakai
+  // di ~380 elemen lain di seluruh aplikasi, supaya tidak ada efek samping
+  // ke bagian manapun yang tidak dimaksud):
+  // - "admin-ketua-only": tampil utk ADMIN *dan* KETUA (mis. Rekap Rekening
+  //   Koran, Jurnal Memorial -- Ketua LPPM perlu lihat ini, Unit tidak).
+  // - "no-ketua": tampil utk SEMUA role KECUALI Ketua (mis. Verifikasi
+  //   Transaksi -- itu tugas operasional Admin/Unit, bukan Ketua).
+  document.querySelectorAll('.admin-ketua-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role!=='ADMIN' && STATE.role!=='KETUA'); });
+  document.querySelectorAll('.no-ketua').forEach(function(el){ el.classList.toggle('d-none', STATE.role==='KETUA'); });
+  // FITUR BARU -- Ketua LPPM: "Kelola User"/"Log Aktivitas" versi terbatas
+  // (self-service, cuma bisa ganti password akun sesama role sendiri)
+  // SEBELUMNYA cuma dipakai role UNIT -- sekarang KETUA jg pakai versi yg
+  // SAMA (view-userunit/view-logunit direuse, isinya dibedakan lewat
+  // dispatch role-aware di loadUserUnitView/loadLogUnitView).
+  document.querySelectorAll('.unit-ketua-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role!=='UNIT' && STATE.role!=='KETUA'); });
   // PERBAIKAN BUG: label menu "Input Rekap Bulanan"/"Daftar Transaksi Saya"
   // sebelumnya BARU berganti sesuai role begitu menu itu benar-benar dibuka
   // (di initInputView()) -- karena tampilan awal setelah login selalu
@@ -2983,6 +3013,19 @@ function loadRekapRekeningKoran(){
 function renderRekeningKoranTable(){
   var tb = document.getElementById('tbody-rekkoran');
   if(!tb) return;
+  // FITUR BARU -- Ketua LPPM: halaman ini terbuka utk Ketua (read-only
+  // oversight), TAPI drag-reorder & tombol Edit/Hapus di sini adalah aksi
+  // MENULIS yang backend-nya (reorderRekeningKoranGlobal/updateTransaksi/
+  // deleteTransaksi dst) memang SENGAJA TETAP admin-only (lihat catatan di
+  // Code.gs soal _kodePosBolehDiakses). PERBAIKAN (atas permintaan "jangan
+  // abu-abu, di-hide saja"): utk Ketua LPPM tombolnya DIHILANGKAN SAMA
+  // SEKALI (bukan cuma abu-abu/disabled spt _rkLocked) -- _rkLocked TETAP
+  // pakai gaya abu-abu/disabled spt semula (itu kondisi SEMENTARA, bulan
+  // sewaktu-waktu bisa dibuka kuncinya lagi oleh Admin), sedangkan Ketua
+  // LPPM memang PERMANEN read-only, jadi kontrolnya lebih pas kalau
+  // dihilangkan total, bukan ditampilkan tapi tidak bisa dipakai.
+  var isKetuaRk = STATE.role==='KETUA';
+  var readOnlyRk = _rkLocked || isKetuaRk;
   var kataKunci = (document.getElementById('cari-rekkoran').value || '').trim().toLowerCase();
   // Pencarian sekarang cocokkan 3 hal: keterangan (teks), tanggal (mis. ketik
   // "2026-07-13" atau cuma "07-13"), dan nominal debet/kredit (mis. ketik
@@ -3006,10 +3049,18 @@ function renderRekeningKoranTable(){
     if(r.sumber==='tambahan') labelUnit = '<span class="badge bg-secondary" title="Item Non-Unit — bukan milik 1 Unit tertentu">Non-Unit</span>';
     else if(belumVerifikasi) labelUnit = '<span class="text-muted" title="Belum diverifikasi/ditentukan Pos-nya — lihat menu Input Rekap Bulanan &rarr; Perlu Verifikasi">&mdash;</span>';
     else labelUnit = _gcEsc(r.kodeUnit||'');
-    var dragAttr = _rkLocked ? '' : ' ondragover="rkDragOver(event)" ondragleave="rkDragLeave(event)" ondrop="rkDrop(event,\''+r.id+'\')" ondragend="rkDragEnd(event)"';
-    var handle = _rkLocked
-      ? '<td class="no-print tx-drag-handle tx-col-icon locked-ui"><i class="fas fa-grip-vertical"></i></td>'
-      : '<td class="no-print tx-drag-handle tx-col-icon" draggable="true" ondragstart="rkDragStart(event,\''+r.id+'\')" title="Tahan &amp; geser untuk urutkan"><i class="fas fa-grip-vertical"></i></td>';
+    var dragAttr = readOnlyRk ? '' : ' ondragover="rkDragOver(event)" ondragleave="rkDragLeave(event)" ondrop="rkDrop(event,\''+r.id+'\')" ondragend="rkDragEnd(event)"';
+    // Ketua LPPM: ikon geser DIHILANGKAN SAMA SEKALI (sel kosong), bukan
+    // ditampilkan abu-abu spt kondisi terkunci sementara (_rkLocked).
+    var handle = isKetuaRk ? '<td class="no-print tx-drag-handle tx-col-icon"></td>'
+      : (readOnlyRk
+        ? '<td class="no-print tx-drag-handle tx-col-icon locked-ui"><i class="fas fa-grip-vertical"></i></td>'
+        : '<td class="no-print tx-drag-handle tx-col-icon" draggable="true" ondragstart="rkDragStart(event,\''+r.id+'\')" title="Tahan &amp; geser untuk urutkan"><i class="fas fa-grip-vertical"></i></td>');
+    // Ketua LPPM: kolom Aksi (Edit/Hapus) DIHILANGKAN SAMA SEKALI (sel
+    // kosong), bukan ditampilkan abu-abu/disabled.
+    var selAksi = isKetuaRk ? '<td class="no-print tx-aksi"></td>'
+      : '<td class="no-print tx-aksi'+(readOnlyRk?' locked-ui':'')+'"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksiRK(\''+r.id+'\', this)"'+(readOnlyRk?' disabled':'')+'><i class="fas fa-edit"></i></button>'
+        + '<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksiRK(\''+r.id+'\', this)"'+(readOnlyRk?' disabled':'')+'><i class="fas fa-trash"></i></button></td>';
     return '<tr class="'+(belumVerifikasi?'table-warning':'')+'"'+dragAttr+'>'
       + '<td class="tx-col-icon">'+(i+1)+'</td>'
       + handle
@@ -3018,8 +3069,7 @@ function renderRekeningKoranTable(){
       + '<td class="text-end">'+(r.debet?fmtRp(r.debet):'&mdash;')+'</td>'
       + '<td class="text-end">'+(r.kredit?fmtRp(r.kredit):'&mdash;')+'</td>'
       + '<td class="tx-col-clip" title="'+_gcEsc(r.sumber==='tambahan'?(r.namaPos||''):(_rekKoranUnitNama[r.kodeUnit]||''))+'">'+labelUnit+'</td>'
-      + '<td class="no-print tx-aksi'+(_rkLocked?' locked-ui':'')+'"><button class="btn btn-sm btn-outline-secondary me-1" onclick="editTransaksiRK(\''+r.id+'\', this)"'+(_rkLocked?' disabled':'')+'><i class="fas fa-edit"></i></button>'
-      + '<button class="btn btn-sm btn-outline-danger" onclick="hapusTransaksiRK(\''+r.id+'\', this)"'+(_rkLocked?' disabled':'')+'><i class="fas fa-trash"></i></button></td></tr>';
+      + selAksi + '</tr>';
   }).join('') || '<tr><td colspan="8" class="text-center text-muted">'+(kataKunci?'Tidak ada hasil untuk pencarian tersebut':'Belum ada data bulan ini')+'</td></tr>';
   document.getElementById('tot-debet-rekkoran').textContent = fmtRp(d);
   document.getElementById('tot-kredit-rekkoran').textContent = fmtRp(k);
@@ -4646,6 +4696,11 @@ function loadKonsolidasi(){
   var bulan = document.getElementById('sel-bulan-konsolidasi').value;
   if(!bulan) return;
   document.querySelectorAll('#view-konsolidasi .konso-admin-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role!=='ADMIN'); });
+  // FITUR BARU (atas permintaan): "REKAP PER POS" murni tabel LIHAT SAJA
+  // (tidak ada tombol edit di dalamnya) -- Ketua LPPM boleh lihat ini juga,
+  // BEDA dgn "Rekonsiliasi Bank" (ada tombol Edit Angka Bank) & "Lampiran
+  // Item Non-Unit" yang TETAP konso-admin-only (Admin murni).
+  document.querySelectorAll('#view-konsolidasi .konso-admin-ketua-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role!=='ADMIN' && STATE.role!=='KETUA'); });
   var namaBulanLabel = BULAN_NAMA[Number(bulan)-1] + ' ' + STATE.tahunAktif;
   document.getElementById('rp-bulan-label').textContent = namaBulanLabel;
   document.getElementById('rk-bulan-label').textContent = namaBulanLabel;
@@ -4944,7 +4999,12 @@ function _bangunBarisRekapPerPos(c){
 }
 function renderRekapPerPosUI(){
   var c = _konsolidasiCache;
-  if(!c || STATE.role!=='ADMIN') return;
+  // FITUR BARU -- Ketua LPPM: tabel ini sekarang juga ditampilkan (lihat
+  // konso-admin-ketua-only di HTML), jadi perlu ikut diisi jg utk role ini
+  // -- SEBELUMNYA baris ini pulang lebih awal utk role selain ADMIN
+  // (termasuk sekarang Ketua LPPM), jadi kartunya SUDAH kelihatan tapi
+  // tabelnya kosong melompong -- diperbaiki di sini.
+  if(!c || (STATE.role!=='ADMIN' && STATE.role!=='KETUA')) return;
   var hasil = _bangunBarisRekapPerPos(c);
   document.getElementById('tbody-rekap-per-pos').innerHTML = hasil.rows.map(function(r,i){
     return '<tr><td>'+(i+1)+'</td><td>'+(r.tanggal||'')+'</td><td>'+_gcEsc(r.ket)+'</td><td class="text-end">'+(r.debet?fmtRp(r.debet):'&mdash;')+'</td><td class="text-end">'+(r.kredit?fmtRp(r.kredit):'&mdash;')+'</td></tr>';
@@ -5864,23 +5924,33 @@ function hapusUser(username){
 // sesama Unit), yang sebelumnya TIDAK PUNYA jalan sama sekali dari sisi
 // Unit (cuma bisa lewat Admin atau lupa-password/OTP email).
 // ============================================================
+// FITUR BARU -- Ketua LPPM: view ini SEKARANG dipakai bersama oleh role
+// UNIT & KETUA (lihat unit-ketua-only di HTML) -- dispatch ke RPC yg SESUAI
+// role yang sedang login (Ketua LPPM cuma 1-beberapa akun ber-role KETUA,
+// TIDAK terhubung ke Unit manapun, jadi backend-nya fungsi TERSENDIRI --
+// lihat getUserListKetua/gantiPasswordUserKetua di Code.gs).
 function loadUserUnitView(){
   showBar();
-  gasCall('getUserListUnit', STATE.token).then(function(res){
+  var fnList = STATE.role==='KETUA' ? 'getUserListKetua' : 'getUserListUnit';
+  document.getElementById('userunit-desc').textContent = STATE.role==='KETUA'
+    ? 'Ganti password akun Ketua LPPM (termasuk akun Anda sendiri). Menambah atau menghapus akun tetap wewenang Admin.'
+    : 'Ganti password akun-akun yang terhubung ke Unit Anda. Menambah atau menghapus akun tetap wewenang Admin.';
+  gasCall(fnList, STATE.token).then(function(res){
     hideBar();
     if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat daftar user'); return; }
     document.getElementById('tbody-user-unit').innerHTML = res.data.map(function(u){
       return '<tr><td>'+esc(u.username)+(u.username===STATE.username?' <span class="text-muted small">(Anda)</span>':'')+'</td><td>'+esc(u.nama)+'</td><td>'+esc(u.email)+'</td>'+
         '<td>'+(u.aktif?'<span class="text-success">Aktif</span>':'<span class="text-danger">Nonaktif</span>')+'</td>'+
         '<td><button class="btn btn-sm btn-outline-secondary" onclick="gantiPasswordUserUnitKlik(\''+u.username+'\')"><i class="fas fa-key me-1"></i>Ganti Password</button></td></tr>';
-    }).join('') || '<tr><td colspan="5" class="text-center text-muted py-3">Belum ada user di Unit Anda.</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="text-center text-muted py-3">'+(STATE.role==='KETUA' ? 'Belum ada akun Ketua LPPM lain.' : 'Belum ada user di Unit Anda.')+'</td></tr>';
   }).catch(function(){ hideBar(); toast('error','Gagal memuat daftar user'); });
 }
-// Unit HANYA bisa ganti password (tidak ada tambah/hapus akun -- itu tetap
-// wewenang Admin lewat "Kelola User" pusat). Pakai dialog Swal sederhana
-// (2 field: password baru + konfirmasi) bukan form terpisah, karena ini
-// satu-satunya aksi yang tersedia di sini.
+// Unit/Ketua LPPM HANYA bisa ganti password (tidak ada tambah/hapus akun --
+// itu tetap wewenang Admin lewat "Kelola User" pusat). Pakai dialog Swal
+// sederhana (2 field: password baru + konfirmasi) bukan form terpisah,
+// karena ini satu-satunya aksi yang tersedia di sini.
 function gantiPasswordUserUnitKlik(username){
+  var fnGanti = STATE.role==='KETUA' ? 'gantiPasswordUserKetua' : 'gantiPasswordUserUnit';
   Swal.fire({
     title:'Ganti Password: '+username,
     html:'<input type="password" id="sw-pass-baru" class="swal2-input" placeholder="Password baru (min. 8 karakter)">'
@@ -5892,7 +5962,7 @@ function gantiPasswordUserUnitKlik(username){
       if(!p1 || p1.length<8){ Swal.showValidationMessage('Password baru minimal 8 karakter'); return false; }
       if(p1!==p2){ Swal.showValidationMessage('Konfirmasi password tidak cocok'); return false; }
       Swal.showLoading();
-      return gasCall('gantiPasswordUserUnit', username, p1, STATE.token).then(function(res){
+      return gasCall(fnGanti, username, p1, STATE.token).then(function(res){
         if(!res || !res.success){ Swal.showValidationMessage(res.message); return false; }
         return true;
       }).catch(function(err){ Swal.showValidationMessage((err && err.message) || 'Gagal mengganti password, coba lagi.'); return false; });
@@ -5907,10 +5977,17 @@ function gantiPasswordUserUnitKlik(username){
 // LOG AKTIVITAS UNIT -- versi terbatas dari "Log Aktivitas" ADMIN, cuma
 // menampilkan baris log milik akun-akun yg terhubung ke Unit yg sedang
 // login (backend yg memfilter, lihat getLogAktivitasUnit di Code.gs).
+// FITUR BARU -- Ketua LPPM: view ini SEKARANG dipakai bersama oleh role
+// UNIT & KETUA jg -- dispatch ke RPC yg SESUAI (lihat catatan lengkap di
+// loadUserUnitView di atas).
 // ============================================================
 function loadLogUnitView(){
   showBar();
-  gasCall('getLogAktivitasUnit', 200, STATE.token).then(function(res){
+  var fnLog = STATE.role==='KETUA' ? 'getLogAktivitasKetua' : 'getLogAktivitasUnit';
+  document.getElementById('logunit-desc').textContent = STATE.role==='KETUA'
+    ? 'Riwayat aktivitas akun Anda sendiri (login, persetujuan, dsb).'
+    : 'Riwayat aktivitas seluruh akun yang terhubung ke Unit Anda (login, pengajuan, dsb).';
+  gasCall(fnLog, 200, STATE.token).then(function(res){
     hideBar();
     if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat log'); return; }
     document.getElementById('tbody-log-unit').innerHTML = res.data.map(function(l){
@@ -6244,6 +6321,15 @@ function switchMemorialMode(mode){
 function loadJurnalMemorial(){
   var bulan = document.getElementById('sel-bulan-memorial').value;
   if(!bulan) return;
+  // FITUR BARU (atas permintaan): "Pilih Transaksi yang Dipisah Jadi Memo
+  // Sendiri" (checklist) itu murni alat KERJA Admin utk menyiapkan Jurnal
+  // Memorial (centangannya baru tersimpan permanen kalau nanti di-Kunci) --
+  // BUKAN sesuatu yang perlu/boleh diutak-atik Ketua LPPM (murni oversight,
+  // lihat catatan panjang di afterLogin soal admin-only/admin-ketua-only/
+  // no-ketua). Ketua LPPM dikunci LANGSUNG ke mode "Preview Bukti Memorial"
+  // (hasil akhirnya, apa adanya) -- tab togglenya sendiri disembunyikan via
+  // class admin-only di HTML, jadi Ketua tidak akan lihat/bisa balik ke checklist.
+  if(STATE.role==='KETUA') switchMemorialMode('preview');
   showBar();
   // Semua panggilan jalan BERSAMAAN dalam SATU request batch (bukan tunggu
   // status kunci dulu baru mulai tarik data, dan bukan N request terpisah)
@@ -6406,9 +6492,14 @@ function renderMemorialLockBanner(){
   var btnKunci = document.getElementById('btn-kunci-memorial');
   var info = MEMORIAL_STATE.lockInfo || {};
   if(MEMORIAL_STATE.locked){
+    // FITUR BARU -- Ketua LPPM: tombol "Buka Kunci" ini mutasi data
+    // (ADMIN-only di backend, lihat bukaKunciJurnalMemorial Code.gs) --
+    // disembunyikan utk role selain ADMIN supaya tidak ada tombol yg
+    // kelihatan tapi selalu gagal kalau diklik Ketua (murni oversight
+    // baca-saja, konsisten dgn tombol "Kunci" yg sudah admin-only).
     el.innerHTML = '<div class="alert alert-secondary d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">'
       +'<div><i class="fas fa-lock me-2"></i><b>Terkunci</b> oleh '+(info.dikunciOleh||'-')+' pada '+(info.waktuKunci||'-')+' — final, tidak bisa diubah.</div>'
-      +'<button class="btn btn-sm btn-outline-secondary no-print" onclick="bukaKunciMemorial()"><i class="fas fa-unlock me-1"></i>Buka Kunci</button>'
+      +(STATE.role==='ADMIN' ? '<button class="btn btn-sm btn-outline-secondary no-print" onclick="bukaKunciMemorial()"><i class="fas fa-unlock me-1"></i>Buka Kunci</button>' : '')
       +'</div>';
     btnKunci.classList.add('d-none');
   } else {
@@ -6590,6 +6681,11 @@ function renderMemorialList(){
 function _renderAksiNomorMemorial(){
   var el = document.getElementById('memorial-nomor-aksi');
   if(!el) return;
+  // FITUR BARU (atas permintaan): "Edit No. Memorial" adalah aksi MENULIS
+  // -- Ketua LPPM murni oversight, tombol ini disembunyikan sama sekali
+  // (bukan cuma dinonaktifkan) supaya konsisten dgn checklist "Pisah" yang
+  // jg disembunyikan (lihat loadJurnalMemorial).
+  if(STATE.role==='KETUA'){ el.innerHTML = ''; return; }
   if(MEMORIAL_STATE.locked){ el.innerHTML = ''; return; }
   el.innerHTML = MEMORIAL_STATE.editModeNomor
     ? '<button class="btn btn-sm btn-outline-secondary me-1" onclick="batalEditNomorMemorial()">Batal</button>'
@@ -6633,20 +6729,24 @@ function simpanNomorMemorialUI(){
 function renderMemorialTambahanTable(){
   var list = MEMORIAL_TAMBAHAN_STATE.list || [];
   var locked = MEMORIAL_TAMBAHAN_STATE.locked;
-  document.getElementById('btn-tambah-memorial-koreksi').classList.toggle('d-none', locked);
+  // FITUR BARU (atas permintaan): Ketua LPPM murni oversight -- tombol
+  // Tambah & kolom Aksi (Edit/Hapus) per baris disembunyikan sama sekali
+  // utk role ini, isi tabelnya (data) TETAP kelihatan (boleh dibaca).
+  var readOnlyMt = locked || STATE.role==='KETUA';
+  document.getElementById('btn-tambah-memorial-koreksi').classList.toggle('d-none', readOnlyMt);
   var body = list.map(function(m){
     var rekBermasalah = !m.debetRek || !m.kreditRek;
-    var aksi = locked ? '' : '<td class="text-nowrap text-end">'
+    var aksi = readOnlyMt ? '' : '<td class="text-nowrap text-end">'
       +'<button class="btn btn-sm btn-outline-secondary me-1" onclick="bukaFormMemorialTambahan(\''+m.id+'\')" title="Edit"><i class="fas fa-edit"></i></button>'
       +'<button class="btn btn-sm btn-outline-danger" onclick="hapusMemorialTambahanUI(\''+m.id+'\')" title="Hapus"><i class="fas fa-trash"></i></button></td>';
     return '<tr'+(rekBermasalah?' class="table-danger"':'')+'><td>'+m.tanggal+'</td><td>'+_gcEsc(m.keterangan)+'</td>'
       +'<td>'+(m.debetRek || '<span class="text-danger small">belum diisi</span>')+'</td>'
       +'<td>'+(m.kreditRek || '<span class="text-danger small">belum diisi</span>')+'</td>'
       +'<td class="text-end">Rp '+fmtRp(m.jumlah)+'</td><td>'+(m.noMemorial||'')+'</td>'
-      +(locked ? '' : aksi)+'</tr>';
+      +(readOnlyMt ? '' : aksi)+'</tr>';
   }).join('');
   document.getElementById('memorial-tambahan-table').innerHTML = list.length
-    ? '<div class="table-responsive"><table class="table tbl mb-0"><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Rek. Debet</th><th>Rek. Kredit</th><th class="text-end">Jumlah</th><th>No. Memorial</th>'+(locked?'':'<th></th>')+'</tr></thead><tbody>'+body+'</tbody></table></div>'
+    ? '<div class="table-responsive"><table class="table tbl mb-0"><thead><tr><th>Tanggal</th><th>Keterangan</th><th>Rek. Debet</th><th>Rek. Kredit</th><th class="text-end">Jumlah</th><th>No. Memorial</th>'+(readOnlyMt?'':'<th></th>')+'</tr></thead><tbody>'+body+'</tbody></table></div>'
     : '<p class="text-muted small mb-0">Belum ada Memorial Tambahan/Koreksi untuk bulan ini.</p>';
 }
 function bukaFormMemorialTambahan(id){
@@ -6901,7 +7001,15 @@ function loadLaporanUnit(){
     var skrg = new Date();
     if(Number(STATE.tahunAktif) === skrg.getFullYear()) selBulan.value = String(skrg.getMonth()+1);
   }
-  if(STATE.role==='ADMIN'){
+  // FITUR BARU -- Ketua LPPM: diperlakukan SAMA spt ADMIN di sini (boleh
+  // pilih & lihat laporan Unit MANAPUN) -- SEBELUMNYA cuma cek 'ADMIN'
+  // murni, Ketua (juga TIDAK punya Unit sendiri, sama spt Admin) jatuh ke
+  // cabang "else" yg mensyaratkan akun harus terhubung ke 1 Unit, sehingga
+  // Ketua LPPM cuma melihat pesan "Akun Anda belum terhubung ke Unit
+  // manapun" -- halaman ini jadi TIDAK BISA DIPAKAI sama sekali. Selector
+  // Unit (id="lu-pilih-unit") jg sudah diubah dari admin-only jadi
+  // admin-ketua-only (lihat HTML-nya) supaya Ketua bisa pilih unit yg mau dilihat.
+  if(STATE.role==='ADMIN' || STATE.role==='KETUA'){
     var sel = document.getElementById('lu-pilih-unit');
     gasCall('getDaftarUnitSimk', STATE.token).then(function(res){
       if(!res.success){ document.getElementById('lu-isi').innerHTML = '<p class="text-danger small">'+_gcEsc(res.message)+'</p>'; return; }
@@ -7019,7 +7127,10 @@ function _renderLaporanUnitHtml(d, periodeLabel){
 }
 
 function cetakLaporanUnit(){
-  var kodeUnit = STATE.role==='ADMIN' ? document.getElementById('lu-pilih-unit').value : ((STATE.myUnits||[])[0]||{}).kodeUnit;
+  // FITUR BARU -- Ketua LPPM: SAMA spt ADMIN di sini (lihat catatan
+  // lengkap di loadLaporanUnit) -- selector lu-pilih-unit sudah terisi &
+  // terlihat utk Ketua juga, jadi ambil nilainya SAMA seperti Admin.
+  var kodeUnit = (STATE.role==='ADMIN' || STATE.role==='KETUA') ? document.getElementById('lu-pilih-unit').value : ((STATE.myUnits||[])[0]||{}).kodeUnit;
   var bulan = document.getElementById('lu-pilih-bulan').value;
   var key = STATE.tahunAktif + '_' + kodeUnit + '_' + (bulan||'semua');
   var d = _laporanUnitCache[key];
@@ -7280,7 +7391,10 @@ var PD_KATEGORI_STATUS = {
   // MENUNGGU_PENCATATAN ditambahkan di sini (dokumen sudah disetujui Admin,
   // tinggal menunggu Kasir mencatat BKM/BKK) -- konsisten dgn DISETUJUI/
   // DICAIRKAN yg sudah lebih dulu ada di kategori "Proses" ini.
-  PROSES:['DISETUJUI','DICAIRKAN','MENUNGGU_PENCATATAN','PERLU_REVISI'],
+  // MENUNGGU_APPROVAL_DEFISIT (FITUR BARU -- Ketua LPPM) ikut ditambahkan
+  // di sini dgn alasan SAMA -- masih "dalam proses", cuma menunggu
+  // persetujuan defisit sebelum lanjut ke MENUNGGU_PENCATATAN.
+  PROSES:['DISETUJUI','DICAIRKAN','MENUNGGU_APPROVAL_DEFISIT','MENUNGGU_PENCATATAN','PERLU_REVISI'],
   SELESAI:['SELESAI','DITOLAK']
 };
 // FITUR DRAFT (atas permintaan -- disederhanakan dari versi tab terpisah
@@ -7604,7 +7718,8 @@ var PD_BADGE_STATUS = {
   DICAIRKAN:['badge-pd-dicairkan','Dicairkan'], MENUNGGU_VERIFIKASI:['badge-pd-menunggu-verifikasi','Menunggu Verifikasi'],
   PERLU_REVISI:['badge-pd-perlu-revisi','Perlu Revisi'], SELESAI:['badge-pd-selesai','Selesai'], DITOLAK:['badge-pd-ditolak','Ditolak'],
   DRAFT:['badge-pd-draft','Draft'], // FITUR BARU: draft "Ajukan Baru" yang belum terkirim, ditampilkan sbg baris di tab Pengajuan Baru
-  MENUNGGU_PENCATATAN:['badge-pd-menunggu-pencatatan','Menunggu Pencatatan Kas'] // default -- lihat pdLabelStatus() utk kasus Transfer yg dibedakan
+  MENUNGGU_PENCATATAN:['badge-pd-menunggu-pencatatan','Menunggu Pencatatan Kas'], // default -- lihat pdLabelStatus() utk kasus Transfer yg dibedakan
+  MENUNGGU_APPROVAL_DEFISIT:['badge-pd-defisit','Menunggu Approval Defisit'] // FITUR BARU -- Ketua LPPM
 };
 // PERBAIKAN (atas permintaan): status MENUNGGU_PENCATATAN dulu SELALU
 // berlabel "Menunggu Pencatatan Kas" apa pun metode pembayarannya --
@@ -8939,7 +9054,17 @@ function pdRenderDetail(res){
 function pdRenderDetailMuka(res){
   var h = res.header;
   var isAdmin = STATE.role==='ADMIN';
-  var mapDasar = { DIAJUKAN:{t:2}, DISETUJUI:{t:3}, DICAIRKAN:{t:4}, MENUNGGU_VERIFIKASI:{t:5}, MENUNGGU_PENCATATAN:{t:6}, SELESAI:{t:7}, DITOLAK:{ditolak: h.tglDicairkan?5:2} };
+  // FITUR BARU -- Ketua LPPM: dipakai KHUSUS utk 2 titik yang jadi
+  // wewenang Ketua LPPM juga (Setuju/Revisi/Tolak RAB tahap 2, & Approval
+  // Defisit tahap 6) -- backend-nya (setujuiPermohonanDana/revisiPengajuan/
+  // tolakPermohonanDana/setujuiDefisitLpj) SUDAH menerima role ini juga
+  // (lihat Code.gs), jadi tombolnya perlu ikut ditampilkan di sini. TIDAK
+  // dipakai utk titik LAIN (Verifikasi LPJ, Kembalikan pasca-cair, Edit
+  // Admin, Cairkan Dana, Catat Kasir) -- itu TETAP Admin-only spt semula
+  // (masih pakai isAdmin biasa), sesuai cakupan yang sudah disepakati.
+  var isKetua = STATE.role==='KETUA';
+  var canApproveRab = isAdmin || isKetua;
+  var mapDasar = { DIAJUKAN:{t:2}, DISETUJUI:{t:3}, DICAIRKAN:{t:4}, MENUNGGU_VERIFIKASI:{t:5}, MENUNGGU_APPROVAL_DEFISIT:{t:6}, MENUNGGU_PENCATATAN:{t:6}, SELESAI:{t:7}, DITOLAK:{ditolak: h.tglDicairkan?5:2} };
   // PERLU_REVISI dipakai bersama utk 2 titik yang beda: kalau BELUM dicairkan
   // = revisi tahap 1 (Pengajuan Dana, Admin belum ACC); kalau SUDAH dicairkan
   // = revisi tahap 4 (Realisasi & LPJ). Dibedakan dari ada/tidaknya tglDicairkan.
@@ -8959,9 +9084,16 @@ function pdRenderDetailMuka(res){
   if(h.status==='PERLU_REVISI' && !h.tglDicairkan){
     PD.rab = res.detail.length ? res.detail.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal}; }) : [{namaKomponen:'',keterangan:'',nominal:0}];
     PD.suratFile = null;
-    html += pdBlock('fa-file-lines','1. Pengajuan Dana','revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
+    html += pdBlock('fa-file-lines','1. Pengajuan Dana','revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
       (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisiTerakhir.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
-      + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit memperbaiki & mengirim ulang.')
+      // FITUR BARU/PERBAIKAN BUG NYATA (Ketua LPPM): SEBELUMNYA cek di sini
+      // cuma "isAdmin" -- Ketua LPPM (bukan Admin) jatuh ke cabang ELSE yang
+      // ternyata FORM KIRIM ULANG RAB milik UNIT (bisa ubah komponen RAB &
+      // unggah surat pengganti) -- Ketua bisa "menyamar" jadi Unit yang
+      // mengirim ulang pengajuan, padahal Ketua cuma seharusnya approve,
+      // BUKAN mengisi/mengirim data atas nama Unit. Sekarang Ketua JUGA
+      // masuk cabang "menunggu" (isAdmin||isKetua), SAMA spt Admin.
+      + ((isAdmin||isKetua) ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit memperbaiki & mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki RAB &amp; surat, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:32%">Nama Komponen</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-rab-revisi"></tbody></table></div>'
           + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRab()"><i class="fas fa-plus me-1"></i>Baris</button>'
@@ -8983,19 +9115,19 @@ function pdRenderDetailMuka(res){
   // Tahap 2 -- Persetujuan: sesuai -> Setujui; tidak sesuai -> Revisi (buka
   // lagi tahap 1) ATAU Tolak (alur berhenti, tetap seperti sebelumnya).
   if(map.ditolak===2){
-    html += pdBlock('fa-gavel','2. Persetujuan Admin','done','<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
-      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
+    html += pdBlock('fa-gavel','2. Persetujuan','done','<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
+      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
     document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
   }
   if(h.status==='PERLU_REVISI' && !h.tglDicairkan){
-    html += pdBlock('fa-gavel','2. Persetujuan Admin','locked','', pdLockedBody('Menunggu Unit mengirim ulang pengajuan.'));
+    html += pdBlock('fa-gavel','2. Persetujuan','locked','', pdLockedBody('Menunggu Unit mengirim ulang pengajuan.'));
   } else if(st(2)==='active'){
-    html += pdBlock('fa-gavel','2. Persetujuan Admin','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'<span class="badge-pd badge-pd-diajukan">Menunggu Keputusan</span>',
-      isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-setuju-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau Revisi/Tolak)"></textarea>'
+    html += pdBlock('fa-gavel','2. Persetujuan','active', canApproveRab?('<span class="badge-role '+(isKetua?'badge-ketua':'badge-admin')+'">'+(isKetua?'KETUA LPPM':'ADMIN')+'</span>'):'<span class="badge-pd badge-pd-diajukan">Menunggu Keputusan</span>',
+      canApproveRab ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-setuju-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau Revisi/Tolak)"></textarea>'
         + '<button class="btn btn-sm" id="btn-setujui-'+h.idPengajuan+'" onclick="pdAksiSetujui(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
         + '<button class="btn btn-sm btn-outline-warning" id="btn-revisi-'+h.idPengajuan+'" onclick="pdAksiRevisi(\''+h.idPengajuan+'\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
         + '<button class="btn btn-sm btn-outline-danger" id="btn-tolak-'+h.idPengajuan+'" onclick="pdAksiTolak(\''+h.idPengajuan+'\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
-        : pdCatatanTunggu('Menunggu keputusan Admin Pusat.'));
+        : pdCatatanTunggu('Menunggu keputusan Ketua LPPM/Admin.'));
   } else if(st(2)==='done'){
     // PERBAIKAN (atas permintaan): SETELAH disetujui Admin, belum tentu
     // jelas langkah selanjutnya adalah AMBIL dana secara fisik ke Bagian
@@ -9013,12 +9145,12 @@ function pdRenderDetailMuka(res){
     // begitu SUDAH dicairkan (st(3)==='done'), tombol ini TIDAK ditampilkan
     // lagi (lihat catatan di revisiPengajuan Code.gs -- uang sudah keluar
     // berdasarkan RAB itu, tidak masuk cakupan "kembalikan" ini lagi).
-    var blokKembalikanRab = (isAdmin && st(3)!=='done') ? pdBlokKembalikan('pd-kembalikan-rab-'+h.idPengajuan, 'pdAksiKembalikanRab', h.idPengajuan) : '';
-    html += pdBlock('fa-gavel','2. Persetujuan Admin','done','<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+    var blokKembalikanRab = (canApproveRab && st(3)!=='done') ? pdBlokKembalikan('pd-kembalikan-rab-'+h.idPengajuan, 'pdAksiKembalikanRab', h.idPengajuan) : '';
+    html += pdBlock('fa-gavel','2. Persetujuan','done','<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
+      '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
       + infoPencairan + blokKembalikanRab);
   } else {
-    html += pdBlock('fa-gavel','2. Persetujuan Admin','locked','', pdLockedBody('Menunggu tahap Pengajuan selesai diproses.'));
+    html += pdBlock('fa-gavel','2. Persetujuan','locked','', pdLockedBody('Menunggu tahap Pengajuan selesai diproses.'));
   }
 
   // Tahap 3 -- Pencairan
@@ -9042,9 +9174,11 @@ function pdRenderDetailMuka(res){
     PD.realisasiEdit = res.realisasi.length ? res.realisasi.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.lpjFileEdit = null;
     PD.komponenTerbatasRealisasi = res.detail.map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
-    html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
+    html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
       (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisiTerakhir.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
-      + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
+      // PERBAIKAN BUG NYATA (Ketua LPPM) -- SAMA persis dgn Tahap 1 di atas:
+      // ini form kirim-ulang REALISASI/LPJ milik UNIT, BUKAN utk Ketua.
+      + ((isAdmin||isKetua) ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki realisasi &amp; bukti LPJ, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
           + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
@@ -9052,13 +9186,21 @@ function pdRenderDetailMuka(res){
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH ULANG BUKTI LPJ</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ revisi (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-lpj-'+h.idPengajuan+'" onclick="pdAksiKirimLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang LPJ</button>')));
-    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
+    if(!isAdmin && !isKetua) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
   } else if(st(4)==='active'){
     PD.realisasiEdit = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.lpjFileEdit = null;
     PD.komponenTerbatasRealisasi = res.detail.map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
-    html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','active', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
-      isAdmin ? pdCatatanTunggu('Dana sudah dicairkan. Menunggu Unit mengisi realisasi & mengunggah LPJ.')
+    html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','active', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
+      // PERBAIKAN BUG NYATA (Ketua LPPM, dilaporkan langsung dari screenshot
+      // "kok ketua bisa unggah realisasi"): SEBELUMNYA cek di sini cuma
+      // "isAdmin" -- Ketua (bukan Admin) jatuh ke cabang ELSE yang ternyata
+      // FORM ISI REALISASI & UNGGAH LPJ milik UNIT sepenuhnya (Tambah
+      // Komponen, Simpan Draft, upload PDF, Kirim LPJ) -- padahal Ketua
+      // SAMA SEKALI TIDAK BOLEH mengisi/mengirim data pertanggungjawaban
+      // atas nama Unit, itu murni tugas Unit. Sekarang Ketua JUGA masuk
+      // cabang "menunggu Unit", SAMA spt Admin.
+      (isAdmin||isKetua) ? pdCatatanTunggu('Dana sudah dicairkan. Menunggu Unit mengisi realisasi & mengunggah LPJ.')
         : ('<p class="text-muted small mb-2">Pilihan komponen dibatasi hanya yang sudah dianggarkan di RAB (akuntabel) -- isi keterangan &amp; nominal sesuai bukti riil di lapangan.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
           + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
@@ -9066,7 +9208,7 @@ function pdRenderDetailMuka(res){
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI LPJ (1 PDF gabungan)</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-lpj-'+h.idPengajuan+'" onclick="pdAksiKirimLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim LPJ</button>'));
-    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
+    if(!isAdmin && !isKetua) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
   } else if(st(4)==='done'){
     // PERBAIKAN (atas permintaan "Total Realisasi tidak boleh mengurangi
     // PPh -- pajak itu BAGIAN DI DALAM nominal yg sudah dibelanjakan, BUKAN
@@ -9110,7 +9252,7 @@ function pdRenderDetailMuka(res){
   } else if(st(5)==='done'){
     var blokKembalikanLpj5 = isAdmin ? pdBlokKembalikan('pd-kembalikan-lpj5-'+h.idPengajuan, 'pdAksiKembalikanLpj', h.idPengajuan) : '';
     html += pdBlock('fa-flag-checkered','5. Verifikasi LPJ oleh Admin','done','<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small" style="color:#166534;">LPJ disetujui oleh '+esc(h.disetujuiOleh)+'.</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      '<div class="fw-bold small" style="color:#166534;">LPJ disetujui oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+'.</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
       + blokKembalikanLpj5);
   } else {
     html += pdBlock('fa-flag-checkered','5. Verifikasi LPJ oleh Admin','locked','', pdLockedBody('Menunggu LPJ diunggah.'));
@@ -9136,6 +9278,25 @@ function pdRenderDetailMuka(res){
   // dikurangi Total Realisasi apa adanya, TANPA PPh diotak-atik lagi.
   var selisihB = h.totalDiajukan - h.totalRealisasi;
   if(st(6)==='active'){
+    // FITUR BARU -- Ketua LPPM (Approval Defisit): status
+    // MENUNGGU_APPROVAL_DEFISIT berbagi SLOT tahap yang SAMA (t:6) dengan
+    // MENUNGGU_PENCATATAN (lihat mapDasar di atas) -- SENGAJA begitu supaya
+    // ministep TIDAK perlu dirombak/nomor tahapnya TIDAK bergeser utk kasus
+    // yang TIDAK defisit (mayoritas kasus, lihat catatan lengkap di
+    // setujuiDokumenLpj Code.gs). Di sini tinggal dicabang: kalau statusnya
+    // PERSIS MENUNGGU_APPROVAL_DEFISIT, tampilkan kartu approval defisit
+    // KHUSUS ini -- SELAIN itu (MENUNGGU_PENCATATAN, kasus normal), alur
+    // Data Penyetor + Catat Kasir di bawah TETAP SAMA PERSIS spt sebelum
+    // fitur ini ada, TIDAK ADA yang berubah.
+    if(h.status==='MENUNGGU_APPROVAL_DEFISIT'){
+      var kekuranganDefisit = Math.abs(selisihB);
+      html += pdBlock('fa-scale-balanced','6. Approval Defisit','active', canApproveRab?('<span class="badge-role '+(isKetua?'badge-ketua':'badge-admin')+'">'+(isKetua?'KETUA LPPM':'ADMIN')+'</span>'):'',
+        '<p class="small text-muted mb-2">LPJ ini sudah diverifikasi kelengkapan dokumennya, tapi realisasinya <b>melebihi dana yang dicairkan</b> sebesar <b>Rp '+fmtRp(kekuranganDefisit)+'</b>. Pembayaran kekurangan ini perlu disetujui dulu sebelum bisa dicatat Bagian Keuangan.</p>'
+        + (canApproveRab ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-defisit-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau dikembalikan untuk revisi)"></textarea>'
+            + '<button class="btn btn-sm" id="btn-defisit-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui Defisit</button> '
+            + '<button class="btn btn-sm btn-outline-warning" id="btn-defisit-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</button>')
+          : pdCatatanTunggu('Menunggu persetujuan Ketua LPPM/Admin atas kekurangan dana (defisit) ini.')));
+    } else {
     // PERBAIKAN ALUR (atas permintaan TERBARU): Data Penyetor SEKARANG
     // selalu tersedia utk Unit isi SECEPATNYA begitu LPJ disetujui (TIDAK
     // menunggu apa pun) -- supaya Nama Penyetor sudah termuat di Cetak
@@ -9162,7 +9323,12 @@ function pdRenderDetailMuka(res){
     var bagianPenyetor;
     if(h.namaPenyetor){
       bagianPenyetor = infoPenyetor + infoDokumenDiserahkan;
-    } else if(isAdmin){
+    } else if(isAdmin||isKetua){
+      // PERBAIKAN BUG NYATA (Ketua LPPM): SEBELUMNYA cek di sini cuma
+      // "isAdmin" -- Ketua jatuh ke cabang ELSE = FORM ISI DATA PENYETOR
+      // milik UNIT (Nama/NPP/NIM/No.HP + tombol Simpan) -- Ketua BISA
+      // mengisi identitas "siapa yang menyerahkan LPJ fisik" atas nama
+      // Unit, padahal itu murni tugas Unit sendiri.
       bagianPenyetor = pdCatatanTunggu('Menunggu Unit menyerahkan LPJ asli (hardcopy) ke Bagian Keuangan & mengisi Data Penyetor.');
     } else {
       bagianPenyetor = '<p class="small text-muted mb-2">LPJ sudah disetujui. Silakan isi data penyetor di bawah ini dulu -- setelah tersimpan, Anda bisa mencetak "Lampiran LPJ" (sudah memuat nama Anda) untuk dilampirkan & diserahkan ke Bagian Keuangan.</p>'
@@ -9195,6 +9361,7 @@ function pdRenderDetailMuka(res){
 
     html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       bagianPenyetor + (bagianPenutup ? ('<hr class="my-3">' + bagianPenutup) : ''));
+    }
   } else if(st(6)==='done'){
     // PERBAIKAN (atas permintaan "tanggal & jumlahnya belum jelas &
     // konsisten"): SEBELUMNYA cuma tulisan "LPJ selesai" tanpa tanggal
@@ -9226,12 +9393,25 @@ function pdRenderDetailMuka(res){
   // Nama Penyetor SUDAH termuat saat dicetak. Sekarang tombol Cetak baru
   // muncul SETELAH h.namaPenyetor terisi -- persis saat datanya SUDAH ADA
   // & siap dicetak, bukan lebih awal dari itu.
-  pdRenderTombolCetak(h, (h.status==='MENUNGGU_PENCATATAN' && !!h.namaPenyetor) || h.status==='SELESAI');
+  // FITUR BARU -- Ketua LPPM: syarat tombol Cetak DIPERLUAS supaya juga
+  // muncul selama status MENUNGGU_APPROVAL_DEFISIT (asal Data Penyetor
+  // sudah terisi) -- Unit tidak perlu menunggu approval defisit selesai
+  // dulu baru boleh cetak & siapkan dokumen fisiknya, dua-duanya boleh
+  // jalan berbarengan/independen (persis semangat catatan di atas soal
+  // "Data Penyetor boleh diisi kapan saja, tidak saling menunggu").
+  pdRenderTombolCetak(h, ((h.status==='MENUNGGU_PENCATATAN' || h.status==='MENUNGGU_APPROVAL_DEFISIT') && !!h.namaPenyetor) || h.status==='SELESAI');
 }
 
 // -- JENIS SEKALIGUS & TAGIHAN (3 tahap, mirip strukturnya) ----------------
 function pdRenderDetailSingkat(res){
   var h = res.header; var isAdmin = STATE.role==='ADMIN';
+  // FITUR BARU -- Ketua LPPM: dipakai supaya form kirim-ulang milik UNIT di
+  // bawah ini (Tagihan & Penggantian Biaya) TIDAK ikut kelihatan/bisa
+  // diisi Ketua LPPM (lihat catatan lengkap di titik pemakaiannya) --
+  // Ketua TIDAK ikut diberi wewenang apa pun di jenis pengajuan ini
+  // (Tagihan/Penggantian Biaya verifikasinya TETAP Admin-only spt semula,
+  // beda dgn RAB/Defisit LPJ MUKA yang sudah dibuka utk Ketua).
+  var isKetua = STATE.role==='KETUA';
   // PERBAIKAN (atas permintaan): label tahap 3 dibedakan sesuai metode
   // pembayaran -- Transfer TIDAK melibatkan "kas" fisik sama sekali (cukup
   // verifikasi bukti transfer yg diunggah), jadi labelnya "Verifikasi
@@ -9268,9 +9448,12 @@ function pdRenderDetailSingkat(res){
     // fungsinya -- generik berdasarkan prefix).
     var catatanRevisiTg = res.komentar.length ? res.komentar[res.komentar.length-1] : null;
     PD.memoFileTagihanRevisi = null;
-    html += pdBlock('fa-file-invoice-dollar', judul1, 'revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
+    html += pdBlock('fa-file-invoice-dollar', judul1, 'revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
       (catatanRevisiTg ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisiTg.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTg.teks)+'</span></div></div>' : '')
-      + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
+      // PERBAIKAN BUG NYATA (Ketua LPPM): form kirim-ulang Tagihan milik
+      // UNIT -- SEBELUMNYA cuma cek "isAdmin", Ketua ikut jatuh ke cabang
+      // FORM ini.
+      + ((isAdmin||isKetua) ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki rincian tagihan, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="mb-2"><label class="form-label small mb-1">Nama Tagihan</label><input type="text" class="form-control form-control-sm" id="pd-judul-tagihan-revisi" value="'+esc(h.judul)+'"></div>'
           + '<div class="mb-2"><label class="form-label small mb-1">Dibayarkan Kepada</label><input type="text" class="form-control form-control-sm" id="pd-kepada-tagihan-revisi" value="'+esc(h.dibayarkanKepada)+'"></div>'
@@ -9296,16 +9479,18 @@ function pdRenderDetailSingkat(res){
     PD.realisasiEdit = res.realisasi.length ? res.realisasi.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.lpjFileEdit = null;
     PD.komponenTerbatasRealisasi = null; // Penggantian Biaya tidak punya RAB -- tetap pakai daftar komponen lengkap
-    html += pdBlock('fa-receipt', judul1, 'revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
+    html += pdBlock('fa-receipt', judul1, 'revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
       (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisi.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
-      + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
+      // PERBAIKAN BUG NYATA (Ketua LPPM): form kirim-ulang Penggantian
+      // Biaya milik UNIT -- SAMA persis dgn Tagihan di atas.
+      + ((isAdmin||isKetua) ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki rincian, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
           + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ revisi (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-revisi-'+h.idPengajuan+'" onclick="pdAksiKirimRevisiSekaligus(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang</button>')));
-    if(!isAdmin) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
+    if(!isAdmin && !isKetua) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
   } else {
     var bodyTahap1;
     var infoMetode = '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">METODE PEMBAYARAN</div>'
@@ -9330,7 +9515,7 @@ function pdRenderDetailSingkat(res){
   // tahap 3 terpisah (lihat di bawah), SETELAH disetujui di sini.
   if(map.ditolak===2){
     html += pdBlock('fa-gavel', judul2, 'done', '<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
-      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
+      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
     document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
   }
   if(st(2)==='active'){
@@ -9371,7 +9556,7 @@ function pdRenderDetailSingkat(res){
       : '';
     var blokKembalikanSk2 = isAdmin ? pdBlokKembalikan('pd-kembalikan-sk2-'+h.idPengajuan, (h.jenis==='TAGIHAN'?'pdAksiKembalikanTagihan':'pdAksiKembalikanLpj'), h.idPengajuan) : '';
     html += pdBlock('fa-gavel', judul2, 'done', '<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
       + infoPencairan2 + blokKembalikanSk2);
   } else {
     html += pdBlock('fa-gavel', judul2, 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
@@ -9534,6 +9719,15 @@ function pdAksiTolak(id, btn){
   var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
   if(!catatan){ toast('error','Isi dulu catatan alasan penolakan di kotak di atas'); return; }
   pdJalankanAksi('tolakPermohonanDana', [id, catatan, STATE.token, _idemKey('tolak_muka', {id:id, catatan:catatan})], btn, 'Pengajuan ditolak');
+}
+// FITUR BARU -- Ketua LPPM: Setuju/Kembalikan utk approval defisit LPJ
+// (status MENUNGGU_APPROVAL_DEFISIT, lihat pdRenderDetailMuka tahap 6).
+// keputusan: 'DISETUJUI' (lanjut ke pencatatan Kasir) | 'PERLU_REVISI'
+// (kembali ke Unit utk diperbaiki, catatan WAJIB diisi).
+function pdAksiSetujuiDefisit(id, keputusan, btn){
+  var catatan = (document.getElementById('pd-catatan-defisit-'+id)||{}).value || '';
+  if(keputusan==='PERLU_REVISI' && !catatan){ toast('error','Isi dulu catatan alasan pengembalian di kotak di atas'); return; }
+  pdJalankanAksi('setujuiDefisitLpj', [id, keputusan, catatan, STATE.token, _idemKey('defisit_lpj', {id:id, keputusan:keputusan, catatan:catatan})], btn, keputusan==='DISETUJUI' ? 'Defisit disetujui' : 'Dikembalikan untuk revisi');
 }
 // Unit kirim ULANG pengajuan (RAB + surat) sesudah diminta revisi di tahap
 // Persetujuan awal -- MENIMPA data lama, bukan menyimpan sbg versi baru.
@@ -9734,6 +9928,10 @@ function pdTawarkanDraftLaporanEdit(idPengajuan){
 }
 function pdRenderDetailLaporanUnit(res){
   var h = res.header; var isAdmin = STATE.role==='ADMIN';
+  // FITUR BARU -- Ketua LPPM: SAMA alasannya dgn pdRenderDetailSingkat --
+  // supaya form kirim-ulang milik UNIT di bawah TIDAK ikut kelihatan/bisa
+  // diisi Ketua LPPM.
+  var isKetua = STATE.role==='KETUA';
   var map = { MENUNGGU_VERIFIKASI:{t:2}, PERLU_REVISI:{t:1, revisi:2}, MENUNGGU_PENCATATAN:{t:3}, SELESAI:{t:5}, DITOLAK:{ditolak:2} }[h.status] || {t:1};
   document.getElementById('pd-ministep').innerHTML = pdRenderMinistep(PD_TAHAP_LABEL_LAPORAN, map.t||1, map.revisi, map.ditolak);
   var st = function(tahap){ if(map.ditolak) return tahap<map.ditolak?'done':(tahap===map.ditolak?'ditolak':'locked'); return tahap<map.t?'done':(tahap===map.t?'active':'locked'); };
@@ -9761,9 +9959,12 @@ function pdRenderDetailLaporanUnit(res){
     if(!PD.laporanEditMasuk.length) PD.laporanEditMasuk = [{tanggal:'',keterangan:'',nominal:0}];
     if(!PD.laporanEditKeluar.length) PD.laporanEditKeluar = [{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.laporanEditBuktiFile = null;
-    html += pdBlock('fa-store', '1. Laporan '+labelBulan, 'revisi', isAdmin?'':'<span class="badge-role badge-unit">UNIT</span>',
+    html += pdBlock('fa-store', '1. Laporan '+labelBulan, 'revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
       (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisi.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
-      + (isAdmin ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
+      // PERBAIKAN BUG NYATA (Ketua LPPM): form kirim-ulang Laporan Unit
+      // milik UNIT -- SAMA persis dgn RAB/LPJ MUKA & Tagihan/Penggantian
+      // Biaya di atas.
+      + ((isAdmin||isKetua) ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki rincian Pemasukan/Pengeluaran & bukti, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="fw-bold small text-success mb-1"><i class="fas fa-circle-plus me-1"></i>Pemasukan</div>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-laporan-edit-masuk"></tbody></table></div>'
@@ -9778,7 +9979,7 @@ function pdRenderDetailLaporanUnit(res){
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH ULANG BUKTI PENDUKUNG</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-laporan-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-laporan-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file bukti revisi (PDF) ke sini</div><input type="file" id="pd-file-laporan-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-laporan-edit" onchange="pdPilihFile(this,\'laporanEditBuktiFile\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-laporan-'+h.idPengajuan+'" onclick="pdAksiKirimUlangLaporanUnit(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang</button>')));
-    if(!isAdmin) setTimeout(function(){ pdRenderTabelLaporan('laporanEditMasuk'); pdRenderTabelLaporan('laporanEditKeluar'); pdTawarkanDraftLaporanEdit(h.idPengajuan); }, 0);
+    if(!isAdmin && !isKetua) setTimeout(function(){ pdRenderTabelLaporan('laporanEditMasuk'); pdRenderTabelLaporan('laporanEditKeluar'); pdTawarkanDraftLaporanEdit(h.idPengajuan); }, 0);
   } else {
     // PERBAIKAN BUG NYATA (atas laporan): sebelumnya begitu laporan sudah
     // terkirim, tampilan "done" ini CUMA menampilkan 2 tabel Pemasukan &
@@ -9812,7 +10013,7 @@ function pdRenderDetailLaporanUnit(res){
   // Kasir di tahap 3 terpisah (lihat di bawah), SETELAH disetujui di sini.
   if(map.ditolak===2){
     html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'done', '<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
-      '<div class="fw-bold small" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
+      '<div class="fw-bold small" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
     document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
   }
   if(st(2)==='active'){
@@ -9825,7 +10026,7 @@ function pdRenderDetailLaporanUnit(res){
   } else if(st(2)==='done'){
     var blokKembalikanLap2 = isAdmin ? pdBlokKembalikan('pd-kembalikan-lap2-'+h.idPengajuan, 'pdAksiKembalikanLaporan', h.idPengajuan) : '';
     html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'done', '<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
       + blokKembalikanLap2);
   } else {
     html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
