@@ -1052,7 +1052,7 @@
               <thead><tr><th style="width:18%">Komponen</th><th style="width:26%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:12%">No. Bukti</th><th style="width:6%"></th></tr></thead>
               <tbody id="pd-tbody-realisasi-sekaligus"></tbody>
             </table></div>
-            <div class="text-end mt-2"><b>Total: </b><span id="pd-total-realisasiSekaligus">Rp 0</span></div>
+            <div class="text-end mt-2"><b>Total: </b><span id="pd-total-realisasiSekaligus">Rp 0</span> &nbsp;<span class="text-muted small">| Total PPh 21+23: </span><span id="pd-total-pph-realisasiSekaligus" class="small">Rp 0</span></div>
           </div></div>
 
           <div class="card mb-3"><div class="card-body">
@@ -1667,6 +1667,30 @@ function kembaliKeLogin(){
     if(elBulan) elBulan.innerHTML = '';
   });
   CACHE.rekap = {};
+  // PERBAIKAN BUG NYATA (dilaporkan langsung: "logout dari admin, login
+  // pakai unit, cache tidak fresh, data masih basi dari akun admin,
+  // harus tunggu beberapa saat baru fresh"): SEBELUMNYA cuma CACHE.rekap
+  // yang dibersihkan di sini -- SEMUA cache in-memory LAIN (Dashboard,
+  // Pesan, Konsolidasi, Verifikasi Transaksi, Laporan Unit, saran
+  // Keterangan, dan penanda debounce _lastFetchAt) TIDAK IKUT dibersihkan.
+  // Karena aplikasi ini SPA (halaman TIDAK reload penuh saat logout/login
+  // ulang di tab yang sama), variabel2 JS ini TETAP MEMBAWA DATA MILIK
+  // AKUN SEBELUMNYA begitu akun BARU login -- begitu akun baru itu buka
+  // Dashboard/Pesan/dst, kode melihat "oh sudah ada cache" (padahal itu
+  // cache akun LAMA) dan MENAMPILKANNYA DULU sebelum sempat disegarkan
+  // diam2 di belakang layar -- persis gejala "basi, baru fresh setelah
+  // beberapa saat" yang dilaporkan. Sekarang SEMUA cache in-memory yang
+  // ada di seluruh aplikasi dibersihkan total di sini, supaya akun BARU
+  // SELALU mulai dari kondisi benar2 kosong/bersih, tidak ada peninggalan
+  // apa pun dari akun sebelumnya.
+  CACHE.tambahan = {}; CACHE.kategoriTambahan = null; CACHE.unitTotal = {}; CACHE.belumVerifikasi = {};
+  _lastFetchAt = {};
+  _dashboardCache = {}; _dashboardDataTahun = null; _dashboardDataPengajuan = null;
+  _konsolidasiCache = null; _konsolidasiRawCache = {};
+  _vfCache = {};
+  _pesanCacheSaya = null; _pesanCacheAdminList = null; _pesanCacheAdminThread = {};
+  _laporanUnitCache = {};
+  _gcRiwayatKetCache = {}; _tbRiwayatKetCache = {};
   STATE_posAktif = null;
   document.getElementById('li-user').value = '';
   document.getElementById('li-pass').value = '';
@@ -1815,20 +1839,16 @@ function afterLogin(){
   }
 
   // 2) Ambil data terbaru dari server di belakang layar
-  // PERBAIKAN PERFORMA PENTING ("dashboard/menu lama muncul, 7-10 detik"):
-  // sebelumnya di sini ada 3 round-trip TERPISAH yang jalan hampir
-  // bersamaan tiap kali habis login/refresh -- muatBadgeGabungan() (badge
-  // Pesan+Pengajuan), batch ini sendiri (getDaftarTahun/getMyPos/getSetup),
-  // DAN (begitu batch ini selesai) loadDashboard() menyusul dengan batch-nya
-  // SENDIRI lagi (getRingkasanTahun/getRingkasanPengajuan). Di versi GitHub
-  // Pages, SETIAP round-trip itu membayar biaya penuh fetch() lintas domain
-  // + redirect internal Apps Script (tidak ada di google.script.run) --
-  // jadi 2-3 round-trip berurutan/bersamaan itu yang paling terasa bikin
-  // "lama banget" walau masing2 baik2 saja sendiri2. Sekarang SEMUANYA
-  // digabung jadi SATU batch: data inti + badge + (kalau tahun aktif sudah
-  // diketahui dari cache lokal di langkah 1 di atas) ringkasan Dashboard
-  // SEKALIAN -- sehingga tampilan pertama biasanya CUMA menunggu 1
-  // round-trip jaringan, bukan 2-3.
+  // PERBAIKAN PERFORMA ("dashboard/menu lama muncul"): sebelumnya di sini
+  // ada beberapa round-trip TERPISAH yang jalan hampir bersamaan tiap kali
+  // habis login/refresh -- muatBadgeGabungan() (badge Pesan+Pengajuan),
+  // Promise.all 3 gasCall() ini sendiri, DAN (begitu ini selesai)
+  // loadDashboard() menyusul dengan batch-nya SENDIRI lagi
+  // (getRingkasanTahun/getRingkasanPengajuan). Sekarang SEMUANYA digabung
+  // jadi SATU batch lewat gasCallBatch: data inti + badge + (kalau tahun
+  // aktif sudah diketahui dari cache lokal di langkah 1) ringkasan
+  // Dashboard SEKALIAN -- tampilan pertama biasanya cuma menunggu 1
+  // round-trip, bukan 2-3.
   showBar();
   var _tahunTebakan = cachedInit ? cachedInit.tahunAktif : null;
   var _callsAwal = [
@@ -2132,25 +2152,14 @@ function refreshViewSilently(name){
   else if(name==='log') loadLogView();
   else if(name==='logunit') loadLogUnitView();
   else if(name==='pengajuan'){
-    // PERBAIKAN BUG NYATA ("Detail kadang tidak bisa diklik & lama"):
-    // sebelumnya baris ini memanggil pdMuatRingkasan()+pdMuatDaftar() --
-    // sepasang fungsi LAMA sebelum dioptimasi, yang menembak 2 round-trip
-    // jaringan TERPISAH (bukan 1 batch gabungan) SETIAP 5 menit selagi
-    // Admin/Unit diam di halaman Pengajuan Dana. Selain lebih lambat, ini
-    // juga TIDAK PERNAH menyegarkan draft (PD.daftarDraft) -- dan yang
-    // paling terasa: karena makan waktu lebih lama, jendela saat tabel
-    // #pd-tbody dibangun ulang (innerHTML diganti total) jadi lebih lebar,
-    // kadang pas bertepatan dengan user mengklik tombol "Detail" -- tombol
-    // yang diklik keburu diganti node baru oleh render ulang, jadi klik-nya
-    // seperti tidak bereaksi. Sekarang pakai pdMuatRingkasanDanDaftar() --
-    // 1 round-trip gabungan (ringkasan+badge+daftar+draft), jauh lebih
-    // cepat, jendela race-condition-nya jauh lebih sempit, DAN draft ikut
-    // tersegarkan juga.
-    // PERBAIKAN LANJUTAN: fungsi ini SEKARANG dipanggil dari 2 interval --
-    // yang CEPAT (10 detik, lihat _srgBadgeRefresh di afterLogin) KHUSUS
-    // kalau halaman Pengajuan Dana ini yang sedang aktif, dan yang
+    // Status pengajuan dipantau nyaris real-time -- fungsi ini dipanggil
+    // dari 2 interval: yang CEPAT (10 detik, lihat _srgBadgeRefresh di
+    // afterLogin) KHUSUS kalau halaman ini yang sedang aktif, dan yang
     // BERAT/5-menit (_srgAutoRefresh) sbg jaring pengaman umum spt view
-    // lain -- supaya status pengajuan dipantau nyaris real-time.
+    // lain. HANYA refresh diam-diam kalau sedang di sub-panel Daftar,
+    // JANGAN kalau sedang di Form (isi pengajuan baru) atau Detail (sedang
+    // baca/ketik komentar/catatan revisi) -- supaya tidak mengganggu isian
+    // yang belum disimpan.
     var subDaftar = document.getElementById('pd-sub-daftar');
     if(subDaftar && !subDaftar.classList.contains('d-none')){ pdMuatRingkasanDanDaftar(); }
   }
@@ -2304,8 +2313,7 @@ function loadDashboard(){
   // pertama setelah login DAN ikut disegarkan diam-diam tiap 10 detik, ini
   // jadi salah satu sumber kontensi paling sering terjadi di seluruh
   // aplikasi. Digabung jadi 1 batch -- hasilnya dipakai bersama oleh kartu
-  // dashboard MAUPUN banner Pengajuan (lihat catatan _renderBannerPengajuanDashboard
-  // di bawah, tetap tidak berubah -- cukup 1x tarik data, dipakai 2 tempat).
+  // dashboard MAUPUN banner Pengajuan.
   // PERBAIKAN BUG NYATA (atas laporan "jumlah Pengajuan Dana di Dashboard
   // beda dengan di halaman Pengajuan Dana sendiri"): SEBELUMNYA panggilan
   // getRingkasanPengajuan di sini TIDAK menyertakan argumen tahun sama
@@ -2639,12 +2647,10 @@ function loadRekapBulan(){
   // PERBAIKAN PERFORMA: sebelumnya ini 3 permintaan TERPISAH (getRekapBulan,
   // getStatusKunciBulan, dan getTransaksiBelumVerifikasi lewat
   // loadPerluVerifikasi()) -- tiap permintaan terpisah membayar overhead
-  // round-trip PENUH ke Apps Script sendiri-sendiri (jauh lebih terasa di
-  // versi GitHub Pages yang fetch() ke URL Web App, ada redirect internal
-  // tambahan dibanding google.script.run) -- jadi ganti bulan terasa lambat
-  // padahal ketiganya sama-sama read-only & independen. Sekarang digabung
-  // jadi 1x round-trip lewat gasCallBatch (lihat catatan gasCallBatch di
-  // atas), 3x lebih sedikit tunggu jaringan.
+  // round-trip PENUH ke Apps Script sendiri-sendiri, jadi ganti bulan
+  // terasa lambat padahal ketiganya sama-sama read-only & independen.
+  // Sekarang digabung jadi 1x round-trip lewat gasCallBatch, 3x lebih
+  // sedikit tunggu jaringan.
   // CATATAN: dipakai utk pemanggilan SATU-SATU (mis. sesudah verifikasi/
   // hapus/edit transaksi) -- utk trigger ganti bulan yg mungkin JUGA perlu
   // loadTambahanForInput() sekaligus, pakai _muatInputGabungan() di atas
@@ -3016,8 +3022,7 @@ function loadRekapRekeningKoran(){
   if(!bulan) return;
   showBar();
   // PERBAIKAN PERFORMA: digabung jadi 1x round-trip lewat gasCallBatch
-  // (sebelumnya 2 gasCall() TERPISAH) -- lihat catatan performa yang sama
-  // di loadRekapBulan/loadViewVerifikasiData.
+  // (sebelumnya 2 gasCall() TERPISAH).
   gasCallBatch([
     { fn:'getRekapRekeningKoran', args:[STATE.tahunAktif, bulan, kodeUnit || null, STATE.token] },
     { fn:'getStatusKunciBulan', args:[STATE.tahunAktif, bulan, STATE.token] }
@@ -3374,7 +3379,7 @@ function gcRowHtml(r,i,rentang){
     + '<td class="tx-col-icon">'+(i+1)+'</td>'
     + '<td><input type="date" class="form-control form-control-sm px-1" style="font-size:.78rem;" value="'+_gcEsc(r.tgl)+'" min="'+rentang.min+'" max="'+rentang.max+'"'
         + ' onchange="gcUpd('+r.id+',\'tgl\',this.value)" onkeydown="gcKey(event,'+r.id+',\'tgl\')"></td>'
-        + '<td><div class="tx-pos-wrap">'
+    + '<td><div class="tx-pos-wrap">'
         + '<input type="text" class="form-control form-control-sm tx-pos-input" style="caret-color:auto;cursor:text;" autocomplete="off" placeholder="- Pilih Unit \u2192 Pos -"'
           + ' value="'+_gcEsc(r.posLabel)+'" id="gc-pos-'+r.id+'"'
           + ' onfocus="gcPosFocus('+r.id+')" oninput="gcPosInput('+r.id+')" onkeydown="gcPosKey(event,'+r.id+')" onblur="gcPosBlur('+r.id+')">'
@@ -3986,9 +3991,9 @@ function loadViewVerifikasiData(){
   // 2) Refresh dari server di belakang layar.
   // PERBAIKAN PERFORMA: digabung jadi 1x round-trip lewat gasCallBatch
   // (sebelumnya Promise.all atas 3 gasCall() TERPISAH -- tiap permintaan
-  // terpisah tetap membayar overhead round-trip Apps Script sendiri²,
-  // paling terasa di versi GitHub Pages). Struktur hasil (array, urutan
-  // sama persis) TIDAK berubah, jadi kode penanganan di bawah tetap sama.
+  // terpisah tetap membayar overhead round-trip Apps Script sendiri²).
+  // Struktur hasil (array, urutan sama persis) TIDAK berubah, jadi kode
+  // penanganan di bawah tetap sama.
   gasCallBatch([
     { fn:'getTransaksiBelumVerifikasi', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getRiwayatVerifikasiSaya', args:[STATE.tahunAktif, bulan, STATE.token] },
@@ -4327,12 +4332,13 @@ function bukaPesanBaruUnit(){
       '<div class="sw-field" style="text-align:left;"><label>Topik (opsional)</label><input type="text" id="sw-topik" class="swal2-input" placeholder="mis. Transaksi bulan Juli" style="margin:4px 0 10px;"></div>'
       + '<textarea id="sw-pesan" class="swal2-textarea" placeholder="Tulis pesan Anda..." style="margin-top:0;"></textarea>',
     confirmButtonText:'Kirim', confirmButtonColor:'#800000', showCancelButton:true,
+    allowOutsideClick:false, allowEscapeKey:false,
     preConfirm: function(){
-      var v = document.getElementById('sw-pesan').value.trim();
-      if(!v){ Swal.showValidationMessage('Isi pesan dulu'); return false; }
+      var isi = document.getElementById('sw-pesan').value.trim();
+      if(!isi){ Swal.showValidationMessage('Isi pesan dulu'); return false; }
       var topik = document.getElementById('sw-topik').value.trim();
       Swal.showLoading();
-      return gasCall('kirimPesanKeAdmin', v, topik, STATE.token).then(function(r){
+      return gasCall('kirimPesanKeAdmin', isi, topik, STATE.token).then(function(r){
         if(!r.success){ Swal.showValidationMessage(r.message); return false; }
         return true;
       }).catch(function(){ Swal.showValidationMessage('Gagal mengirim, coba lagi.'); return false; });
@@ -4737,16 +4743,16 @@ function loadKonsolidasi(){
   var cached = _konsolidasiRawCache[key];
   if(cached) _renderKonsolidasi(bulan, cached);
   // PERBAIKAN BUG PENTING (penyebab utama "ganti bulan lama sekali, > 10
-  // detik"): sebelumnya fungsi ini menembak DUA permintaan TERPISAH ke
-  // server SEKALIGUS (gasCallBatch di bawah, DAN gasCall('getStatusKunciBulan')
-  // terpisah setelahnya) -- artinya 2 eksekusi Apps Script BERBEDA jalan
-  // BERSAMAAN, keduanya sama-sama membuka/membaca spreadsheet TAHUN yang
-  // SAMA di waktu yang nyaris sama persis. Google Apps Script cenderung
-  // mengunci/menyerialkan akses BERSAMAAN ke spreadsheet yang sama --
-  // akibatnya salah satu permintaan harus MENUNGGU permintaan lainnya
-  // selesai dulu, dan itu bisa berlipat-lipat lebih lambat dibanding kalau
-  // cuma 1 permintaan saja. Sekarang getStatusKunciBulan DIGABUNG ke dalam
-  // batch yang sama (jadi 1 eksekusi server saja per ganti bulan, bukan 2).
+  // detik"): sebelumnya fungsi ini menembak LIMA permintaan TERPISAH ke
+  // server SEKALIGUS (4 lewat Promise.all + 1 getStatusKunciBulan lagi
+  // terpisah) -- artinya 5 eksekusi Apps Script BERBEDA jalan BERSAMAAN,
+  // semuanya sama-sama membuka/membaca spreadsheet TAHUN yang SAMA di waktu
+  // yang nyaris sama persis. Google Apps Script cenderung mengunci/
+  // menyerialkan akses BERSAMAAN ke spreadsheet yang sama -- akibatnya
+  // permintaan-permintaan itu saling MENUNGGU satu sama lain, dan itu bisa
+  // berlipat-lipat lebih lambat dibanding kalau cuma 1 permintaan saja.
+  // Sekarang semuanya DIGABUNG jadi 1 batch (jadi 1 eksekusi server saja
+  // per ganti bulan, bukan 5).
   gasCallBatch([
     { fn:'getRekapBulan', args:[STATE.tahunAktif, bulan, STATE.token] },
     { fn:'getRekonsiliasi', args:[STATE.tahunAktif, bulan, STATE.token] },
@@ -5798,7 +5804,7 @@ function loadKomponenAnggaranSetup(){
   gasCall('getKomponenAnggaranList', STATE.token).then(function(res){
     if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat Komponen Anggaran'); return; }
     _komponenAnggaranData = res.data;
-    PD.komponenList = res.data;
+    PD.komponenList = res.data; // ikut disegarkan utk dropdown Pengajuan Dana
     renderKomponenAnggaranTable();
   }).catch(function(err){ toast('error', (err && err.message) || 'Gagal memuat Komponen Anggaran'); });
 }
@@ -5863,7 +5869,7 @@ function hapusKomponenAnggaranSetup(kode){
 // ============================================================
 function loadUserView(){
   showBar();
-  gasCallBatch([ { fn:'getUserList', args:[STATE.token] }, { fn:'getUnitPosList', args:[STATE.token] } ]).then(function(res){
+  Promise.all([ gasCall('getUserList', STATE.token), gasCall('getUnitPosList', STATE.token) ]).then(function(res){
     hideBar();
     var users = res[0], unitPos = res[1];
     if(!users.success){ toast('error', users.message); return; }
@@ -6307,7 +6313,7 @@ function submitSetup(e){
     STATE.namaBank = data.namaBank || STATE.namaBank;
     STATE.kodeRekeningKasBank = data.kodeRekeningKasBank || '';
     toast('success','Pengaturan tersimpan');
-    loadSetupView();
+    loadSetupView(); // muat ulang -- sekalian refresh tampilan statis dgn nilai terbaru & balik dari mode edit
   }).catch(function(){ btnBusy(btn, false); toast('error','Gagal menyimpan'); });
 }
 
@@ -6360,11 +6366,13 @@ function loadJurnalMemorial(){
   // class admin-only di HTML, jadi Ketua tidak akan lihat/bisa balik ke checklist.
   if(STATE.role==='KETUA') switchMemorialMode('preview');
   showBar();
-  // Semua panggilan jalan BERSAMAAN dalam SATU request batch (bukan tunggu
-  // status kunci dulu baru mulai tarik data, dan bukan N request terpisah)
-  // — ini yang bikin ganti bulan jauh lebih cepat. Kalau ternyata terkunci,
-  // hasil data mentahnya tinggal dibuang, tidak masalah (lebih murah
-  // daripada menunggu 2x giliran bolak-balik ke server).
+  // PERBAIKAN PERFORMA: digabung jadi 1x round-trip lewat gasCallBatch
+  // (sebelumnya Promise.all atas 5 gasCall() TERPISAH). Semua panggilan
+  // jalan BERSAMAAN dalam SATU request batch (bukan tunggu status kunci
+  // dulu baru mulai tarik data) — ini yang bikin ganti bulan jauh lebih
+  // cepat. Kalau ternyata terkunci, hasil data mentahnya tinggal dibuang,
+  // tidak masalah (lebih murah daripada menunggu 2x giliran bolak-balik
+  // ke server).
   var pakaiCacheKategori = !!CACHE.kategoriTambahan;
   var callsMemorial = [
     { fn:'getStatusJurnalMemorial', args:[STATE.tahunAktif, bulan, STATE.token] },
@@ -7166,6 +7174,10 @@ function cetakLaporanUnit(){
   if(!d){ toast('error','Belum ada data untuk dicetak'); return; }
   var periode = _luPeriode();
 
+  // CSS & kop/footer SENGAJA disamakan persis dengan gaya cetak resmi yang
+  // sudah dipakai di SIKU LPPM USD sendiri (lihat cetakKonsolidasi) -- yang
+  // itu sendiri memang meniru gaya SIMK (kop LPPM USD, ukuran font, garis,
+  // format angka monospace rata kanan, dst).
   var css = [
     '*{color:#000 !important;}',
     'body{font-family:Arial,sans-serif;font-size:8.5pt;color:#000;margin:0;padding:0;counter-reset:page;}',
@@ -7645,7 +7657,7 @@ function pdMuatRingkasanDanDaftar(){
   }).catch(function(){
     // PERBAIKAN BUG: sebelumnya baris ini memanggil pdMuatRingkasanDanDaftar()
     // LAGI setiap kali batch-nya gagal -- TANPA batas jumlah percobaan dan
-    // TANPA jeda sama sekali, jadi kalau jaringan benar-benar bermasalah
+    // TANPA jeda sama sekali, jadi kalau jaringan/sesi benar-benar bermasalah
     // (bukan cuma blip sesaat -- gasCallBatch sendiri SUDAH mencoba ulang
     // 2x lebih dulu, lihat _gasCallBatchDenganRetry), fungsi ini akan terus
     // memanggil dirinya sendiri TANPA HENTI, membanjiri server dengan
@@ -7761,6 +7773,26 @@ var PD_BADGE_STATUS = {
 // status (Daftar Pengajuan, Cetak, Rollover, header Detail) supaya
 // konsisten -- satu sumber, bukan diulang-ulang per tempat.
 function pdLabelStatus(p){
+  // FITUR BARU (atas permintaan "status jangan sama menunggu verifikasi
+  // saja, diperjelas misalnya menunggu verifikasi LPJ, cek semua status
+  // pengajuan agar lebih jelas"): SEBELUMNYA status MENUNGGU_VERIFIKASI
+  // SELALU berlabel generik "Menunggu Verifikasi" apa pun jenisnya --
+  // padahal maknanya beda2 tergantung jenis (LPJ untuk MUKA, dokumen
+  // Penggantian Biaya/Tagihan/Laporan Unit utk 3 jenis lain). Dibedakan
+  // di sini, SAMA pola dgn MENUNGGU_PENCATATAN di bawah -- satu sumber,
+  // dipakai konsisten di SEMUA tempat yg menampilkan label status.
+  if(p && p.status==='MENUNGGU_VERIFIKASI'){
+    if(p.jenis==='MUKA') return 'Menunggu Verifikasi LPJ';
+    if(p.jenis==='SEKALIGUS') return 'Menunggu Verifikasi Penggantian Biaya';
+    if(p.jenis==='TAGIHAN') return 'Menunggu Verifikasi Tagihan';
+    if(p.jenis==='LAPORAN_UNIT') return 'Menunggu Verifikasi Laporan Unit';
+  }
+  // FITUR BARU -- SAMA alasannya: MENUNGGU_APPROVAL_DEFISIT bisa terjadi
+  // di 2 jenis (MUKA & Laporan Unit), dibedakan jg supaya jelas defisit
+  // yang MANA yang sedang menunggu persetujuan.
+  if(p && p.status==='MENUNGGU_APPROVAL_DEFISIT'){
+    return p.jenis==='LAPORAN_UNIT' ? 'Menunggu Approval Defisit Laporan Unit' : 'Menunggu Approval Defisit LPJ';
+  }
   if(p && p.status==='MENUNGGU_PENCATATAN'){
     if(p.metodePembayaran==='TRANSFER') return 'Menunggu Verifikasi Transfer';
     // FITUR BARU (atas permintaan): LPJ MUKA sekarang punya sub-tahap
@@ -8199,6 +8231,44 @@ function pdRenderTotalRealisasi(target){
   var rows = PD[target];
   var total = rows.reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
   el.textContent = 'Rp ' + fmtRp(total);
+  // FITUR BARU (atas permintaan "total PPH tidak ada saat mengisi, info
+  // surplus/defisit tidak ada, bisa membuat unit bingung"): SEBELUMNYA
+  // cuma "Total:" (nominal murni) yang muncul real-time saat Unit
+  // mengisi realisasi/LPJ -- Unit baru tahu total PPh & apakah realisasi
+  // mereka pas/kurang/lebih dari dana yang dicairkan SETELAH kirim &
+  // dibuka lagi di halaman Detail. Sekarang keduanya dihitung & DITAMPILKAN
+  // LANGSUNG di sini juga, real-time (tiap baris ditambah/diubah/dihapus),
+  // SAMA seperti pola yg SUDAH ADA di form Laporan Unit (Surplus/Defisit
+  // Pemasukan-Pengeluaran, lihat pdRenderSelisihLaporan) -- TAPI kedua
+  // elemen ini SENGAJA hanya diisi KALAU memang ADA di HTML (pakai
+  // if(el)) supaya fungsi generik ini tetap AMAN dipakai di SEMUA konteks
+  // realisasi (Ajukan Baru Penggantian Biaya, Kirim Ulang LPJ MUKA, dst)
+  // tanpa perlu tahu jenis pengajuannya di sini -- HTML pemanggil yang
+  // menentukan elemen mana yg relevan ditampilkan (lihat pdRenderDetailMuka
+  // utk LPJ MUKA, dan form "Ajukan Baru" Penggantian Biaya).
+  var elPph = document.getElementById('pd-total-pph-'+target);
+  if(elPph){
+    var totalPph = rows.reduce(function(s,r){ return s + (Number(r.pph21)||0) + (Number(r.pph23)||0); }, 0);
+    elPph.textContent = 'Rp ' + fmtRp(totalPph);
+  }
+  // Surplus/Defisit HANYA relevan utk LPJ MUKA (ada RAB/dana dicairkan
+  // sbg pembanding) -- TIDAK relevan utk Penggantian Biaya/Tagihan (selalu
+  // dibayar PERSIS sejumlah yang diklaim, tidak ada "batas dana" utk
+  // dibandingkan -- lihat penjelasan lengkap yg sudah disampaikan
+  // sebelumnya soal kenapa jenis itu tidak punya konsep defisit). Nilai
+  // "dana dicairkan" dibaca dari atribut data- di box itu SENDIRI (diisi
+  // sekali oleh HTML pemanggil, lihat pdRenderDetailMuka) -- BUKAN
+  // variabel global terpisah, supaya tidak ada risiko "nyangkut" nilai
+  // dari pengajuan lain kalau lupa direset.
+  var boxSelisih = document.getElementById('pd-selisih-realisasi-'+target+'-box');
+  if(boxSelisih){
+    var dicairkan = Number(boxSelisih.dataset.dicairkan) || 0;
+    var selisih = dicairkan - total;
+    var elSelisih = document.getElementById('pd-selisih-realisasi-'+target);
+    if(elSelisih) elSelisih.textContent = (selisih>=0 ? 'Surplus ' : 'Defisit ') + 'Rp ' + fmtRp(Math.abs(selisih));
+    boxSelisih.classList.remove('ok','warn');
+    boxSelisih.classList.add(selisih>=0 ? 'ok' : 'warn');
+  }
 }
 function pdBarisRealisasiHtml(target, r, i, prefix){
   var daftarTerbatas = (target==='realisasiEdit') ? PD.komponenTerbatasRealisasi : null;
@@ -8924,6 +8994,28 @@ function pdBlock(icon, judul, state, badgeHtml, bodyHtml){
     + '<div class="pd-block-head"><div class="section-title"><i class="fas '+icon+'"></i>'+judul+'</div>'+(badgeHtml||'')+'</div>'
     + bodyHtml + '</div></div></div>';
 }
+// FITUR BARU (atas permintaan "validasi sebagai ketua LPPM simpel saja,
+// tanpa melihat semua proses, data yang diperlukan saja, ini saya lihat
+// malah seperti admin"): tahap2 yang MURNI operasional Bagian Keuangan
+// (Pencairan Dana, Pencatatan Kasir/BKM-BKK) TIDAK PERNAH jadi wewenang
+// Ketua LPPM sama sekali (Ketua cuma mengambil KEPUTUSAN persetujuan --
+// RAB/Verifikasi/Defisit -- bukan menangani uang fisik) -- SEBELUMNYA
+// Ketua tetap melihat card LENGKAP tahap2 ini (form/placeholder "menunggu
+// Admin...", sama seperti yg dilihat Unit), yang bikin tampilannya terasa
+// penuh & "seperti Admin" walau sebenarnya tidak bisa apa2 di situ.
+// Dipakai KHUSUS utk tahap yg BUKAN sedang aktif butuh keputusan Ketua
+// (kalau SEDANG aktif -- mis. Approval Defisit -- tetap pakai pdBlock
+// biasa spt sekarang, TIDAK disederhanakan, krn itu justru YANG PALING
+// PENTING bagi Ketua utk dilihat lengkap). state SELALU dipertahankan apa
+// adanya (done/locked) supaya ministep di atas tetap akurat -- yang
+// disederhanakan HANYA badan/isi card-nya, bukan progress ministep-nya.
+function pdBlockRingkasKetua(icon, judul, state, ringkasanTeks){
+  if(STATE.role!=='KETUA') return null; // penanda "pakai pdBlock biasa" -- dicek di titik pemanggilan
+  return '<div class="pd-block '+state+'"><div class="card"><div class="card-body py-2">'
+    + '<div class="pd-block-head mb-0"><div class="section-title" style="font-size:.85rem;color:#888;"><i class="fas '+icon+'"></i>'+judul+'</div></div>'
+    + '<div class="small text-muted">'+ringkasanTeks+'</div>'
+    + '</div></div></div>';
+}
 function pdLockedBody(teks){ return '<div class="pd-locked-note"><i class="fas fa-lock"></i>'+teks+'</div>'; }
 // FITUR BARU: dulu No. Bukti Kas Masuk/Keluar (BKM/BKK) yang SUDAH tercatat
 // (dari Cairkan Dana / Verifikasi LPJ / Verifikasi Tagihan / Verifikasi
@@ -9145,7 +9237,7 @@ function pdRenderDetailMuka(res){
   // lagi tahap 1) ATAU Tolak (alur berhenti, tetap seperti sebelumnya).
   if(map.ditolak===2){
     html += pdBlock('fa-gavel','2. Persetujuan','done','<span class="badge-pd badge-pd-ditolak">Ditolak</span>',
-      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
+      '<div class="fw-bold small mb-1" style="color:#991b1b;">Ditolak oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' \u00b7 '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+esc(h.catatanKeputusan)+'</div>');
     document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
   }
   if(h.status==='PERLU_REVISI' && !h.tglDicairkan){
@@ -9176,25 +9268,27 @@ function pdRenderDetailMuka(res){
     // berdasarkan RAB itu, tidak masuk cakupan "kembalikan" ini lagi).
     var blokKembalikanRab = (canApproveRab && st(3)!=='done') ? pdBlokKembalikan('pd-kembalikan-rab-'+h.idPengajuan, 'pdAksiKembalikanRab', h.idPengajuan) : '';
     html += pdBlock('fa-gavel','2. Persetujuan','done','<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' \u00b7 '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
       + infoPencairan + blokKembalikanRab);
   } else {
     html += pdBlock('fa-gavel','2. Persetujuan','locked','', pdLockedBody('Menunggu tahap Pengajuan selesai diproses.'));
   }
 
-  // Tahap 3 -- Pencairan
+  // Tahap 3 -- Pencairan. FITUR BARU -- tampilan ringkas Ketua LPPM (lihat
+  // pdBlockRingkasKetua): tahap ini MURNI Bagian Keuangan mencairkan uang
+  // fisik, BUKAN keputusan yang perlu dilihat Ketua secara detail.
   if(st(3)==='active'){
-    html += pdBlock('fa-sack-dollar','3. Pencairan Dana','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+    html += pdBlockRingkasKetua('fa-sack-dollar','3. Pencairan Dana','active','Menunggu Bagian Keuangan mencairkan dana.') || pdBlock('fa-sack-dollar','3. Pencairan Dana','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       isAdmin ? ('<div class="row g-2 align-items-end"><div class="col-auto"><label class="form-label small mb-1">Tanggal Dicairkan</label><input type="date" class="form-control form-control-sm" id="pd-tgl-cair-'+h.idPengajuan+'" value="'+new Date().toISOString().slice(0,10)+'"></div>'
         + '<div class="col-auto"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-cair-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="width:160px;"></div>'
         + '<div class="col-auto"><button class="btn btn-sm" id="btn-cairkan-'+h.idPengajuan+'" onclick="pdAksiCairkan(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-sack-dollar me-1"></i>Tandai Sudah Dicairkan</button></div></div>')
         : pdCatatanTunggu('Sudah disetujui, menunggu Admin mencairkan dana.'));
   } else if(st(3)==='done'){
-    html += pdBlock('fa-sack-dollar','3. Pencairan Dana','done','<span class="badge-pd badge-pd-dicairkan">Dicairkan</span>',
+    html += pdBlockRingkasKetua('fa-sack-dollar','3. Pencairan Dana','done','Dicairkan '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' &middot; Rp '+fmtRp(h.totalDiajukan)) || pdBlock('fa-sack-dollar','3. Pencairan Dana','done','<span class="badge-pd badge-pd-dicairkan">Dicairkan</span>',
       '<div class="fw-bold small" style="color:#1d4ed8;">Dicairkan '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' \u00b7 Rp '+fmtRp(h.totalDiajukan)+'</div>'
       + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
   } else {
-    html += pdBlock('fa-sack-dollar','3. Pencairan Dana','locked','', pdLockedBody('Menunggu persetujuan Admin.'));
+    html += pdBlockRingkasKetua('fa-sack-dollar','3. Pencairan Dana','locked','Menunggu persetujuan RAB selesai diproses.') || pdBlock('fa-sack-dollar','3. Pencairan Dana','locked','', pdLockedBody('Menunggu persetujuan Admin.'));
   }
 
   // Tahap 4 -- Realisasi & LPJ. Kalau PERLU_REVISI & SUDAH dicairkan = blok
@@ -9211,7 +9305,8 @@ function pdRenderDetailMuka(res){
         : ('<p class="text-muted small mb-2">Perbaiki realisasi &amp; bukti LPJ, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
           + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
-          + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
+          + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span> &nbsp;<span class="text-muted small">| Total PPh 21+23: </span><span id="pd-total-pph-realisasiEdit" class="small">Rp 0</span></div>'
+          + '<div class="pd-total-box ok mb-2" id="pd-selisih-realisasiEdit-box" data-dicairkan="'+(h.totalDiajukan||0)+'"><div class="small text-muted">Surplus / Defisit (Dana Dicairkan &minus; Realisasi)</div><div class="fw-bold" id="pd-selisih-realisasiEdit">Rp 0</div></div>'
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH ULANG BUKTI LPJ</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ revisi (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-lpj-'+h.idPengajuan+'" onclick="pdAksiKirimLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang LPJ</button>')));
@@ -9233,7 +9328,8 @@ function pdRenderDetailMuka(res){
         : ('<p class="text-muted small mb-2">Pilihan komponen dibatasi hanya yang sudah dianggarkan di RAB (akuntabel) -- isi keterangan &amp; nominal sesuai bukti riil di lapangan.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
           + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
-          + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
+          + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span> &nbsp;<span class="text-muted small">| Total PPh 21+23: </span><span id="pd-total-pph-realisasiEdit" class="small">Rp 0</span></div>'
+          + '<div class="pd-total-box ok mb-2" id="pd-selisih-realisasiEdit-box" data-dicairkan="'+(h.totalDiajukan||0)+'"><div class="small text-muted">Surplus / Defisit (Dana Dicairkan &minus; Realisasi)</div><div class="fw-bold" id="pd-selisih-realisasiEdit">Rp 0</div></div>'
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI LPJ (1 PDF gabungan)</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-lpj-'+h.idPengajuan+'" onclick="pdAksiKirimLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim LPJ</button>'));
@@ -9394,7 +9490,7 @@ function pdRenderDetailMuka(res){
       bagianPenutup = '';
     }
 
-    html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+    html += pdBlockRingkasKetua('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active','Menunggu Bagian Keuangan mencatat bukti kas.') || pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       bagianPenyetor + (bagianPenutup ? ('<hr class="my-3">' + bagianPenutup) : ''));
     }
   } else if(st(6)==='done'){
@@ -9409,14 +9505,25 @@ function pdRenderDetailMuka(res){
       + (selisihB!==0 ? (' \u00b7 Rp '+fmtRp(Math.abs(selisihB))) : ' \u00b7 tidak ada selisih (pas)');
     var infoPenyetorDone = h.namaPenyetor ? ('<div class="small text-muted mb-2">Data Penyetor: <b>'+esc(h.namaPenyetor)+'</b> ('+esc(h.npmNimPenyetor)+') &middot; '+esc(h.noHpPenyetor)+'</div>') : '';
     var blokKembalikanLpj6 = canApproveRab ? pdBlokKembalikan('pd-kembalikan-lpj6-'+h.idPengajuan, 'pdAksiKembalikanLpj', h.idPengajuan) : '';
+    // FITUR BARU -- tampilan ringkas Ketua LPPM: KHUSUS di sini (beda dgn
+    // tahap lain yg disederhanakan), tombol "Kembalikan" TETAP disertakan
+    // apa adanya (BUKAN diringkas ikut hilang) -- itu satu2nya aksi yang
+    // MASIH relevan bagi Ketua LPPM di tahap SELESAI ini (Ketua boleh
+    // membuka lagi LPJ yg sudah selesai kalau ternyata ada yg perlu
+    // diperbaiki, lihat bug "kembalikan nggak bisa" yg baru diperbaiki).
+    if(STATE.role==='KETUA'){
+      html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','done','<span class="badge-pd badge-pd-selesai">Selesai</span>',
+        '<div class="small text-muted mb-2">'+ringkasanSelesai+'</div>' + blokKembalikanLpj6);
+    } else {
     html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','done','<span class="badge-pd badge-pd-selesai">Selesai</span>',
       '<div class="fw-bold small mb-2" style="color:#166534;">'+ringkasanSelesai+'</div>'
       + infoPenyetorDone
       + pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk (surplus dikembalikan)', h.noBuktiKasMasuk)
       + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar (kekurangan dibayar)', h.noBuktiKasKeluarTambahan)
       + blokKembalikanLpj6);
+    }
   } else {
-    html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','locked','', pdLockedBody('Menunggu LPJ disetujui Admin.'));
+    html += pdBlockRingkasKetua('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','locked','Menunggu LPJ disetujui.') || pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','locked','', pdLockedBody('Menunggu LPJ disetujui Admin.'));
   }
 
   document.getElementById('pd-blocks').innerHTML = html;
@@ -9526,7 +9633,7 @@ function pdRenderDetailSingkat(res){
         : ('<p class="text-muted small mb-2">Perbaiki rincian, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
           + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
-          + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span></div>'
+          + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span> &nbsp;<span class="text-muted small">| Total PPh 21+23: </span><span id="pd-total-pph-realisasiEdit" class="small">Rp 0</span></div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ revisi (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-revisi-'+h.idPengajuan+'" onclick="pdAksiKirimRevisiSekaligus(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang</button>')));
     if(!isAdmin && !isKetua) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
@@ -9604,7 +9711,9 @@ function pdRenderDetailSingkat(res){
   // Tahap 3 (KASIR) -- Pencatatan bukti bayar/BKK, TERPISAH dari verifikasi
   // dokumen di tahap 2. Baru bisa diisi setelah tahap 2 DISETUJUI.
   if(st(3)==='active'){
-    if(h.jenis==='TAGIHAN'){
+    if(STATE.role==='KETUA'){
+      html += pdBlockRingkasKetua('fa-cash-register', judul3, 'active', 'Menunggu Bagian Keuangan mencatat pembayaran.');
+    } else if(h.jenis==='TAGIHAN'){
       // Kalau metode TRANSFER: bukti bayar (bukti transfer) yg diunggah SUDAH
       // CUKUP jadi bukti -- No. Bukti Kas Keluar TIDAK perlu ditampilkan sama
       // sekali (bukan pergerakan kas fisik). Kalau TUNAI: tetap wajib diisi.
@@ -9641,10 +9750,10 @@ function pdRenderDetailSingkat(res){
     // metode pembayaran juga -- Transfer bukan "kas" (konsisten dgn judul3
     // "Verifikasi Transfer" & label status "Menunggu Verifikasi Transfer").
     var teksDicatat3 = h.metodePembayaran==='TRANSFER' ? 'Bukti transfer sudah diverifikasi oleh Admin.' : 'Bukti kas sudah dicatat oleh Admin.';
-    html += pdBlock('fa-cash-register', judul3, 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
+    html += pdBlockRingkasKetua('fa-cash-register', judul3, 'done', teksDicatat3) || pdBlock('fa-cash-register', judul3, 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
       '<div class="fw-bold small" style="color:#166534;">'+teksDicatat3+'</div>');
   } else {
-    html += pdBlock('fa-cash-register', judul3, 'locked', '', pdLockedBody('Menunggu dokumen disetujui Admin.'));
+    html += pdBlockRingkasKetua('fa-cash-register', judul3, 'locked', 'Menunggu dokumen disetujui.') || pdBlock('fa-cash-register', judul3, 'locked', '', pdLockedBody('Menunggu dokumen disetujui Admin.'));
   }
 
   // Tahap 4 -- Selesai (ringkasan akhir)
@@ -9652,22 +9761,31 @@ function pdRenderDetailSingkat(res){
     if(h.jenis==='TAGIHAN'){
       var buktiBayar = pdFileVersiTerakhir(res.file,'BUKTI_BAYAR');
       var blokKembalikanTg4 = canApproveRab ? pdBlokKembalikan('pd-kembalikan-tg4-'+h.idPengajuan, 'pdAksiKembalikanTagihan', h.idPengajuan) : '';
+      var ringkasTg4 = 'Dibayar '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' \u00b7 Rp '+fmtRp(h.totalRealisasi);
+      if(STATE.role==='KETUA'){
+        html += pdBlock('fa-flag-checkered', judul4, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>', '<div class="small text-muted mb-2">'+ringkasTg4+'</div>' + blokKembalikanTg4);
+      } else {
       html += pdBlock('fa-flag-checkered', judul4, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
-        '<div class="fw-bold small mb-2" style="color:#166534;">Dibayar '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' \u00b7 Rp '+fmtRp(h.totalRealisasi)+'</div>'
+        '<div class="fw-bold small mb-2" style="color:#166534;">'+ringkasTg4+'</div>'
         + (buktiBayar ? ('<div class="small fw-bold mb-1 text-muted">BUKTI BAYAR (diunggah Admin)</div>'+pdFileChip(buktiBayar)) : '') // opsional utk Tunai -- kalau tidak diunggah, bagian ini disembunyikan saja (tidak nampilkan label tanpa isi)
         + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar)
         + blokKembalikanTg4);
+      }
     } else {
       var selisih2 = h.totalDiajukan - h.totalRealisasi;
       var blokKembalikanSk4 = canApproveRab ? pdBlokKembalikan('pd-kembalikan-sk4-'+h.idPengajuan, 'pdAksiKembalikanLpj', h.idPengajuan) : '';
+      if(STATE.role==='KETUA'){
+        html += pdBlock('fa-flag-checkered', judul4, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>', '<div class="small text-muted mb-2">Total Realisasi Rp '+fmtRp(h.totalRealisasi)+'</div>' + blokKembalikanSk4);
+      } else {
       html += pdBlock('fa-flag-checkered', judul4, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
         '<div class="row g-2 mb-2"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
         + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih2===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold">Rp '+fmtRp(Math.abs(selisih2))+'</div></div></div></div>'
         + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar)
         + blokKembalikanSk4);
+      }
     }
   } else {
-    html += pdBlock('fa-flag-checkered', judul4, 'locked', '', pdLockedBody('Menunggu tahap Pencatatan BKK/BKM selesai.'));
+    html += pdBlockRingkasKetua('fa-flag-checkered', judul4, 'locked', 'Menunggu tahap sebelumnya selesai.') || pdBlock('fa-flag-checkered', judul4, 'locked', '', pdLockedBody('Menunggu tahap Pencatatan BKK/BKM selesai.'));
   }
 
   document.getElementById('pd-blocks').innerHTML = html;
@@ -10097,6 +10215,9 @@ function pdRenderDetailLaporanUnit(res){
               + '<button class="btn btn-sm btn-outline-warning" id="btn-defisit-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</button>')
             : pdCatatanTunggu('Menunggu persetujuan Ketua LPPM/Admin atas kekurangan dana (defisit) ini.')));
     } else {
+    if(STATE.role==='KETUA'){
+      html += pdBlockRingkasKetua('fa-cash-register', '3. Pencatatan BKK/BKM', 'active', 'Menunggu Bagian Keuangan mencatat BKM/BKK.');
+    } else {
     var inputBuktiMasuk = h.totalDiajukan>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk (Pemasukan Rp '+fmtRp(h.totalDiajukan)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-masuk-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>') : '';
     var inputBuktiKeluar = h.totalRealisasi>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar (Pengeluaran Rp '+fmtRp(h.totalRealisasi)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-keluar-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>') : '';
     html += pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
@@ -10105,11 +10226,12 @@ function pdRenderDetailLaporanUnit(res){
         + '<button class="btn btn-sm" id="btn-lap-kasir-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLaporanUnit(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Catat &amp; Selesaikan</button>')
         : pdCatatanTunggu('Laporan sudah disetujui, menunggu Admin mencatat BKM/BKK.'));
     }
+    }
   } else if(st(3)==='done'){
-    html += pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
+    html += pdBlockRingkasKetua('fa-cash-register', '3. Pencatatan BKK/BKM', 'done', 'Bukti kas sudah dicatat oleh Admin.') || pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
       '<div class="fw-bold small" style="color:#166534;">Bukti kas sudah dicatat oleh Admin.</div>');
   } else {
-    html += pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'locked', '', pdLockedBody('Menunggu dokumen disetujui Admin.'));
+    html += pdBlockRingkasKetua('fa-cash-register', '3. Pencatatan BKK/BKM', 'locked', 'Menunggu dokumen disetujui.') || pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'locked', '', pdLockedBody('Menunggu dokumen disetujui Admin.'));
   }
 
   // Tahap 4 -- Selesai
