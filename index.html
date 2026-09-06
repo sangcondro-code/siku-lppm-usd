@@ -945,9 +945,17 @@
           </div>
           <div class="d-flex gap-2 mb-3 flex-wrap" id="pd-kategori-tabs">
             <div class="pos-tab active" data-kat="BARU" onclick="pdSetKategori('BARU')"><i class="fas fa-hourglass-half"></i>Pengajuan Baru</div>
-            <div class="pos-tab" data-kat="PROSES" onclick="pdSetKategori('PROSES')"><i class="fas fa-arrows-rotate"></i>Proses</div>
+            <!-- FITUR BARU (atas permintaan "muncul hanya pengajuan baru dan
+                 selesai saja, proses tidak usah, itu hanya di admin, cek
+                 dibuat simpel agar pimpinan tidak bingung"): tab "Proses" &
+                 "Semua" disembunyikan KHUSUS Ketua LPPM (class no-ketua,
+                 sudah ada togglenya di afterLogin) -- Ketua LPPM cuma perlu
+                 tahu MANA yang perlu keputusannya (Pengajuan Baru) & mana
+                 yang SUDAH selesai, tanpa perlu lihat status "di tengah"
+                 yang murni urusan Admin/Bagian Keuangan. -->
+            <div class="pos-tab no-ketua" data-kat="PROSES" onclick="pdSetKategori('PROSES')"><i class="fas fa-arrows-rotate"></i>Proses</div>
             <div class="pos-tab" data-kat="SELESAI" onclick="pdSetKategori('SELESAI')"><i class="fas fa-circle-check"></i>Selesai</div>
-            <div class="pos-tab" data-kat="SEMUA" onclick="pdSetKategori('SEMUA')">Semua</div>
+            <div class="pos-tab no-ketua" data-kat="SEMUA" onclick="pdSetKategori('SEMUA')">Semua</div>
           </div>
           <div class="table-responsive"><table class="table tbl mb-0">
             <thead><tr><th>No. Pengajuan / Jenis</th><th>Kegiatan</th><th>Diajukan Oleh</th><th>Tanggal</th><th class="text-end">Nominal</th><th>Status</th><th></th></tr></thead>
@@ -7462,6 +7470,29 @@ function pdDaftarTersaring(){
   var hasil = PD.daftar;
   if(PD.kategori!=='SEMUA'){
     var daftarStatus = PD_KATEGORI_STATUS[PD.kategori] || [];
+    // FITUR BARU (atas permintaan "ketika ada defisit muncul baru lalu di
+    // pengajuan baru approval defisit"): KHUSUS Ketua LPPM, tab "Pengajuan
+    // Baru" JUGA mencakup MENUNGGU_APPROVAL_DEFISIT -- SEBAB Ketua tidak
+    // punya akses ke tab "Proses" sama sekali (disembunyikan, lihat class
+    // no-ketua di HTML), jadi kalau statusnya tetap dikategorikan "Proses"
+    // spt utk Admin/Unit, item defisit yang JUSTRU butuh keputusan Ketua
+    // itu akan HILANG dari SEMUA tab yang mereka bisa lihat. TIDAK
+    // mengubah PD_KATEGORI_STATUS global (Admin/Unit TETAP melihat defisit
+    // di tab "Proses" spt biasa) -- cuma ditambahkan LOKAL di sini KHUSUS
+    // utk kategori BARU-nya Ketua saja.
+    // FITUR BARU (atas permintaan "ketua hanya approval pengajuan, dan
+    // approval defisit saja ... ketika ada defisit muncul baru lalu di
+    // pengajuan baru approval defisit"): KHUSUS Ketua LPPM, tab "Pengajuan
+    // Baru" diganti TOTAL isinya jadi PERSIS 2 hal yang MEMANG jadi
+    // wewenangnya (DIAJUKAN utk Persetujuan RAB, MENUNGGU_APPROVAL_DEFISIT
+    // utk Approval Defisit) -- BUKAN ditambah ke daftar biasa, karena
+    // MENUNGGU_VERIFIKASI (verifikasi dokumen) SUDAH BUKAN wewenang Ketua
+    // lagi (verifikasi LPJ/Tagihan/Penggantian Biaya/Laporan Unit murni
+    // tugas Admin) -- kalau tetap ikut dihitung, Ketua akan melihat item
+    // yang TIDAK BISA dia apa-apakan tercampur di tab "Pengajuan Baru"
+    // miliknya, jadi tidak selaras dgn "cek dibuat simpel". TIDAK mengubah
+    // PD_KATEGORI_STATUS global (Admin/Unit TETAP seperti semula).
+    if(STATE.role==='KETUA' && PD.kategori==='BARU') daftarStatus = ['DIAJUKAN','MENUNGGU_APPROVAL_DEFISIT'];
     hasil = hasil.filter(function(p){ return daftarStatus.indexOf(p.status)!==-1; });
   }
   // Draft "Ajukan Baru" HANYA muncul di tab "Pengajuan Baru" -- ditaruh
@@ -9119,6 +9150,33 @@ function pdRiwayatKelasBaris(aksi){
   if(a.indexOf('selesai') !== -1 || a.indexOf('dicairkan') !== -1) return 'rv-selesai';
   return '';
 }
+// PERBAIKAN BUG NYATA (dilaporkan langsung: "tanggal persetujuan aneh,
+// persetujuan awal berubah ketika ada persetujuan sebelumnya" -- lihat
+// screenshot "Disetujui oleh KETUA LPPM · [tanggal SAMA dgn komentar
+// terakhir]"): akar masalahnya ada di BACKEND -- kolom header
+// disetujuiOleh/tglKeputusan/catatanKeputusan itu 3 kolom GENERIK yang
+// DIPAKAI BERSAMA oleh BANYAK titik keputusan berbeda sepanjang alur
+// pengajuan (Persetujuan RAB, Verifikasi LPJ, Approval Defisit) -- setiap
+// kali ADA keputusan baru (apa pun jenisnya), backend MENIMPA 3 kolom itu
+// dengan data keputusan yang BARU SAJA terjadi. Akibatnya, begitu misalnya
+// Approval Defisit terjadi SETELAH RAB disetujui, kartu "2. Persetujuan"
+// yang MEMBACA h.disetujuiOleh/h.tglKeputusan/h.catatanKeputusan LANGSUNG
+// dari header itu jadi ikut menampilkan data Approval Defisit yang BARU
+// (bukan data asli waktu RAB disetujui) -- seolah "berubah sendiri".
+// Perbaikan PALING AMAN (TANPA mengubah skema kolom header sama sekali,
+// yang beresiko lebih besar): kartu tahap TERTENTU (mis. Persetujuan RAB)
+// SEKARANG mengambil catatan keputusannya SENDIRI dari Riwayat Keputusan
+// (res.riwayat) -- yang MEMANG dicatat terpisah per-kejadian sejak awal,
+// TIDAK PERNAH tertimpa siapa pun -- bukan dari kolom header yang bisa
+// tertimpa itu. Cari entri TERAKHIR yang cocok label aksinya (kalau ada
+// siklus Kembalikan+disetujui-ulang, yang relevan yang PALING BARU).
+function pdCariRiwayat(riwayat, daftarAksi){
+  if(!riwayat || !riwayat.length) return null;
+  for(var i=riwayat.length-1; i>=0; i--){
+    if(daftarAksi.indexOf(riwayat[i].aksi)!==-1) return riwayat[i];
+  }
+  return null;
+}
 function pdRenderRiwayat(riwayat){
   var wrap = document.getElementById('pd-riwayat');
   if(!wrap) return;
@@ -9166,12 +9224,94 @@ function pdRenderDetail(res){
   badge.className = 'badge-pd d-inline-block mt-1 ' + bs[0]; badge.textContent = pdLabelStatus(h);
   pdRenderRiwayat(res.riwayat);
 
-  if(h.jenis === 'MUKA') pdRenderDetailMuka(res);
+  // FITUR BARU (atas permintaan "cek dibuat simpel agar pimpinan tidak
+  // bingung"): Ketua LPPM SELALU dialihkan ke tampilan super sederhana
+  // (lihat pdRenderDetailKetua), TIDAK PERNAH melihat ministep/tahap
+  // lengkap milik Admin/Unit -- berlaku utk SEMUA jenis pengajuan (MUKA,
+  // Penggantian Biaya, Tagihan, Laporan Unit), bukan cuma RAB.
+  if(STATE.role==='KETUA') pdRenderDetailKetua(res);
+  else if(h.jenis === 'MUKA') pdRenderDetailMuka(res);
   else if(h.jenis === 'LAPORAN_UNIT') pdRenderDetailLaporanUnit(res);
   else pdRenderDetailSingkat(res); // SEKALIGUS & TAGIHAN sama-sama 3 tahap
 }
 
-// -- JENIS MUKA (5 tahap) --------------------------------------------------
+// ============================================================
+// FITUR BARU (atas permintaan "cek dibuat simpel agar pimpinan tidak
+// bingung"): tampilan Detail KHUSUS Ketua LPPM -- GANTI TOTAL dari
+// pdRenderDetailMuka/Singkat/LaporanUnit yang lengkap 5-6 tahap (isinya
+// BANYAK proses administratif Admin/Bagian Keuangan yang TIDAK relevan
+// bagi Ketua). Ketua LPPM HANYA punya 2 keputusan di SELURUH sistem:
+// (1) Setujui/Revisi/Tolak RAB baru, (2) Setujui/Kembalikan Approval
+// Defisit -- SELAIN 2 momen itu, Ketua CUKUP tahu "sedang diproses" atau
+// "sudah selesai", TANPA rincian tahap mana yang sedang berjalan (itu
+// murni urusan Admin/Bagian Keuangan). TIDAK ADA ministep 5-6 tahap,
+// TIDAK ADA Riwayat Keputusan lengkap -- keduanya disembunyikan total di
+// sini supaya benar2 sederhana.
+function pdRenderDetailKetua(res){
+  var h = res.header;
+  var elMinistep = document.getElementById('pd-ministep');
+  if(elMinistep) elMinistep.innerHTML = '';
+  var elRiwayat = document.getElementById('pd-riwayat');
+  if(elRiwayat) elRiwayat.innerHTML = '';
+
+  var html = '';
+  // Info dasar -- SELALU ditampilkan apa pun statusnya, supaya Ketua tetap
+  // punya konteks (Unit mana, nominal berapa) tanpa perlu buka tahap lain.
+  html += '<div class="card mb-3"><div class="card-body">'
+    + '<div class="row g-2">'
+    + '<div class="col-6 col-md-3"><div class="small text-muted">Jenis</div><div class="fw-bold">'+(PD_BADGE_JENIS[h.jenis]||['','',h.jenis])[2]+'</div></div>'
+    + '<div class="col-6 col-md-3"><div class="small text-muted">Total Diajukan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div>'
+    + (h.totalRealisasi ? ('<div class="col-6 col-md-3"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div>') : '')
+    + '</div></div></div>';
+
+  if(h.jenis==='MUKA' && h.status==='DIAJUKAN'){
+    // -------- Perlu keputusan: Persetujuan RAB --------
+    html += '<div class="card mb-3"><div class="card-body">'
+      + '<div class="section-title mb-2"><i class="fas fa-list-ol"></i>RINCIAN ANGGARAN (RAB)</div>'
+      + pdTabelRabReadonly(res.detail);
+    var fileSuratKetua = pdFileVersiTerakhir(res.file, 'SURAT');
+    if(fileSuratKetua) html += '<div class="mt-2">'+pdFileChip(fileSuratKetua)+'</div>';
+    html += '</div></div>';
+    html += '<div class="card mb-3"><div class="card-body">'
+      + '<div class="section-title mb-2"><i class="fas fa-gavel"></i>KEPUTUSAN</div>'
+      + '<textarea class="form-control form-control-sm mb-2" id="pd-catatan-setuju-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau Revisi/Tolak)"></textarea>'
+      + '<button class="btn btn-sm" id="btn-setujui-'+h.idPengajuan+'" onclick="pdAksiSetujui(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
+      + '<button class="btn btn-sm btn-outline-warning" id="btn-revisi-'+h.idPengajuan+'" onclick="pdAksiRevisi(\''+h.idPengajuan+'\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
+      + '<button class="btn btn-sm btn-outline-danger" id="btn-tolak-'+h.idPengajuan+'" onclick="pdAksiTolak(\''+h.idPengajuan+'\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>'
+      + '</div></div>';
+  } else if(h.status==='MENUNGGU_APPROVAL_DEFISIT'){
+    // -------- Perlu keputusan: Approval Defisit -- HANYA realisasi & file,
+    // TANPA rincian Verifikasi LPJ/Dokumen (itu sudah diperiksa Admin). --------
+    var kekuranganKetua = Math.abs((Number(h.totalDiajukan)||0) - (Number(h.totalRealisasi)||0));
+    html += '<div class="card mb-3"><div class="card-body">'
+      + '<div class="section-title mb-2"><i class="fas fa-receipt"></i>RINCIAN REALISASI</div>'
+      + pdTabelRealisasiReadonly(res.realisasi);
+    var fileLpjKetua = pdFileVersiTerakhir(res.file, h.jenis==='LAPORAN_UNIT' ? 'LAPORAN' : 'LPJ');
+    if(fileLpjKetua) html += '<div class="mt-2">'+pdFileChip(fileLpjKetua)+'</div>';
+    html += '</div></div>';
+    html += '<div class="card mb-3"><div class="card-body">'
+      + '<div class="section-title mb-2"><i class="fas fa-scale-balanced"></i>APPROVAL DEFISIT</div>'
+      + '<p class="small text-muted mb-2">Realisasi '+(h.jenis==='LAPORAN_UNIT'?'Pengeluaran melebihi Pemasukan':'melebihi dana yang dicairkan')+' sebesar <b>Rp '+fmtRp(kekuranganKetua)+'</b>. Pembayaran kekurangan ini perlu disetujui dulu.</p>'
+      + '<textarea class="form-control form-control-sm mb-2" id="pd-catatan-defisit-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau dikembalikan untuk revisi)"></textarea>'
+      + '<button class="btn btn-sm" id="btn-defisit-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui Defisit</button> '
+      + '<button class="btn btn-sm btn-outline-warning" id="btn-defisit-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</button>'
+      + '</div></div>';
+  } else if(h.status==='SELESAI'){
+    html += '<div class="pd-locked-note" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;"><i class="fas fa-circle-check"></i><div>Pengajuan ini sudah <b>selesai</b> diproses.</div></div>';
+  } else if(h.status==='DITOLAK'){
+    html += '<div class="pd-locked-note" style="background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;"><i class="fas fa-circle-xmark"></i><div>Pengajuan ini <b>ditolak</b>.</div></div>';
+  } else {
+    // DISETUJUI, DICAIRKAN, MENUNGGU_VERIFIKASI, MENUNGGU_PENCATATAN,
+    // PERLU_REVISI -- SEMUA status "di tengah" ini murni proses
+    // administratif Admin/Bagian Keuangan, TIDAK ADA keputusan yang perlu
+    // Ketua ambil -- cukup 1 pesan pasif, TANPA rincian tahap mana pun.
+    html += '<div class="pd-locked-note"><i class="fas fa-hourglass-half"></i><div>Sedang diproses oleh Admin/Bagian Keuangan. Tidak ada tindakan yang perlu Anda ambil saat ini.</div></div>';
+  }
+
+  document.getElementById('pd-blocks').innerHTML = html;
+  pdRenderTombolCetak(h, false);
+}
+
 function pdRenderDetailMuka(res){
   var h = res.header;
   var isAdmin = STATE.role==='ADMIN';
@@ -9267,8 +9407,16 @@ function pdRenderDetailMuka(res){
     // lagi (lihat catatan di revisiPengajuan Code.gs -- uang sudah keluar
     // berdasarkan RAB itu, tidak masuk cakupan "kembalikan" ini lagi).
     var blokKembalikanRab = (canApproveRab && st(3)!=='done') ? pdBlokKembalikan('pd-kembalikan-rab-'+h.idPengajuan, 'pdAksiKembalikanRab', h.idPengajuan) : '';
+    // PERBAIKAN BUG NYATA (lihat catatan lengkap di pdCariRiwayat): ambil
+    // dari Riwayat, BUKAN dari h.disetujuiOleh/h.tglKeputusan/h.catatanKeputusan
+    // langsung -- kolom header itu bisa TERTIMPA keputusan LEBIH BARU
+    // (Verifikasi LPJ / Approval Defisit) yg terjadi SESUDAH RAB ini disetujui.
+    var riwayatRab = pdCariRiwayat(res.riwayat, ['Disetujui']);
+    var infoRab = riwayatRab
+      ? { nama: riwayatRab.namaOleh, waktu: riwayatRab.waktu, catatan: riwayatRab.catatan }
+      : { nama: h.disetujuiOlehNama || h.disetujuiOleh, waktu: h.tglKeputusan, catatan: h.catatanKeputusan }; // fallback kalau riwayat lama tak lengkap
     html += pdBlock('fa-gavel','2. Persetujuan','done','<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' \u00b7 '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      '<div class="fw-bold small mb-1" style="color:#166534;">Disetujui oleh '+esc(infoRab.nama)+' \u00b7 '+pdFmtWaktu(infoRab.waktu)+'</div><div class="small text-muted">'+(infoRab.catatan?esc(infoRab.catatan):'Tidak ada catatan tambahan.')+'</div>'
       + infoPencairan + blokKembalikanRab);
   } else {
     html += pdBlock('fa-gavel','2. Persetujuan','locked','', pdLockedBody('Menunggu tahap Pengajuan selesai diproses.'));
@@ -10189,8 +10337,17 @@ function pdRenderDetailLaporanUnit(res){
         : pdCatatanTunggu('Menunggu diverifikasi Ketua LPPM/Admin.'));
   } else if(st(2)==='done'){
     var blokKembalikanLap2 = canApproveRab ? pdBlokKembalikan('pd-kembalikan-lap2-'+h.idPengajuan, 'pdAksiKembalikanLaporan', h.idPengajuan) : '';
+    // PERBAIKAN BUG NYATA -- SAMA persis dgn Tahap 2 MUKA (lihat catatan
+    // lengkap di pdCariRiwayat): ambil dari Riwayat, bukan header yg bisa
+    // tertimpa Approval Defisit yg terjadi SESUDAHNYA. 2 varian teks aksi
+    // dicek sekaligus krn labelnya beda tergantung ada defisit atau tidak
+    // (lihat aksiRiwayatLapUnit di setujuiDokumenLaporanUnit Code.gs).
+    var riwayatLap2 = pdCariRiwayat(res.riwayat, ['Laporan Disetujui', 'Laporan Disetujui — Menunggu Approval Defisit']);
+    var infoLap2 = riwayatLap2
+      ? { nama: riwayatLap2.namaOleh, waktu: riwayatLap2.waktu, catatan: riwayatLap2.catatan }
+      : { nama: h.disetujuiOlehNama || h.disetujuiOleh, waktu: h.tglKeputusan, catatan: h.catatanKeputusan };
     html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'done', '<span class="badge-pd badge-pd-disetujui">Disetujui</span>',
-      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+' · '+pdFmtWaktu(h.tglKeputusan)+'</div><div class="small text-muted">'+(h.catatanKeputusan?esc(h.catatanKeputusan):'Tidak ada catatan tambahan.')+'</div>'
+      '<div class="fw-bold small" style="color:#166534;">Disetujui oleh '+esc(infoLap2.nama)+' · '+pdFmtWaktu(infoLap2.waktu)+'</div><div class="small text-muted">'+(infoLap2.catatan?esc(infoLap2.catatan):'Tidak ada catatan tambahan.')+'</div>'
       + blokKembalikanLap2);
   } else {
     html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'locked', '', pdLockedBody('Menunggu tahap sebelumnya selesai diproses.'));
