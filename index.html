@@ -98,7 +98,7 @@
   .lu-r-akhir.negatif .lu-r-label, .lu-r-akhir.negatif .lu-r-val { color:#b91c1c; }
   /* Tabel Daftar Transaksi: table-layout:fixed + lebar kolom tetap (didefinisikan
      lewat <colgroup> yang SAMA PERSIS di semua tempat tabel ini dirender — satu
-     Pos, banyak Pos sekaligus (Admin), maupun mode Belum Terverifikasi) supaya
+     Pos, banyak Pos sekaligus (Bagian Keuangan), maupun mode Belum Terverifikasi) supaya
      kolom-kolomnya SELALU sejajar rapi, tidak lagi melebar/menyempit sendiri
      mengikuti panjang isi Keterangan di masing-masing tabel. */
   .tbl-tx { table-layout: fixed; }
@@ -191,7 +191,7 @@
 .badge-pd-perlu-revisi{ background:#fed7aa; color:#9a3412; }
 .badge-pd-selesai{ background:#dcfce7; color:#166534; }
 .badge-pd-draft{ background:#f3f4f6; color:#374151; border:1px dashed #9ca3af; } /* garis putus-putus -- pembeda visual jelas dari status resmi lain, menandakan "belum benar-benar terkirim" */
-.badge-pd-menunggu-pencatatan{ background:#e0f2fe; color:#075985; } /* biru muda -- beda dari kuning "Menunggu ACC" & ungu "Menunggu Verifikasi", menandakan tahap KHUSUS menunggu Kasir, bukan menunggu Admin lagi */
+.badge-pd-menunggu-pencatatan{ background:#e0f2fe; color:#075985; } /* biru muda -- beda dari kuning "Menunggu ACC" & ungu "Menunggu Verifikasi", menandakan tahap KHUSUS menunggu Kasir, bukan menunggu Bagian Keuangan lagi */
 .badge-pd-defisit{ background:#fecaca; color:#991b1b; } /* FITUR BARU -- Ketua LPPM: merah muda, beda dari semua badge lain -- menandakan perlu perhatian/keputusan finansial khusus (defisit), bukan sekadar "menunggu" biasa */
 
 .pd-back{ color:#6b7280; font-size:.82rem; font-weight:600; cursor:pointer; }
@@ -403,7 +403,7 @@
               <button type="button" id="gc-btn-simpan" class="btn btn-sm no-print" style="background:var(--maroon);color:#fff;" onclick="gcSimpanSemua()"><i class="fas fa-save me-1"></i>Simpan Semua <span class="text-white-50 small">(Enter di Kredit = baris baru)</span></button>
             </div>
           </div>
-          <p class="text-muted small mb-2"><i class="fas fa-keyboard me-1"></i>Enter berpindah antar kolom; Enter di kolom <b>Kredit</b> membuat baris baru. Tanggal &amp; pos ikut terbawa dari baris sebelumnya. Ketik nama unit/pos untuk menyaring &mdash; termasuk pilihan &ldquo;Belum Jelas Milik Pos Mana&rdquo; (Admin).</p>
+          <p class="text-muted small mb-2"><i class="fas fa-keyboard me-1"></i>Enter berpindah antar kolom; Enter di kolom <b>Kredit</b> membuat baris baru. Tanggal &amp; pos ikut terbawa dari baris sebelumnya. Ketik nama unit/pos untuk menyaring &mdash; termasuk pilihan &ldquo;Belum Jelas Milik Pos Mana&rdquo; (Bagian Keuangan).</p>
           <div id="gc-scroll"><table class="table tbl tbl-tx mb-0" id="tbl-gc">
             <colgroup><col style="width:34px;"><col style="width:126px;"><col style="width:238px;"><col><col style="width:132px;"><col style="width:132px;"><col style="width:40px;"><col style="width:34px;"></colgroup>
             <thead><tr><th class="tx-col-icon">No</th><th>Tanggal</th><th>Unit &rarr; Pos</th><th>Keterangan</th><th class="text-end">Debet</th><th class="text-end">Kredit</th><th class="tx-col-icon" title="Status baris">Bal</th><th class="no-print tx-col-icon"></th></tr></thead>
@@ -414,7 +414,7 @@
         <!-- Kartu "Perlu Verifikasi" DIPINDAH ke halaman tersendiri "Verifikasi
              Transaksi" (menu khusus role UNIT, lihat view-verifikasi di bawah)
              -- supaya kode & tampilannya terpisah dari halaman Input Rekap
-             Bulanan milik Admin, dan tidak lagi tergantung bulan mana yang
+             Bulanan milik Bagian Keuangan, dan tidak lagi tergantung bulan mana yang
              kebetulan sedang dibuka di sini. -->
         <div class="card"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
@@ -430,7 +430,7 @@
         </div></div>
       </div>
 
-      <!-- PANEL: INPUT NON UNIT (Penarikan Cek, Biaya Admin, Jasa Giro, Pajak, dst — ADMIN) -->
+      <!-- PANEL: INPUT NON UNIT (Penarikan Cek, Biaya Bagian Keuangan, Jasa Giro, Pajak, dst — ADMIN) -->
       <div id="panel-input-nonunit" class="d-none">
         <div class="card mb-3"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
@@ -462,7 +462,7 @@
     </div>
 
     <!-- VERIFIKASI TRANSAKSI (UNIT) — HALAMAN TERSENDIRI, kode & tampilannya
-         terpisah penuh dari Input Rekap Bulanan milik Admin, supaya tidak
+         terpisah penuh dari Input Rekap Bulanan milik Bagian Keuangan, supaya tidak
          saling mengganggu. Menyapu SELURUH bulan di tahun aktif sekaligus
          (bukan cuma bulan yang kebetulan terbuka), jadi tidak ada transaksi
          yang perlu diverifikasi ketinggalan/tidak kelihatan. -->
@@ -482,7 +482,7 @@
 
       <div class="card"><div class="card-body">
         <div class="section-title mb-2"><i class="fas fa-clipboard-check"></i>Transaksi yang Sudah Saya Verifikasi</div>
-        <p class="text-muted small mb-2">Riwayat transaksi yang sudah Anda akui sebagai milik Unit Anda. Kalau ternyata salah pilih Pos, gunakan "Ubah Pos" — bagian ini SENGAJA tidak menyediakan tombol hapus, karena datanya berasal dari rekening koran asli yang sudah dicatat Admin. Kalau memang perlu dihapus (misal ternyata bukan milik unit manapun), hapus lewat menu Input Rekap Bulanan (Admin).</p>
+        <p class="text-muted small mb-2">Riwayat transaksi yang sudah Anda akui sebagai milik Unit Anda. Kalau ternyata salah pilih Pos, gunakan "Ubah Pos" — bagian ini SENGAJA tidak menyediakan tombol hapus, karena datanya berasal dari rekening koran asli yang sudah dicatat Bagian Keuangan. Kalau memang perlu dihapus (misal ternyata bukan milik unit manapun), hapus lewat menu Input Rekap Bulanan (Bagian Keuangan).</p>
         <div class="table-responsive"><table class="table tbl mb-0">
           <thead><tr><th>No</th><th>Tanggal</th><th>Keterangan</th><th class="text-end">Debet</th><th class="text-end">Kredit</th><th>Pos Saat Ini</th><th class="no-print">Aksi</th></tr></thead>
           <tbody id="vf-tbody-riwayat"></tbody>
@@ -492,9 +492,9 @@
 
     <!-- akhir VERIFIKASI TRANSAKSI -->
 
-    <!-- HUBUNGI ADMIN (PESAN) — obrolan sederhana Unit<->Admin. Disimpan di
+    <!-- HUBUNGI BAGIAN KEUANGAN (PESAN) — obrolan sederhana Unit<->Bagian Keuangan. Disimpan di
          LogAktivitas (server), tidak ada sheet baru. Untuk UNIT: 1 obrolan
-         dengan Admin. Untuk ADMIN: daftar obrolan per Unit. -->
+         dengan Bagian Keuangan. Untuk Bagian Keuangan: daftar obrolan per Unit. -->
     <div id="view-pesan" class="view d-none">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
         <h5 class="page-title" id="pesan-page-title">Pesan</h5>
@@ -505,7 +505,7 @@
 
     <!-- LAPORAN UNIT — datanya ditarik dari sistem SIMK (lewat API doPost
          milik SIMK, jembatan akun VIEWER), BUKAN dari data SIKU LPPM USD
-         sendiri. Unit lihat laporannya sendiri otomatis; Admin bisa pilih
+         sendiri. Unit lihat laporannya sendiri otomatis; Bagian Keuangan bisa pilih
          Unit mana saja yang sudah dipetakan ke kode akun SIMK. -->
     <div id="view-laporanunit" class="view d-none">
       <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -626,7 +626,7 @@
 
       <div class="card mt-3 konso-admin-only"><div class="card-body">
         <div class="section-title"><i class="fas fa-paperclip"></i>Lampiran — Rincian Item Non-Unit</div>
-        <p class="text-muted small mb-2">Referensi/backup rincian per transaksi (Penarikan Cek, Admin, Jasa Giro, Pajak, dst). Angkanya <b>sudah termasuk</b> dalam REKAP PER POS di atas — lampiran ini <b>tidak dihitung ulang/tidak ditambahkan lagi</b> ke total manapun.</p>
+        <p class="text-muted small mb-2">Referensi/backup rincian per transaksi (Penarikan Cek, Bagian Keuangan, Jasa Giro, Pajak, dst). Angkanya <b>sudah termasuk</b> dalam REKAP PER POS di atas — lampiran ini <b>tidak dihitung ulang/tidak ditambahkan lagi</b> ke total manapun.</p>
         <div id="rekap-kategori-atas"></div>
         <div id="rekap-kategori-bawah"></div>
       </div></div>
@@ -662,7 +662,7 @@
 
       <div class="card"><div class="card-body">
         <div class="section-title"><i class="fas fa-tags"></i>Kategori Item Non-Unit (untuk Tambahan pada Rekap Konsolidasi)</div>
-        <p class="text-muted small mb-2">Untuk item non-unit (Pencairan Cek, Biaya Admin, Jasa Giro, dll). <b>Atas</b> = sebelum daftar Unit, <b>Bawah</b> = sesudah daftar Unit.</p>
+        <p class="text-muted small mb-2">Untuk item non-unit (Pencairan Cek, Biaya Bagian Keuangan, Jasa Giro, dll). <b>Atas</b> = sebelum daftar Unit, <b>Bawah</b> = sesudah daftar Unit.</p>
         <form class="row g-2 mb-3" onsubmit="submitKategoriBaru(event)">
           <div class="col-12 col-md-4"><input class="form-control form-control-sm" id="kt-nama" placeholder="Nama Kategori (mis. Biaya Kliring)"></div>
           <div class="col-6 col-md-3">
@@ -689,7 +689,7 @@
           <div class="col-6 col-md-2"><input class="form-control form-control-sm" id="us-nama" placeholder="Nama"></div>
           <div class="col-6 col-md-2"><input class="form-control form-control-sm" id="us-email" placeholder="Email" type="email"></div>
           <div class="col-6 col-md-2"><input class="form-control form-control-sm" id="us-password" placeholder="Password (kosongkan jika tidak ganti)" type="password"></div>
-          <div class="col-6 col-md-2"><select class="form-select form-select-sm" id="us-role" onchange="onRoleUserChange()"><option value="UNIT">UNIT</option><option value="ADMIN">ADMIN</option><option value="KETUA">KETUA LPPM</option></select></div>
+          <div class="col-6 col-md-2"><select class="form-select form-select-sm" id="us-role" onchange="onRoleUserChange()"><option value="UNIT">UNIT</option><option value="ADMIN">DIVISI KEUANGAN</option><option value="KETUA">KETUA LPPM</option></select></div>
           <div class="col-6 col-md-2"><button class="btn btn-sm w-100" style="background:var(--maroon);color:white;">Simpan</button></div>
           <div class="col-12" id="us-unit-wrap"><label class="form-label small mb-1">Unit yang diurus (bisa lebih dari satu)</label><div id="us-unit-checks" class="d-flex flex-wrap gap-2"></div></div>
         </form>
@@ -702,7 +702,7 @@
     <!-- USER UNIT (khusus akun UNIT, terbatas ke Unit sendiri) -->
     <div id="view-userunit" class="view d-none">
       <h5 class="page-title mb-3">Kelola User</h5>
-      <p class="text-muted small mb-3" id="userunit-desc">Ganti password akun-akun yang terhubung ke Unit Anda. Menambah atau menghapus akun tetap wewenang Admin.</p>
+      <p class="text-muted small mb-3" id="userunit-desc">Ganti password akun-akun yang terhubung ke Unit Anda. Menambah atau menghapus akun tetap wewenang Bagian Keuangan.</p>
       <div class="card"><div class="card-body">
         <table class="table tbl mb-0"><thead><tr><th>Username</th><th>Nama</th><th>Email</th><th>Aktif</th><th></th></tr></thead><tbody id="tbody-user-unit"></tbody></table>
       </div></div>
@@ -778,7 +778,7 @@
 
       <div class="card mb-3"><div class="card-body">
         <div class="section-title mb-2"><i class="fas fa-bell"></i>Pengingat Mingguan — Transaksi Belum Diverifikasi</div>
-        <p class="text-muted small mb-2">Kalau aktif, tiap Senin pagi sistem otomatis email ke Admin & semua akun Unit aktif (yang punya email) kalau ada transaksi rekening koran yang belum jelas Pos-nya. Tidak ada email dikirim kalau tidak ada yang menumpuk.</p>
+        <p class="text-muted small mb-2">Kalau aktif, tiap Senin pagi sistem otomatis email ke Bagian Keuangan & semua akun Unit aktif (yang punya email) kalau ada transaksi rekening koran yang belum jelas Pos-nya. Tidak ada email dikirim kalau tidak ada yang menumpuk.</p>
         <div class="d-flex align-items-center gap-2">
           <div class="form-check form-switch mb-0">
             <input class="form-check-input" type="checkbox" id="st-pengingat-toggle" onchange="toggleStPengingat(this)">
@@ -953,7 +953,7 @@
                  sudah ada togglenya di afterLogin) -- Ketua LPPM cuma perlu
                  tahu MANA yang perlu keputusannya (Pengajuan Baru) & mana
                  yang SUDAH selesai, tanpa perlu lihat status "di tengah"
-                 yang murni urusan Admin/Bagian Keuangan. -->
+                 yang murni urusan Bagian Keuangan. -->
             <div class="pos-tab no-ketua" data-kat="PROSES" onclick="pdSetKategori('PROSES')"><i class="fas fa-arrows-rotate"></i>Proses</div>
             <div class="pos-tab" data-kat="SELESAI" onclick="pdSetKategori('SELESAI')"><i class="fas fa-circle-check"></i>Selesai</div>
             <div class="pos-tab no-ketua" data-kat="SEMUA" onclick="pdSetKategori('SEMUA')">Semua</div>
@@ -1135,7 +1135,7 @@
           </div></div>
 
           <div class="alert alert-info small">
-            <i class="fas fa-circle-info me-1"></i>Setelah disetujui, <b>Admin</b> yang akan melakukan pembayaran ke pihak ketiga dan mengunggah <b>bukti bayarnya</b> (bukan Unit) &mdash; bukti bayar itu sekaligus menjadi LPJ untuk tagihan ini.
+            <i class="fas fa-circle-info me-1"></i>Setelah disetujui, <b>Bagian Keuangan</b> yang akan melakukan pembayaran ke pihak ketiga dan mengunggah <b>bukti bayarnya</b> (bukan Unit) &mdash; bukti bayar itu sekaligus menjadi LPJ untuk tagihan ini.
           </div>
 
           <button class="btn" style="background:var(--maroon);color:#fff;" onclick="pdSubmitTagihan(this)"><i class="fas fa-paper-plane me-1"></i>Ajukan Tagihan</button>
@@ -1332,7 +1332,7 @@ function btnBusy(btn, busy){
 function toast(icon, title){ Swal.fire({ toast:true, position:'top-end', icon:icon, title:title, showConfirmButton:false, timer:2600 }); }
 function fmtRp(n){ n = Number(n)||0; return n.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 // Tanggal hari terakhir 1 bulan (format YYYY-MM-DD) — dipakai untuk kategori
-// item non-unit posisi BAWAH (mis. Biaya Admin, Jasa Giro, Pajak Jasa Giro)
+// item non-unit posisi BAWAH (mis. Biaya Bagian Keuangan, Jasa Giro, Pajak Jasa Giro)
 // yang di REKAP (bukan rincian) ditampilkan per akhir bulan (memorial),
 // walau tanggal transaksi aslinya bisa kapan saja di bulan itu.
 function akhirBulanStr(tahun, bulan){
@@ -1747,12 +1747,33 @@ function submitForgotReset(){
 // ============================================================
 // SETELAH LOGIN — INIT APP (cache-first, lalu refresh di belakang layar)
 // ============================================================
+// Label PERAN yang ditampilkan ke user (beda dari nilai internal role yg
+// dipakai utk pengecekan hak akses di seluruh kode -- nilai internal TETAP
+// 'ADMIN'/'KETUA'/'UNIT' apa adanya, supaya tidak perlu menyentuh logika
+// permission di mana pun. Ini MURNI soal LABEL yg terlihat di layar --
+// "ADMIN" sengaja diganti "DIVISI KEUANGAN" (nama resmi akun ini di
+// struktur keuangan, biar tidak ambigu/rancu dgn "admin" dlm arti umum
+// spt admin IT/admin sistem).
+function _labelPeran(role){
+  if(role === 'ADMIN') return 'DIVISI KEUANGAN';
+  if(role === 'KETUA') return 'KETUA LPPM';
+  return role;
+}
+// Label kode Aksi di tabel Log Aktivitas -- kode aksi ASLI (mis.
+// 'PESAN_KE_ADMIN', 'RESET_PASSWORD_ADMIN') TIDAK diubah sama sekali di
+// penyimpanan/backend (supaya riwayat log lama & pencarian/filter apa pun
+// yang bergantung ke kode itu tidak rusak) -- ini MURNI kosmetik saat
+// ditampilkan ke user, mengganti kata "ADMIN" jadi "BAGIAN KEUANGAN" biar
+// konsisten dgn seluruh tampilan lain yang sudah tidak memakai kata itu.
+function _labelAksiLog(aksi){
+  return String(aksi||'').replace(/ADMIN/g, 'BAGIAN KEUANGAN');
+}
 function afterLogin(){
   document.getElementById('login-section').classList.add('d-none');
   document.getElementById('app').classList.remove('d-none');
   document.getElementById('nav-nama-user').textContent = STATE.nama;
   var badge = document.getElementById('nav-role-badge');
-  badge.textContent = STATE.role;
+  badge.textContent = _labelPeran(STATE.role);
   badge.className = 'badge-role ' + (STATE.role==='ADMIN' ? 'badge-admin' : (STATE.role==='KETUA' ? 'badge-ketua' : 'badge-unit'));
   // PERBAIKAN BUG: sebelumnya pakai el.style.display='none' -- ini KALAH
   // kalau elemennya juga punya class Bootstrap seperti d-flex/d-grid, yang
@@ -1782,7 +1803,7 @@ function afterLogin(){
   // - "admin-ketua-only": tampil utk ADMIN *dan* KETUA (mis. Rekap Rekening
   //   Koran, Jurnal Memorial -- Ketua LPPM perlu lihat ini, Unit tidak).
   // - "no-ketua": tampil utk SEMUA role KECUALI Ketua (mis. Verifikasi
-  //   Transaksi -- itu tugas operasional Admin/Unit, bukan Ketua).
+  //   Transaksi -- itu tugas operasional Bagian Keuangan/Unit, bukan Ketua).
   document.querySelectorAll('.admin-ketua-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role!=='ADMIN' && STATE.role!=='KETUA'); });
   document.querySelectorAll('.no-ketua').forEach(function(el){ el.classList.toggle('d-none', STATE.role==='KETUA'); });
   // FITUR BARU -- Ketua LPPM: "Kelola User"/"Log Aktivitas" versi terbatas
@@ -1975,18 +1996,18 @@ function afterLogin(){
     }, 300000); // 5 menit -- diminta eksplisit oleh pengguna
   }
   // PERBAIKAN (atas permintaan "cukup lama Unit setelah mengajukan muncul
-  // di sistem Admin, jangan menunggu email"): notifikasi EMAIL sendiri
+  // di sistem Bagian Keuangan, jangan menunggu email"): notifikasi EMAIL sendiri
   // SUDAH TIDAK sinkron/menunggu sama sekali sejak awal -- lihat ANTRIAN
   // EMAIL di Code.gs (_antriEmail/prosesAntrianEmail): begitu Unit
   // menekan Ajukan, data langsung tersimpan & responsnya balik SEKETIKA,
   // email cuma dicatat ke antrian (operasi lokal cepat) lalu benar2
   // dikirim oleh trigger terpisah tiap 1 menit DI LUAR alur klik user sama
   // sekali -- jadi Unit TIDAK PERNAH menunggu proses kirim email.
-  // Keterlambatan yang dirasakan ("lama muncul di sistem Admin") sebenarnya
+  // Keterlambatan yang dirasakan ("lama muncul di sistem Bagian Keuangan") sebenarnya
   // BUKAN dari email, tapi dari muatBadgeGabungan() (badge lonceng
-  // Pesan/Pengajuan di sidebar Admin) yang SEBELUMNYA ikut nebeng di
+  // Pesan/Pengajuan di sidebar Bagian Keuangan) yang SEBELUMNYA ikut nebeng di
   // interval BERAT 5 menit di atas bersama refreshViewSilently() --
-  // artinya badge Admin baru bisa ikut terupdate sampai 5 menit kemudian
+  // artinya badge Bagian Keuangan baru bisa ikut terupdate sampai 5 menit kemudian
   // walau datanya di server sudah tersimpan SEKETIKA (server TIDAK pernah
   // basi -- cache pengajuan langsung diinvalidasi tiap kali ada
   // pengajuan baru/berubah, lihat _invalidatePengajuanCache).
@@ -2004,7 +2025,7 @@ function afterLogin(){
   // pengecekan di refreshViewSilently), ringkasan+badge+daftar Pengajuan
   // Dana SEKALIAN ikut disegarkan di interval CEPAT ini juga -- 1x
   // round-trip gabungan (pdMuatRingkasanDanDaftar), BUKAN full-page reload
-  // -- supaya Unit & Admin yang sama2 sedang membuka halaman ini melihat
+  // -- supaya Unit & Bagian Keuangan yang sama2 sedang membuka halaman ini melihat
   // perubahan satu sama lain (submit baru / status berubah) dalam
   // hitungan detik, BUKAN menit. View LAIN (Verifikasi Transaksi, Rekap
   // Konsolidasi, dst) TETAP di interval 5 menit spt sebelumnya (TIDAK
@@ -2060,7 +2081,7 @@ function afterLogin(){
 // 12 bulan sekaligus tiap kali ADA YANG login akan:
 // 1) Membebani kuota harian Apps Script/Sheets jauh lebih cepat habis,
 //    berisiko mengganggu SEMUA orang (termasuk operasi tulis/simpan data)
-//    kalau banyak Admin/Unit login bersamaan (mis. pagi hari).
+//    kalau banyak Bagian Keuangan/Unit login bersamaan (mis. pagi hari).
 // 2) Boros -- realistisnya 1 sesi kerja jarang buka lebih dari 2-3 bulan.
 // 3) Laporan Unit SENGAJA TIDAK diikutkan -- itu satu-satunya menu yang
 //    menarik data dari sistem LUAR (SIMK), preload otomatis ke sana
@@ -2145,7 +2166,7 @@ function refreshViewSilently(name){
   else if(name==='pos') renderPosUnitSayaForm();
   else if(name==='konsolidasi') loadKonsolidasi();
   // PERBAIKAN BUG: sebelumnya 'rekkoran' TIDAK ada di daftar ini sama
-  // sekali -- kalau Admin sedang DIAM di halaman Rekap Rekening Koran
+  // sekali -- kalau Bagian Keuangan sedang DIAM di halaman Rekap Rekening Koran
   // (tidak pindah menu), perubahan dari aksi lain (mis. verifikasi
   // transaksi Unit) TIDAK PERNAH ikut kelihatan di sana sampai user
   // sendiri pindah menu lalu balik lagi -- persis keluhan "datanya tidak
@@ -2260,7 +2281,7 @@ function gotoView(name){
   if(namaKonten==='pengajuan'){
     if(!sudahDiPengajuan){ PD.kategori = 'BARU'; PD.halaman = 1; PD.cariTeks = ''; PD.filterBulan = 'SEMUA'; PD.filterJenis = 'SEMUA'; var elCari = document.getElementById('pd-cari'); if(elCari) elCari.value = ''; var elFB = document.getElementById('pd-filter-bulan'); if(elFB) elFB.value = 'SEMUA'; var elFJ = document.getElementById('pd-filter-jenis'); if(elFJ) elFJ.value = 'SEMUA'; document.querySelectorAll('#pd-kategori-tabs .pos-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.kat==='BARU'); }); } // reset ke Pengajuan Baru CUMA kalau navigasi baru dari menu lain, bukan sekadar refresh (mis. ganti tahun) -- PERBAIKAN BUG: sebelumnya cuma PD.kategori yg direset, tab yg tersorot di layar TIDAK ikut disinkronkan (itu cuma diurus pdSetKategori(), bukan di sini), jadi kelihatan masih di tab lama walau isinya sebenarnya sudah Pengajuan Baru
     loadPengajuanDana();
-    // PERBAIKAN BUG: dropdown "Ajukan atas nama Unit" (khusus Admin) tadinya
+    // PERBAIKAN BUG: dropdown "Ajukan atas nama Unit" (khusus Bagian Keuangan) tadinya
     // CUMA diisi lewat pdBukaFormBaru() -- kalau sesi di-restore LANGSUNG ke
     // sub-panel form (lihat "sesi yang di-restore" di bawah, mis. refresh
     // browser saat form sedang terbuka), dropdown itu ketinggalan kosong.
@@ -2458,7 +2479,7 @@ function initInputView(){
   // PERBAIKAN: fitur "Perlu Verifikasi" (klaim transaksi belum jelas Pos-nya)
   // sudah DIPINDAH ke halaman tersendiri "Verifikasi Transaksi" (menu khusus
   // role UNIT, lihat loadViewVerifikasi) -- supaya kodenya benar-benar
-  // terpisah dari halaman Input Rekap Bulanan milik Admin dan tidak lagi
+  // terpisah dari halaman Input Rekap Bulanan milik Bagian Keuangan dan tidak lagi
   // terikat ke bulan yang kebetulan sedang dibuka di sini. Halaman ini kini
   // murni untuk MENINJAU/MENGUBAH/MENGHAPUS transaksi yang sudah tercatat di
   // Pos milik Unit tersebut, per bulan (lihat "Daftar Transaksi" di bawah).
@@ -2477,7 +2498,7 @@ function initInputView(){
 function _rekapCacheKey(){ return STATE.tahunAktif + '_' + document.getElementById('sel-bulan-input').value; }
 // Kolom colgroup tabel Daftar Transaksi — SATU definisi dipakai ulang di
 // SEMUA tempat tabel ini dirender (satu Pos, banyak Pos sekaligus punya
-// Admin, maupun mode Belum Terverifikasi) supaya kolom-kolomnya selalu
+// Bagian Keuangan, maupun mode Belum Terverifikasi) supaya kolom-kolomnya selalu
 // sejajar sama persis, tidak menyempit/melebar sendiri per tabel.
 var TX_COLGROUP = '<colgroup><col style="width:32px;"><col style="width:28px;"><col style="width:42px;"><col style="width:118px;"><col><col style="width:135px;"><col style="width:135px;"><col style="width:110px;"><col style="width:104px;"></colgroup>';
 var TX_THEAD = '<th class="no-print tx-col-icon"><input type="checkbox" onclick="toggleSemuaCheckbox(this,\'.chk-tx\')"></th><th class="no-print tx-col-icon" title="Geser untuk urutkan"><i class="fas fa-arrows-up-down" style="color:rgba(255,255,255,.55);font-size:.72rem;"></i></th><th class="tx-col-icon">No</th><th>Tanggal</th><th>Keterangan</th><th class="text-end">Debet</th><th class="text-end">Kredit</th><th class="tx-col-clip">Input Oleh</th><th class="no-print tx-col-icon">Aksi</th>';
@@ -2894,14 +2915,14 @@ function editTransaksi(id, btn){
   var bulan = document.getElementById('sel-bulan-input').value;
   var rentangEd = _rentangTanggalBulanInput();
   var isAdmin = STATE.role==='ADMIN';
-  // Dropdown Pos (khusus Admin) SEKARANG langsung dibangun dari STATE.myPos
-  // -- itu SUDAH otomatis berisi SEMUA Pos lintas Unit utk Admin (lihat
+  // Dropdown Pos (khusus Bagian Keuangan) SEKARANG langsung dibangun dari STATE.myPos
+  // -- itu SUDAH otomatis berisi SEMUA Pos lintas Unit utk Bagian Keuangan (lihat
   // getMyPos -> _aksesInfoUntukSesi di backend, sama persis dgn yang
   // dikembalikan getUnitPosList), dan SUDAH tersedia instan sejak login.
   // Dulu sengaja fetch ulang getUnitPosList tiap buka Edit -- padahal
   // datanya PERSIS SAMA yang sudah ada di memori, jadi cuma bikin lambat
-  // tanpa manfaat. Opsi "Belum Jelas Milik Siapa" HANYA utk Admin di sini
-  // (Admin bisa pindahkan lintas Unit apa saja) -- utk Unit, ada tombol
+  // tanpa manfaat. Opsi "Belum Jelas Milik Siapa" HANYA utk Bagian Keuangan di sini
+  // (Bagian Keuangan bisa pindahkan lintas Unit apa saja) -- utk Unit, ada tombol
   // tersendiri di Rekap Konsolidasi (kembalikanTransaksiKonso), supaya
   // lebih cepat (1 klik) tanpa buka dialog Edit yang penuh.
   var opsiPosAdmin = isAdmin ? ((STATE.myPos||[]).map(function(p){ return '<option value="'+p.kodePos+'"'+(p.kodePos===r.kodePos?' selected':'')+'>'+p.namaPos+'</option>'; }).join('')) : '';
@@ -3063,7 +3084,7 @@ function renderRekeningKoranTable(){
   // abu-abu, di-hide saja"): utk Ketua LPPM tombolnya DIHILANGKAN SAMA
   // SEKALI (bukan cuma abu-abu/disabled spt _rkLocked) -- _rkLocked TETAP
   // pakai gaya abu-abu/disabled spt semula (itu kondisi SEMENTARA, bulan
-  // sewaktu-waktu bisa dibuka kuncinya lagi oleh Admin), sedangkan Ketua
+  // sewaktu-waktu bisa dibuka kuncinya lagi oleh Bagian Keuangan), sedangkan Ketua
   // LPPM memang PERMANEN read-only, jadi kontrolnya lebih pas kalau
   // dihilangkan total, bukan ditampilkan tapi tidak bisa dipakai.
   var isKetuaRk = STATE.role==='KETUA';
@@ -3167,7 +3188,7 @@ function editTransaksiRK(id, btn){
   })() : { min:'', max:'' };
   var isTambahan = r.sumber==='tambahan';
   // Dropdown Pos dibangun langsung dari STATE.myPos (SUDAH tersedia instan
-  // sejak login, utk Admin isinya SEMUA Pos lintas Unit -- sama seperti di
+  // sejak login, utk Bagian Keuangan isinya SEMUA Pos lintas Unit -- sama seperti di
   // editTransaksi, lihat komentar panjang di sana) -- TIDAK fetch ulang
   // getUnitPosList lagi, jadi dialog ini pun langsung siap tanpa menunggu.
   var opsiPosAdmin = !isTambahan ? ((STATE.myPos||[]).map(function(p){ return '<option value="'+p.kodePos+'"'+(p.kodePos===r.kodePos?' selected':'')+'>'+p.namaPos+'</option>'; }).join('')) : '';
@@ -3588,7 +3609,7 @@ function _gcKetPlace(id){
 // jalan kalau ADMIN SENDIRI baru menyimpan lewat grid Input Cepat ini --
 // TIDAK ikut tersegarkan kalau perubahannya terjadi di tempat LAIN (mis.
 // Unit mengklaim transaksi lewat halaman Verifikasi Transaksi yang
-// terpisah, baik oleh Admin sendiri di tab lain maupun user lain sama
+// terpisah, baik oleh Bagian Keuangan sendiri di tab lain maupun user lain sama
 // sekali) -- daftar sarannya jadi "beku" di kondisi awal sesi selama-
 // lamanya. Sekarang cache diberi masa berlaku (TTL 2 menit) -- kalau
 // sudah lewat, dimuat ulang dari server, supaya transaksi yang baru saja
@@ -3938,10 +3959,10 @@ function revPilih(kp){
 // Solusi untuk data asli yang jumlahnya ratusan baris per pos: blok kolom
 // Tanggal/Keterangan/Debet/Kredit di Excel/Google Sheets ASLI (bukan dari
 // PDF), copy, paste di sini — semua baris masuk sekaligus dalam satu proses.
-// ── TRANSAKSI BELUM TERVERIFIKASI — Admin catat dulu tanpa Pos kalau belum
+// ── TRANSAKSI BELUM TERVERIFIKASI — Bagian Keuangan catat dulu tanpa Pos kalau belum
 // jelas, semua Unit lihat & bisa mengaku kalau memang transaksinya sendiri.
 // PERBAIKAN: fungsi ini sekarang HANYA mengisi cache CACHE.belumVerifikasi
-// (dipakai Admin utk mode "Belum Jelas Pos Mana" di tabel Daftar Transaksi,
+// (dipakai Bagian Keuangan utk mode "Belum Jelas Pos Mana" di tabel Daftar Transaksi,
 // lihat renderTransaksiTable) -- bagian kartu "Perlu Verifikasi" beserta
 // tombol "Verifikasi" SUDAH DIPINDAH ke halaman tersendiri "Verifikasi
 // Transaksi" (lihat loadViewVerifikasi di bawah), supaya kodenya terpisah
@@ -3963,7 +3984,7 @@ function loadPerluVerifikasi(){
 
 // ============================================================
 // VERIFIKASI TRANSAKSI (UNIT) — HALAMAN TERSENDIRI, kode & tampilannya
-// SENGAJA dipisah dari initInputView()/loadRekapBulan() milik Admin, supaya
+// SENGAJA dipisah dari initInputView()/loadRekapBulan() milik Bagian Keuangan, supaya
 // perubahan di satu sisi tidak berisiko mengganggu sisi lain. SENGAJA
 // dibatasi per-BULAN (default bulan berjalan, ada dropdown kalau perlu cek
 // bulan lain) -- transaksi belum terverifikasi memang tidak seharusnya
@@ -3982,7 +4003,7 @@ function renderVfLockBanner(){
   var el = document.getElementById('vf-lock-banner');
   if(!el) return;
   el.innerHTML = _vfLocked
-    ? '<div class="alert alert-warning d-flex align-items-center gap-2 mb-3"><i class="fas fa-lock"></i><span class="small">Jurnal Memorial bulan ini sudah <b>terkunci</b> oleh Admin — transaksi bulan ini sudah final dan tidak bisa diverifikasi/diubah lagi. Hubungi Admin kalau memang perlu koreksi.</span></div>'
+    ? '<div class="alert alert-warning d-flex align-items-center gap-2 mb-3"><i class="fas fa-lock"></i><span class="small">Jurnal Memorial bulan ini sudah <b>terkunci</b> oleh Bagian Keuangan — transaksi bulan ini sudah final dan tidak bisa diverifikasi/diubah lagi. Hubungi Bagian Keuangan kalau memang perlu koreksi.</span></div>'
     : '';
 }
 function loadViewVerifikasiData(){
@@ -4024,7 +4045,7 @@ function renderVfPerlu(){
       + '<div><b>'+_gcEsc(r.keterangan||'(tanpa keterangan)')+'</b> <span class="text-muted small">— '+r.tanggal+'</span><br>'
       + '<span class="small">'+(r.debet?('Debet Rp '+fmtRp(r.debet)):'')+(r.kredit?('Kredit Rp '+fmtRp(r.kredit)):'')+'</span></div>'
       + '<div class="d-flex gap-1">'
-      + (STATE.role!=='ADMIN' ? '<button class="btn btn-sm btn-outline-secondary" title="Tanya Admin soal transaksi ini" onclick="tanyaAdminTentangTransaksiVf('+i+')"><i class="fas fa-comment-dots"></i></button>' : '')
+      + (STATE.role!=='ADMIN' ? '<button class="btn btn-sm btn-outline-secondary" title="Tanya Bagian Keuangan soal transaksi ini" onclick="tanyaAdminTentangTransaksiVf('+i+')"><i class="fas fa-comment-dots"></i></button>' : '')
       + (_vfLocked ? '<span class="text-muted small"><i class="fas fa-lock me-1"></i>Terkunci</span>' : '<button class="btn btn-sm" style="background:var(--maroon);color:white;" onclick="bukaVerifikasiTransaksi(\''+r.id+'\')"><i class="fas fa-check-circle me-1"></i>Verifikasi</button>')
       + '</div></div>';
   }).join('');
@@ -4122,7 +4143,7 @@ function bukaUbahPosVerifikasi(id, kodePosSaatIni){
   });
 }
 // Kebalikan dari "Verifikasi" -- kembalikan transaksi yang SUDAH
-// terlanjur punya Pos (baik hasil klaim sendiri, MAUPUN hasil Admin salah
+// terlanjur punya Pos (baik hasil klaim sendiri, MAUPUN hasil Bagian Keuangan salah
 // posting) ke daftar "Belum Jelas Pos-nya" lagi. Wajib konfirmasi karena
 // begitu dikembalikan, transaksi ini HILANG dari Riwayat Unit ini sampai
 // ada yang klaim ulang (siapa pun, termasuk Unit lain kalau memang bukan
@@ -4159,14 +4180,14 @@ function kembalikanTransaksiVerifikasi(id){
 }
 
 // ============================================================
-// HUBUNGI ADMIN (PESAN) — obrolan sederhana Unit<->Admin, disimpan di
+// HUBUNGI BAGIAN KEUANGAN (PESAN) — obrolan sederhana Unit<->Bagian Keuangan, disimpan di
 // LogAktivitas lewat server. Di-cache di memori (sekali dimuat di sesi
 // ini, buka lagi langsung tampil instan), lalu tetap refresh diam-diam.
 // ============================================================
-var _pesanAdminSedangDibuka = null; // username Unit yang lagi dibuka Admin (null = lihat daftar obrolan)
+var _pesanAdminSedangDibuka = null; // username Unit yang lagi dibuka Bagian Keuangan (null = lihat daftar obrolan)
 var _pesanCacheSaya = null; // cache thread milik Unit
-var _pesanCacheAdminList = null; // cache daftar obrolan Admin
-var _pesanCacheAdminThread = {}; // username -> data thread (Admin)
+var _pesanCacheAdminList = null; // cache daftar obrolan Bagian Keuangan
+var _pesanCacheAdminThread = {}; // username -> data thread (Bagian Keuangan)
 
 function loadViewPesan(){
   document.getElementById('pesan-page-title').textContent = 'Pesan';
@@ -4219,7 +4240,7 @@ function hapusPesanChat(waktuISO){
   });
 }
 
-// ── Sisi UNIT: 1 obrolan saja, dengan "Admin" secara kolektif ──
+// ── Sisi UNIT: 1 obrolan saja, dengan "Bagian Keuangan" secara kolektif ──
 // SENGAJA TIDAK ADA tombol "Bersihkan" (hapus seluruh obrolan) di sisi ini
 // -- itu wewenang ADMIN saja (lihat renderPesanAdminList/renderPesanAdminThread
 // di bawah). Unit cuma boleh hapus PESAN MILIKNYA SENDIRI satu-satu (ikon
@@ -4242,7 +4263,7 @@ function renderPesanUnit(){
     + '<button class="btn btn-sm btn-outline-secondary" onclick="bukaPesanBaruUnit()"><i class="fas fa-plus me-1"></i>Pesan Baru</button>'
     + '</div>'
     + '<div class="chat-wrap" id="pesan-chat-wrap">'+(_pesanCacheSaya ? '' : '<p class="text-muted small text-center mb-0">Memuat...</p>')+'</div>'
-    + _chatInputHtml('Tulis pesan ke Admin...', 'pesanUnitKeydown', 'pesanUnitKirim');
+    + _chatInputHtml('Tulis pesan ke Bagian Keuangan...', 'pesanUnitKeydown', 'pesanUnitKirim');
   if(_pesanCacheSaya) _renderChatBubbles('pesan-chat-wrap', _pesanCacheSaya, 'saya');
   var _inpBaru = document.getElementById('pesan-input');
   if(_inpBaru && _teksBelumKirim){
@@ -4257,7 +4278,7 @@ function renderPesanUnit(){
   }).catch(function(){ if(!_pesanCacheSaya) toast('error','Gagal memuat pesan'); });
 }
 // Bersihkan SELURUH percakapan sekaligus (beda dari hapus 1 pesan yang
-// sudah ada) -- Unit bersihkan obrolannya sendiri dgn Admin; Admin
+// sudah ada) -- Unit bersihkan obrolannya sendiri dgn Bagian Keuangan; Bagian Keuangan
 // bersihkan thread Unit yang SEDANG dibuka (_pesanAdminSedangDibuka).
 function bersihkanPercakapan(){
   var lawanBicara = STATE.role==='ADMIN' ? _pesanAdminSedangDibuka : null;
@@ -4300,7 +4321,7 @@ function pesanUnitKirim(btn){
     renderPesanUnit();
   }).catch(function(){ inp.disabled = false; btnBusy(btn, false); toast('error','Gagal mengirim'); inp.value = isi; });
 }
-// Kirim pesan ke Admin dari konteks 1 transaksi tertentu (dipanggil dari
+// Kirim pesan ke Bagian Keuangan dari konteks 1 transaksi tertentu (dipanggil dari
 // halaman Verifikasi Transaksi) -- pakai index array (bukan teks ditempel
 // langsung ke atribut HTML) supaya keterangan yang ada tanda kutip dsb
 // tidak berisiko merusak markup.
@@ -4320,18 +4341,18 @@ function tanyaAdminTentangTransaksiVf(idx){
   }).then(function(res){
     if(!res.isConfirmed) return;
     // Format konteks disamakan PERSIS dgn yang tampil di preview dialog di
-    // atas ("Soal transaksi: Nama -- Bulan, Tanggal") -- supaya Admin lihat
+    // atas ("Soal transaksi: Nama -- Bulan, Tanggal") -- supaya Bagian Keuangan lihat
     // format yang SAMA PERSIS, bukan urutan kata berbeda yang membingungkan.
     var konteks = (r.keterangan || '(tanpa keterangan)') + ' — ' + bulanNama + ', ' + r.tanggal;
     gasCall('kirimPesanKeAdmin', res.value, konteks, STATE.token).then(function(r2){
       if(!r2.success){ toast('error', r2.message); return; }
-      toast('success','Pesan terkirim ke Admin');
+      toast('success','Pesan terkirim ke Bagian Keuangan');
       _pesanCacheSaya = null;
       muatBadgePesan();
     }).catch(function(){ toast('error','Gagal mengirim, coba lagi.'); });
   });
 }
-// Sama seperti tombol "Pesan Baru" di sisi Admin -- Unit juga bisa mulai
+// Sama seperti tombol "Pesan Baru" di sisi Bagian Keuangan -- Unit juga bisa mulai
 // topik baru kapan saja (bukan cuma balas di kotak bawah), dengan Topik
 // opsional supaya konteksnya jelas kalau nanti dilihat lagi.
 function bukaPesanBaruUnit(){
@@ -4382,7 +4403,7 @@ function _renderDaftarPercakapanHtml(data){
       + (c.belumDibaca>0?'<span class="badge-pesan">'+c.belumDibaca+'</span>':'')+'</div></div>';
   }).join('');
 }
-// Admin sebelumnya cuma bisa MEMBALAS Unit yang sudah lebih dulu kirim
+// Bagian Keuangan sebelumnya cuma bisa MEMBALAS Unit yang sudah lebih dulu kirim
 // pesan (daftar obrolan cuma muncul kalau sudah ada riwayatnya) -- tidak
 // ada cara memulai obrolan baru ke Unit yang belum pernah kirim apa-apa.
 // Tombol ini membuka daftar semua akun Unit aktif untuk dipilih, lalu buka
@@ -4425,7 +4446,7 @@ function renderPesanAdminThread(username){
   // PERBAIKAN BUG: sama seperti renderPesanUnit() -- fungsi ini juga
   // dipanggil oleh auto-refresh diam-diam tiap 10 detik selama thread ini
   // sedang terbuka, dan sebelumnya SELALU membangun ulang textarea balasan
-  // dari nol, menghapus balasan yang SEDANG DIKETIK Admin (belum sempat
+  // dari nol, menghapus balasan yang SEDANG DIKETIK Bagian Keuangan (belum sempat
   // dikirim). Simpan dulu isi ketikannya, pasang lagi setelah dibangun ulang.
   var _inpLama = document.getElementById('pesan-input');
   var _teksBelumKirim = _inpLama ? _inpLama.value : '';
@@ -4693,7 +4714,7 @@ function editTransaksiKonso(id, bulan){
   });
 }
 // Tombol TERSENDIRI (ikon putar-kiri) di samping Edit -- kalau ternyata
-// transaksi ini BUKAN milik Unit ini (salah klaim sendiri, atau Admin salah
+// transaksi ini BUKAN milik Unit ini (salah klaim sendiri, atau Bagian Keuangan salah
 // posting), langsung kembalikan ke pool Verifikasi TANPA perlu buka dialog
 // Edit yang penuh dulu -- cukup 1 klik + konfirmasi, lebih cepat.
 function kembalikanTransaksiKonso(id, bulan){
@@ -4742,7 +4763,7 @@ function loadKonsolidasi(){
   // FITUR BARU (atas permintaan): "REKAP PER POS" murni tabel LIHAT SAJA
   // (tidak ada tombol edit di dalamnya) -- Ketua LPPM boleh lihat ini juga,
   // BEDA dgn "Rekonsiliasi Bank" (ada tombol Edit Angka Bank) & "Lampiran
-  // Item Non-Unit" yang TETAP konso-admin-only (Admin murni).
+  // Item Non-Unit" yang TETAP konso-admin-only (Bagian Keuangan murni).
   document.querySelectorAll('#view-konsolidasi .konso-admin-ketua-only').forEach(function(el){ el.classList.toggle('d-none', STATE.role!=='ADMIN' && STATE.role!=='KETUA'); });
   var namaBulanLabel = BULAN_NAMA[Number(bulan)-1] + ' ' + STATE.tahunAktif;
   document.getElementById('rp-bulan-label').textContent = namaBulanLabel;
@@ -4788,7 +4809,7 @@ function _barisTransaksiKonsoUnit(r, i, bulan){
 }
 // Baris tabel Rekap Konsolidasi UNTUK ADMIN -- READ-ONLY, sengaja TANPA
 // kolom Aksi/Edit sama sekali (bukan cuma disembunyikan) -- ini yg diminta:
-// Admin di Konsolidasi cuma memantau rekap gabungan semua Unit, bukan
+// Bagian Keuangan di Konsolidasi cuma memantau rekap gabungan semua Unit, bukan
 // tempat mengubah transaksi per-unit (itu tanggung jawab Unit sendiri).
 function _barisTransaksiKonsoAdmin(r, i){
   return '<tr><td>'+(i+1)+'</td><td>'+r.tanggal+'</td><td>'+_gcEsc(r.keterangan||'')+'</td><td class="text-end">'+fmtRp(r.debet)+'</td><td class="text-end">'+fmtRp(r.kredit)+'</td></tr>';
@@ -4821,10 +4842,10 @@ function _renderKonsolidasi(bulan, hasil){
       _urutkanKodePos(Object.keys(unit.pos), res.unitPos || STATE.myPos).forEach(function(kp){
         var grp = unit.pos[kp], d=0,k=0;
         // SENGAJA dipisah 2 jalur (bukan 1 fungsi dgn kondisi if/else di
-        // tengah): Unit boleh Edit transaksinya sendiri, Admin CUMA lihat
+        // tengah): Unit boleh Edit transaksinya sendiri, Bagian Keuangan CUMA lihat
         // (read-only, tanpa kolom Aksi sama sekali) -- supaya perubahan di
         // 1 jalur (mis. tombol Edit Unit) tidak pernah bisa tidak sengaja
-        // ikut memengaruhi tampilan Admin, dan sebaliknya.
+        // ikut memengaruhi tampilan Bagian Keuangan, dan sebaliknya.
         var isUnit = STATE.role === 'UNIT';
         var body = grp.rows.map(function(r,i){ d+=r.debet; k+=r.kredit;
           return isUnit ? _barisTransaksiKonsoUnit(r, i, bulan) : _barisTransaksiKonsoAdmin(r, i); }).join('');
@@ -4853,12 +4874,12 @@ function _renderKonsolidasi(bulan, hasil){
     // lain langsung kelihatan tanpa refresh manual -- tapi sebelumnya baris
     // di bawah ini SELALU menimpa isi 3 kotak input Rekonsiliasi Bank DAN
     // SELALU memaksa tutup form (lihat rkBatalForm() di akhir fungsi ini),
-    // walau Admin sedang AKTIF mengetik di form "Edit Angka Bank" yang belum
+    // walau Bagian Keuangan sedang AKTIF mengetik di form "Edit Angka Bank" yang belum
     // sempat disimpan -- akibatnya, tiap 10 detik ketikan yang belum
     // disimpan itu HILANG BEGITU SAJA dan formnya tertutup sendiri (persis
     // laporan bug: "kok aneh, waktu edit balik lagi"). Sekarang: kalau
     // formnya SEDANG TERBUKA utk diedit (_rkFormSedangDiedit true), JANGAN
-    // sentuh nilai input maupun status buka/tutup form -- biarkan Admin
+    // sentuh nilai input maupun status buka/tutup form -- biarkan Bagian Keuangan
     // menyelesaikan ketikannya. Nilai akan disinkronkan lagi begitu form
     // ditutup (lewat Simpan ATAU Batal, lihat rkTampilkanForm/rkBatalForm/
     // submitRekonsiliasi), bukan diam-diam di tengah proses mengetik.
@@ -4906,7 +4927,7 @@ function renderPosUnitSayaForm(){
 function submitPosUnitSaya(e){
   e.preventDefault();
   var units = STATE.myUnits || [];
-  if(!units.length){ toast('error','Akun Anda belum terhubung ke Unit manapun. Hubungi Admin.'); return; }
+  if(!units.length){ toast('error','Akun Anda belum terhubung ke Unit manapun. Hubungi Bagian Keuangan.'); return; }
   var kodeUnit = units.length > 1 ? document.getElementById('pu-unit').value : units[0].kodeUnit;
   var nama = document.getElementById('pu-nama').value.trim();
   if(!nama){ toast('error','Nama kelompok pemasukan wajib diisi.'); return; }
@@ -4931,7 +4952,7 @@ function renderTabelKategori(kategoriArr, byKategori, containerId, bulanUntukTam
   kategoriArr.forEach(function(kat){
     var rows = (byKategori[kat.kodeKategori] || []).slice().sort(function(a,b){ return (a.tanggal||'').localeCompare(b.tanggal||''); });
     var d=0,k=0;
-    // Kategori posisi BAWAH (Biaya Admin, Jasa Giro, Pajak Jasa Giro, dst)
+    // Kategori posisi BAWAH (Biaya Bagian Keuangan, Jasa Giro, Pajak Jasa Giro, dst)
     // ditampilkan per akhir bulan di REKAP ini (memorial) — tanggal asli
     // tetap tersimpan apa adanya & tetap dipakai saat Edit.
     var tglTampil = (kat.posisi === 'BAWAH' && bulanUntukTampilan) ? akhirBulanStr(STATE.tahunAktif, bulanUntukTampilan) : null;
@@ -4998,7 +5019,7 @@ function renderKategoriBagian(key){
 // "Setoran <Pos>" per Pos Unit, item BAWAH diakumulasi 1 baris per kategori.
 
 // PERBAIKAN BUG: sebagian Pos memang dinamai diawali kata 'Setoran' oleh
-// Admin (mis. 'Setoran Kursus IELTS...'), sementara rekap SELALU menambah
+// Bagian Keuangan (mis. 'Setoran Kursus IELTS...'), sementara rekap SELALU menambah
 // kata 'Setoran ' di depan nama Pos -> jadi dobel ('Setoran Setoran ...')
 // khusus untuk Pos yang namanya sudah begitu. Fungsi ini menghindari itu:
 // kalau nama sudah diawali 'Setoran' (tanpa peduli besar/kecil huruf),
@@ -5055,7 +5076,7 @@ function renderRekapPerPosUI(){
   document.getElementById('rp-saldo-awal').textContent = fmtRp(c.saldoAwal);
   document.getElementById('rp-saldo-akhir').textContent = fmtRp(hasil.saldoAkhir);
 }
-// Penanda: form "Edit Angka Bank" SEDANG dibuka & aktif diedit Admin --
+// Penanda: form "Edit Angka Bank" SEDANG dibuka & aktif diedit Bagian Keuangan --
 // dipakai _renderKonsolidasi() (lihat catatan PERBAIKAN BUG di sana) supaya
 // auto-refresh diam-diam tiap 10 detik TIDAK menimpa ketikan yang belum
 // disimpan / menutup paksa form ini.
@@ -5197,7 +5218,7 @@ function switchInputMode(mode){
 }
 function _inputKey(){ return STATE.tahunAktif + '_' + document.getElementById('sel-bulan-input').value; }
 function loadTambahanForInput(){
-  if(STATE.role!=='ADMIN') return; // item non-unit memang cuma untuk Admin
+  if(STATE.role!=='ADMIN') return; // item non-unit memang cuma untuk Bagian Keuangan
   var bulan = document.getElementById('sel-bulan-input').value;
   if(!bulan) return;
   _tbSiapkanTanggalDefault();
@@ -5264,7 +5285,7 @@ function renderTambahanInputPanel(){
 // Unit). Halaman berikutnya = "REKAP REKENING GIRO <NAMA BANK> BULAN <BULAN
 // TAHUN>": tiap Pos jadi 1 tabel "REKAP <nama pos>" dengan baris TOTAL
 // sendiri, tiap Unit baru mulai di halaman baru. Halaman 1 (data tingkat
-// bank: saldo, item non-unit) cuma lengkap untuk Admin; user Unit langsung
+// bank: saldo, item non-unit) cuma lengkap untuk Bagian Keuangan; user Unit langsung
 // dapat halaman rincian unitnya sendiri.
 // ── DOWNLOAD CSV — murni teks dari server (tanpa Drive/UrlFetch, jadi tidak
 // tergantung izin tambahan), bisa langsung dibuka di Excel/Google Sheets.
@@ -5432,7 +5453,7 @@ function cetakKonsolidasi(){
   });
   if(!adaDetail && !halaman1) halaman2 = '<p style="font-size:8.5pt;color:#000;">Tidak ada data untuk dicetak bulan ini.</p>';
 
-  // ── LAMPIRAN — rincian PENUH tiap kategori non-unit (Penarikan Cek, Admin,
+  // ── LAMPIRAN — rincian PENUH tiap kategori non-unit (Penarikan Cek, Bagian Keuangan,
   // Jasa Giro, Pajak, dst), baik ATAS maupun BAWAH, satu-satu per input.
   // Halaman terpisah di paling akhir, murni referensi/backup — angkanya SUDAH
   // termasuk di REKAP REKENING KORAN (halaman 1), TIDAK dihitung ulang di sini.
@@ -5460,10 +5481,10 @@ function cetakKonsolidasi(){
     }
   }
 
-  // Identitas Admin/Unit disisipkan ke judul dokumen -- ini yang dipakai
+  // Identitas Bagian Keuangan/Unit disisipkan ke judul dokumen -- ini yang dipakai
   // browser sebagai NAMA FILE DEFAULT saat "Save as PDF", supaya langsung
   // jelas dari namanya file itu punya siapa tanpa perlu buka isinya dulu.
-  var identitasCetak = STATE.role==='ADMIN' ? 'Admin' : (function(){
+  var identitasCetak = STATE.role==='ADMIN' ? 'DivisiKeuangan' : (function(){
     var namaUnit = (STATE.myUnits||[]).map(function(u){ return u.namaUnit; }).filter(Boolean);
     return namaUnit.length ? namaUnit.join('+').replace(/[\\/:*?"<>|]/g,'').replace(/\s+/g,'_') : 'Unit';
   })();
@@ -5509,9 +5530,9 @@ function loadUnitPos(){
     if(!res.success){ if(!_unitPosData) toast('error', res.message); return; }
     _unitPosData = res;
     // Ikut segarkan STATE.myPos/myUnits (dipakai dropdown Pos di dialog Edit
-    // Transaksi & form Input) -- KHUSUS Admin, karena utk Admin isinya
+    // Transaksi & form Input) -- KHUSUS Bagian Keuangan, karena utk Bagian Keuangan isinya
     // memang harus SAMA PERSIS dengan getUnitPosList ini (lihat getMyPos ->
-    // _aksesInfoUntukSesi di backend). Tanpa ini, kalau Admin baru saja
+    // _aksesInfoUntukSesi di backend). Tanpa ini, kalau Bagian Keuangan baru saja
     // tambah/ubah/hapus Unit/Pos di menu ini, dropdown Edit Transaksi bisa
     // menampilkan pilihan yang SUDAH BASI sampai logout-login ulang.
     if(STATE.role==='ADMIN'){
@@ -5524,9 +5545,9 @@ function loadUnitPos(){
     // PERBAIKAN BUG: halaman ini juga disegarkan diam-diam tiap 10 detik
     // (lihat refreshViewSilently) -- sebelumnya baris ini SELALU membangun
     // ulang <select> Unit di form "Tambah Pos" dari nol, sehingga Unit yang
-    // baru saja dipilih Admin (belum sempat klik Simpan) diam-diam ke-reset
+    // baru saja dipilih Bagian Keuangan (belum sempat klik Simpan) diam-diam ke-reset
     // balik ke pilihan pertama, berisiko Pos baru tersimpan di Unit yang
-    // SALAH kalau Admin tidak sadar. Simpan dulu Unit yang sedang dipilih,
+    // SALAH kalau Bagian Keuangan tidak sadar. Simpan dulu Unit yang sedang dipilih,
     // pasang lagi setelah dibangun ulang.
     var _elPsUnit = document.getElementById('ps-unit');
     var _psUnitDipilihSaatIni = _elPsUnit ? _elPsUnit.value : '';
@@ -5885,9 +5906,9 @@ function loadUserView(){
     // (lihat refreshViewSilently) -- sebelumnya baris di bawah SELALU
     // membangun ulang SELURUH checkbox Unit di form Tambah/Edit User dari
     // nol (checkbox baru = otomatis TIDAK tercentang), sehingga centang
-    // Unit yang baru saja dipilih Admin (baik utk user baru, ATAU habis
+    // Unit yang baru saja dipilih Bagian Keuangan (baik utk user baru, ATAU habis
     // klik "Edit" di user yang sudah ada -- lihat editUser()) diam-diam
-    // hilang tanpa peringatan apa pun sebelum sempat disimpan. Kalau Admin
+    // hilang tanpa peringatan apa pun sebelum sempat disimpan. Kalau Bagian Keuangan
     // tidak sadar & tetap klik Simpan, user itu bisa tersimpan TANPA akses
     // Unit sama sekali, atau dengan akses Unit yang salah -- risiko
     // keamanan/akses, bukan cuma gangguan tampilan. Sekarang: simpan dulu
@@ -5901,7 +5922,7 @@ function loadUserView(){
       document.querySelectorAll('.us-unit-chk').forEach(function(c){ c.checked = _unitTercentangSaatIni.indexOf(c.value) !== -1; });
     }
     document.getElementById('tbody-user').innerHTML = users.data.map(function(u){
-      return '<tr><td>'+u.username+'</td><td>'+u.nama+'</td><td>'+u.email+'</td><td>'+u.role+'</td><td>'+u.kodeUnit.join(', ')+'</td>'+
+      return '<tr><td>'+u.username+'</td><td>'+u.nama+'</td><td>'+u.email+'</td><td>'+_labelPeran(u.role)+'</td><td>'+u.kodeUnit.join(', ')+'</td>'+
         '<td>'+(u.aktif?'<span class="text-success">Aktif</span>':'<span class="text-danger">Nonaktif</span>')+'</td>'+
         '<td><button class="btn btn-sm btn-outline-secondary me-1" onclick=\'editUser('+JSON.stringify(u)+')\'><i class="fas fa-edit"></i></button>'+
         (u.username!=='admin' ? '<button class="btn btn-sm btn-outline-danger" onclick="hapusUser(\''+u.username+'\')"><i class="fas fa-trash"></i></button>' : '')+'</td></tr>';
@@ -5965,7 +5986,7 @@ function hapusUser(username){
 // sama sekali (SELALU dipaksa UNIT & Unit sendiri oleh backend) -- fitur
 // utamanya justru GANTI PASSWORD (baik akun sendiri maupun akun lain
 // sesama Unit), yang sebelumnya TIDAK PUNYA jalan sama sekali dari sisi
-// Unit (cuma bisa lewat Admin atau lupa-password/OTP email).
+// Unit (cuma bisa lewat Bagian Keuangan atau lupa-password/OTP email).
 // ============================================================
 // FITUR BARU -- Ketua LPPM: view ini SEKARANG dipakai bersama oleh role
 // UNIT & KETUA (lihat unit-ketua-only di HTML) -- dispatch ke RPC yg SESUAI
@@ -5976,8 +5997,8 @@ function loadUserUnitView(){
   showBar();
   var fnList = STATE.role==='KETUA' ? 'getUserListKetua' : 'getUserListUnit';
   document.getElementById('userunit-desc').textContent = STATE.role==='KETUA'
-    ? 'Ganti password akun Ketua LPPM (termasuk akun Anda sendiri). Menambah atau menghapus akun tetap wewenang Admin.'
-    : 'Ganti password akun-akun yang terhubung ke Unit Anda. Menambah atau menghapus akun tetap wewenang Admin.';
+    ? 'Ganti password akun Ketua LPPM (termasuk akun Anda sendiri). Menambah atau menghapus akun tetap wewenang Bagian Keuangan.'
+    : 'Ganti password akun-akun yang terhubung ke Unit Anda. Menambah atau menghapus akun tetap wewenang Bagian Keuangan.';
   gasCall(fnList, STATE.token).then(function(res){
     hideBar();
     if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat daftar user'); return; }
@@ -5989,7 +6010,7 @@ function loadUserUnitView(){
   }).catch(function(){ hideBar(); toast('error','Gagal memuat daftar user'); });
 }
 // Unit/Ketua LPPM HANYA bisa ganti password (tidak ada tambah/hapus akun --
-// itu tetap wewenang Admin lewat "Kelola User" pusat). Pakai dialog Swal
+// itu tetap wewenang Bagian Keuangan lewat "Kelola User" pusat). Pakai dialog Swal
 // sederhana (2 field: password baru + konfirmasi) bukan form terpisah,
 // karena ini satu-satunya aksi yang tersedia di sini.
 function gantiPasswordUserUnitKlik(username){
@@ -6034,7 +6055,7 @@ function loadLogUnitView(){
     hideBar();
     if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat log'); return; }
     document.getElementById('tbody-log-unit').innerHTML = res.data.map(function(l){
-      return '<tr><td>'+esc(l.waktu)+'</td><td>'+esc(l.username)+'</td><td>'+esc(l.aksi)+'</td><td>'+esc(l.detail||'')+'</td></tr>';
+      return '<tr><td>'+esc(l.waktu)+'</td><td>'+esc(l.username)+'</td><td>'+esc(_labelAksiLog(l.aksi))+'</td><td>'+esc(l.detail||'')+'</td></tr>';
     }).join('') || '<tr><td colspan="4" class="text-center text-muted">Belum ada log aktivitas</td></tr>';
   }).catch(function(err){ hideBar(); toast('error','Gagal memuat log: ' + (err && err.message ? err.message : 'coba lagi')); });
 }
@@ -6052,7 +6073,7 @@ function loadTahunView(){
 }
 // Daftar pengajuan siap-arsip (Selesai/Ditolak) + aksinya -- dipusatkan di
 // sini (menu Rollover), BUKAN tersebar sbg tombol per-baris di Daftar
-// Pengajuan, biar Admin fokus di 1 tempat khusus utk kerja beres-beres ini.
+// Pengajuan, biar Bagian Keuangan fokus di 1 tempat khusus utk kerja beres-beres ini.
 function rtMuatDaftarArsip(){
   var tbody = document.getElementById('rt-tbody-arsip');
   tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-1"></i>Memuat...</td></tr>';
@@ -6121,7 +6142,7 @@ function submitRollover(){
   var sudahAdaDiDaftar = STATE.daftarTahun.indexOf(tahun) !== -1;
   // PERBAIKAN: sebelumnya tombol ini LANGSUNG eksekusi tanpa konfirmasi sama
   // sekali -- padahal ini aksi penting (bikin spreadsheet baru & ganti TAHUN
-  // AKTIF untuk SEMUA orang yang pakai sistem). Kalau Admin salah ketik
+  // AKTIF untuk SEMUA orang yang pakai sistem). Kalau Bagian Keuangan salah ketik
   // tahun (mis. kepencet tahun lama), sebelumnya langsung jalan tanpa ada
   // kesempatan membatalkan. Sekarang wajib konfirmasi dulu, dengan
   // peringatan LEBIH TEGAS kalau tahunnya bukan tahun baru yang wajar
@@ -6331,7 +6352,7 @@ function submitSetup(e){
 // 1) Tarik semua baris transaksi bulan itu (unit + item non-unit).
 // 2) Baris bernominal >= ambang batas diusulkan otomatis jadi memo sendiri;
 //    sisanya digabung 1 memo per Pos/Kategori per arah (Debet/Kredit).
-// 3) Admin bisa ubah usulan (centang/hapus centang) sebelum cetak.
+// 3) Bagian Keuangan bisa ubah usulan (centang/hapus centang) sebelum cetak.
 // 4) Cetak: 1 halaman per Bukti Memorial, format sama seperti voucher
 //    memorial fisik (No., Tanggal, Keterangan, Jumlah+terbilang, kotak
 //    Debet/Kredit rekening, kolom tanda tangan), kop sama seperti cetakan lain.
@@ -6365,7 +6386,7 @@ function loadJurnalMemorial(){
   var bulan = document.getElementById('sel-bulan-memorial').value;
   if(!bulan) return;
   // FITUR BARU (atas permintaan): "Pilih Transaksi yang Dipisah Jadi Memo
-  // Sendiri" (checklist) itu murni alat KERJA Admin utk menyiapkan Jurnal
+  // Sendiri" (checklist) itu murni alat KERJA Bagian Keuangan utk menyiapkan Jurnal
   // Memorial (centangannya baru tersimpan permanen kalau nanti di-Kunci) --
   // BUKAN sesuatu yang perlu/boleh diutak-atik Ketua LPPM (murni oversight,
   // lihat catatan panjang di afterLogin soal admin-only/admin-ketua-only/
@@ -6477,7 +6498,7 @@ function _prosesDataMentahMemorial(rekap, tb, kategoriList, daftarUnitTerbaru, d
     // di sini, satu tempat, supaya konsisten rapi di semua tempat itu:
     // Pos (dikelompokkan per Unit sesuai urutan Unit di Kelola Unit & Pos,
     // lalu urutan Pos di dalam Unit itu) dulu, baru Item Non-Unit sesudahnya
-    // sesuai urutan Kategori yang sudah diatur Admin.
+    // sesuai urutan Kategori yang sudah diatur Bagian Keuangan.
     var idxUnit = {}; (daftarUnitTerbaru || STATE.myUnits || []).forEach(function(u,i){ idxUnit[u.kodeUnit]=i; });
     var idxPos = {}; posList.forEach(function(p,i){ idxPos[p.kodePos]=i; });
     var idxKat = {}; kategoriList.forEach(function(k,i){ idxKat[k.kodeKategori]=i; });
@@ -6516,7 +6537,7 @@ function _prosesDataMentahMemorial(rekap, tb, kategoriList, daftarUnitTerbaru, d
     var selaluPisahPos = {}; posList.forEach(function(p){ if(p.selaluPisahMemorial) selaluPisahPos[p.kodePos] = true; });
     // PERBAIKAN (atas permintaan): pemisahan OTOMATIS (Debet & Ambang Kredit)
     // HANYA berlaku untuk transaksi Unit (sumber==='pos') -- Item Non-Unit
-    // (Kategori, mis. Biaya Admin/Jasa Giro/Pajak Jasa Giro) SENGAJA SELALU
+    // (Kategori, mis. Biaya Bagian Keuangan/Jasa Giro/Pajak Jasa Giro) SENGAJA SELALU
     // diakumulasi jadi 1 memo per Kategori per bulan, TIDAK PERNAH otomatis
     // dipisah per transaksi, baik sisi Debet MAUPUN Kredit-nya, apapun
     // nominalnya. Sebelumnya "Debet selalu otomatis pisah" berlaku ke SEMUA
@@ -6647,6 +6668,13 @@ function _segarkanSemuaSetelahKunciBerubah(tahun, bulan){
   delete _lastFetchAt['dashboard_'+tahun]; // ringkasan Dashboard ikut menampilkan jumlah per status, aman ikut disegarkan
 }
 function kunciMemorial(){
+  // PENGAMAN TAMBAHAN (zero-mistake, lapis kedua): tombol ini SUDAH
+  // disembunyikan dari Ketua LPPM lewat class "admin-only" di HTML (lihat
+  // afterLogin), tapi fungsi INI SENDIRI juga dijaga langsung -- supaya
+  // walau tombolnya somehow kepencet/kelihatan (mis. gara-gara cache
+  // browser lama, bug CSS lain di masa depan, dsb), aksi mengunci TETAP
+  // mustahil dilakukan siapa pun selain Divisi Keuangan (role ADMIN).
+  if(STATE.role!=='ADMIN'){ toast('error','Mengunci Jurnal Memorial hanya bisa dilakukan Divisi Keuangan.'); return; }
   var memo = _bangunDaftarMemo();
   if(!memo.length){ toast('error','Tidak ada data untuk dikunci'); return; }
   var memoFinal = memo.map(function(m){ return Object.assign({}, m, { noMemorial: MEMORIAL_STATE.nomorMap[m.id] || '' }); });
@@ -6672,6 +6700,8 @@ function kunciMemorial(){
   });
 }
 function bukaKunciMemorial(){
+  // Sama seperti kunciMemorial() -- pengaman lapis kedua, lihat catatan di sana.
+  if(STATE.role!=='ADMIN'){ toast('error','Membuka kunci Jurnal Memorial hanya bisa dilakukan Divisi Keuangan.'); return; }
   Swal.fire({
     title:'Buka kunci Jurnal Memorial?', html:'<p class="small text-start text-danger">Data sesudah ini bisa berubah lagi. Tercatat siapa & kapan membuka kunci.</p>',
     icon:'warning', showCancelButton:true, confirmButtonText:'Buka Kunci', confirmButtonColor:'#dc2626',
@@ -7148,7 +7178,7 @@ function loadLaporanUnit(){
   }
   // FITUR BARU -- Ketua LPPM: diperlakukan SAMA spt ADMIN di sini (boleh
   // pilih & lihat laporan Unit MANAPUN) -- SEBELUMNYA cuma cek 'ADMIN'
-  // murni, Ketua (juga TIDAK punya Unit sendiri, sama spt Admin) jatuh ke
+  // murni, Ketua (juga TIDAK punya Unit sendiri, sama spt Bagian Keuangan) jatuh ke
   // cabang "else" yg mensyaratkan akun harus terhubung ke 1 Unit, sehingga
   // Ketua LPPM cuma melihat pesan "Akun Anda belum terhubung ke Unit
   // manapun" -- halaman ini jadi TIDAK BISA DIPAKAI sama sekali. Selector
@@ -7170,7 +7200,7 @@ function loadLaporanUnit(){
     loadLaporanUnitIsi(punyaSaya.kodeUnit);
   }
 }
-// Label nama Unit di judul halaman -- utk Admin, ikuti Unit yang SEDANG
+// Label nama Unit di judul halaman -- utk Bagian Keuangan, ikuti Unit yang SEDANG
 // dipilih di dropdown (bukan "dari SIMK" yang tidak informatif & terlihat
 // kurang rapi -- SIMK itu detail teknis di belakang layar, bukan sesuatu
 // yang perlu ditonjolkan ke pengguna).
@@ -7274,7 +7304,7 @@ function _renderLaporanUnitHtml(d, periodeLabel){
 function cetakLaporanUnit(){
   // FITUR BARU -- Ketua LPPM: SAMA spt ADMIN di sini (lihat catatan
   // lengkap di loadLaporanUnit) -- selector lu-pilih-unit sudah terisi &
-  // terlihat utk Ketua juga, jadi ambil nilainya SAMA seperti Admin.
+  // terlihat utk Ketua juga, jadi ambil nilainya SAMA seperti Bagian Keuangan.
   var kodeUnit = (STATE.role==='ADMIN' || STATE.role==='KETUA') ? document.getElementById('lu-pilih-unit').value : ((STATE.myUnits||[])[0]||{}).kodeUnit;
   var bulan = document.getElementById('lu-pilih-bulan').value;
   var key = STATE.tahunAktif + '_' + kodeUnit + '_' + (bulan||'semua');
@@ -7377,7 +7407,7 @@ function loadLogView(){
     hideBar();
     if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat log (respons kosong dari server, coba lagi)'); return; }
     document.getElementById('tbody-log').innerHTML = res.data.map(function(l){
-      return '<tr><td>'+_gcEsc(l.waktu)+'</td><td>'+_gcEsc(l.username)+'</td><td>'+_gcEsc(l.aksi)+'</td><td>'+_gcEsc(l.detail||'')+'</td></tr>';
+      return '<tr><td>'+_gcEsc(l.waktu)+'</td><td>'+_gcEsc(l.username)+'</td><td>'+_gcEsc(_labelAksiLog(l.aksi))+'</td><td>'+_gcEsc(l.detail||'')+'</td></tr>';
     }).join('') || '<tr><td colspan="4" class="text-center text-muted">Belum ada log aktivitas</td></tr>';
   }).catch(function(err){ hideBar(); console.error('getLogAktivitas error:', err); toast('error','Gagal memuat log: ' + (err && err.message ? err.message : 'coba lagi')); });
 }
@@ -7455,7 +7485,7 @@ var PD = {
   komponenTerbatasRealisasi:null // kalau diisi (array nama), dropdown Realisasi HANYA boleh pilih dari sini (akuntabel thd RAB) -- null = tidak dibatasi
 };
 // PERBAIKAN ALUR BESAR (atas permintaan): "Verifikasi Dokumen" (tugas
-// Admin: mengecek kesesuaian/kelengkapan) dan "Pencatatan Kasir" (tugas
+// Bagian Keuangan: mengecek kesesuaian/kelengkapan) dan "Pencatatan Kasir" (tugas
 // Kasir: mencatat No. Bukti Kas Masuk/Keluar -- BKM/BKK) SEKARANG jadi 2
 // tahap terpisah di stepper, bukan 1 tahap gabungan seperti sebelumnya --
 // supaya konsisten dgn pola yang sudah benar di Pencairan Dana awal
@@ -7540,13 +7570,13 @@ function pdSetKategori(kat){
   pdRenderDaftarTable();
 }
 // Detail arsip -- READ-ONLY, dipakai dari menu Rollover Tahun kalau
-// suatu saat Admin perlu cek isi arsip langsung (bukan lewat Daftar
+// suatu saat Bagian Keuangan perlu cek isi arsip langsung (bukan lewat Daftar
 // Pengajuan -- arsip sengaja TIDAK ada tampilan terpisah di sana, murni
 // urusan backend/performa, tidak terlihat beda sama sekali oleh user).
 var PD_KATEGORI_LABEL = { BARU:'Pengajuan Baru', PROSES:'Proses', SELESAI:'Selesai', SEMUA:'Semua' };
 var PD_KATEGORI_STATUS = {
   BARU:['DIAJUKAN','MENUNGGU_VERIFIKASI'],
-  // MENUNGGU_PENCATATAN ditambahkan di sini (dokumen sudah disetujui Admin,
+  // MENUNGGU_PENCATATAN ditambahkan di sini (dokumen sudah disetujui Bagian Keuangan,
   // tinggal menunggu Kasir mencatat BKM/BKK) -- konsisten dgn DISETUJUI/
   // DICAIRKAN yg sudah lebih dulu ada di kategori "Proses" ini.
   // MENUNGGU_APPROVAL_DEFISIT (FITUR BARU -- Ketua LPPM) ikut ditambahkan
@@ -7584,9 +7614,9 @@ function pdDaftarTersaring(){
     // Baru" JUGA mencakup MENUNGGU_APPROVAL_DEFISIT -- SEBAB Ketua tidak
     // punya akses ke tab "Proses" sama sekali (disembunyikan, lihat class
     // no-ketua di HTML), jadi kalau statusnya tetap dikategorikan "Proses"
-    // spt utk Admin/Unit, item defisit yang JUSTRU butuh keputusan Ketua
+    // spt utk Bagian Keuangan/Unit, item defisit yang JUSTRU butuh keputusan Ketua
     // itu akan HILANG dari SEMUA tab yang mereka bisa lihat. TIDAK
-    // mengubah PD_KATEGORI_STATUS global (Admin/Unit TETAP melihat defisit
+    // mengubah PD_KATEGORI_STATUS global (Bagian Keuangan/Unit TETAP melihat defisit
     // di tab "Proses" spt biasa) -- cuma ditambahkan LOKAL di sini KHUSUS
     // utk kategori BARU-nya Ketua saja.
     // PERBAIKAN BUG NYATA (dilaporkan langsung dgn screenshot: "di admin
@@ -7596,13 +7626,13 @@ function pdDaftarTersaring(){
     // Ketua tidak lihat item yg BUKAN wewenangnya (Tagihan/dst yg lagi
     // MENUNGGU_VERIFIKASI), TAPI ini SALAH INTERPRETASI: Ketua LPPM tetap
     // PERLU tahu ADA berapa pengajuan baru scr keseluruhan (utk kesadaran/
-    // oversight -- SAMA seperti yg Admin lihat), WALAUPUN dia tidak bisa
+    // oversight -- SAMA seperti yg Bagian Keuangan lihat), WALAUPUN dia tidak bisa
     // bertindak di semuanya (Tagihan/dll TETAP akan menampilkan "Sedang
-    // diproses oleh Admin" begitu dibuka, lihat pdRenderDetailKetua --
+    // diproses oleh Bagian Keuangan" begitu dibuka, lihat pdRenderDetailKetua --
     // ITU SUDAH BENAR, yang salah cuma daftar filternya). Sekarang
-    // DITAMBAHKAN ke daftar dasar (SAMA dgn Admin: DIAJUKAN +
+    // DITAMBAHKAN ke daftar dasar (SAMA dgn Bagian Keuangan: DIAJUKAN +
     // MENUNGGU_VERIFIKASI), BUKAN menggantikannya -- PLUS
-    // MENUNGGU_APPROVAL_DEFISIT (yg utk Admin masuk kategori "Proses",
+    // MENUNGGU_APPROVAL_DEFISIT (yg utk Bagian Keuangan masuk kategori "Proses",
     // TAPI utk Ketua LPPM tetap perlu tampil di "Pengajuan Baru" krn itu
     // yg PALING butuh keputusan Ketua segera).
     if(STATE.role==='KETUA' && PD.kategori==='BARU') daftarStatus = daftarStatus.concat(['MENUNGGU_APPROVAL_DEFISIT']);
@@ -7747,7 +7777,7 @@ function _pdTerapkanRingkasanDanDaftar(resRingkasan, resBadge, resDaftar){
 }
 // PERBAIKAN PERFORMA BESAR (Pengajuan Dana -- "simpan/verifikasi/dsb masih
 // lama"): SETIAP tombol aksi (Setujui/Tolak/Revisi/Cairkan/Kirim LPJ/
-// Verifikasi/Kirim Ulang, dst, baik sisi Admin maupun Unit) sebelumnya
+// Verifikasi/Kirim Ulang, dst, baik sisi Bagian Keuangan maupun Unit) sebelumnya
 // menembak 2 round-trip TERPISAH ke server tiap kali diklik -- 1) aksi itu
 // sendiri, 2) pdMuatRingkasanDanDaftar() menyusul SESUDAHNYA utk refresh
 // ringkasan+badge+daftar (yang itu sendiri sudah digabung jadi 1 batch,
@@ -7859,7 +7889,7 @@ function pdExportCsv(){
 // Cetak Daftar Pengajuan (yang SEDANG terlihat -- ikut tab kategori & filter
 // yg aktif) -- pakai KOP & warna hitam yang SAMA PERSIS dgn cetak lain di
 // modul ini (lihat pdKopHtml, dipakai juga di Lampiran LPJ/Tanda Terima).
-// PERBAIKAN PERFORMA (atas laporan "khusus Admin/LPPM gagal memuat"): peta
+// PERBAIKAN PERFORMA (atas laporan "khusus Bagian Keuangan/LPPM gagal memuat"): peta
 // dokumen (link Drive per pengajuan) SEBELUMNYA dibawa otomatis di SETIAP
 // baris getDaftarPengajuan -- padahal cuma dipakai di sini (Cetak Daftar),
 // bikin payload daftar utama membengkak percuma utk semua orang tiap kali
@@ -7944,7 +7974,7 @@ function pdLabelStatus(p){
     // LPJ asli (hardcopy) & isi Data Penyetor dulu (lihat isiDataPenyetorLpj
     // di Code.gs). Selama itu belum diisi, labelnya dibedakan supaya jelas
     // sedang menunggu SIAPA -- bukan "Menunggu Pencatatan Kas" yang
-    // menyiratkan giliran Admin, padahal masih menunggu Unit.
+    // menyiratkan giliran Bagian Keuangan, padahal masih menunggu Unit.
     if(p.jenis==='MUKA' && !p.namaPenyetor) return 'Menunggu Penyerahan LPJ';
   }
   return (PD_BADGE_STATUS[p && p.status] || ['badge-pd', p && p.status])[1];
@@ -8056,7 +8086,7 @@ function pdRenderDaftarTable(){
     // Detail-nya sendiri. Jenis lain (MUKA/SEKALIGUS/TAGIHAN) TIDAK
     // berubah -- totalDiajukan di situ memang sudah representasi nominal
     // pengajuannya, bukan pasangan pemasukan/pengeluaran seperti Laporan
-    // Unit. Berlaku SAMA baik dilihat oleh Unit maupun Admin, karena
+    // Unit. Berlaku SAMA baik dilihat oleh Unit maupun Bagian Keuangan, karena
     // keduanya memakai tabel & fungsi render yang SAMA PERSIS ini.
     var kolomNominal;
     if(p.jenis==='LAPORAN_UNIT' && !p.__isDraft){
@@ -8151,7 +8181,7 @@ function pdResetForm(){
   pdRenderTabelRab(); pdRenderTabelRealisasiForm(); pdRenderTabelLaporan('laporanPemasukan'); pdRenderTabelLaporan('laporanPengeluaran');
   pdRenderDropzone('pd-drop-surat', null); pdRenderDropzone('pd-drop-lpj-sekaligus', null); pdRenderDropzone('pd-drop-memo-tagihan', null); pdRenderDropzone('pd-drop-laporan', null);
 }
-// Isi dropdown "Ajukan atas nama Unit" (khusus Admin) di ke-4 panel form
+// Isi dropdown "Ajukan atas nama Unit" (khusus Bagian Keuangan) di ke-4 panel form
 // baru -- pola sama seperti pd-filter-unit yang sudah ada, dipisah supaya
 // tidak perlu ubah kode lama. Diisi SEKALI saja (cek options.length) --
 // daftar Unit jarang berubah dalam 1 sesi.
@@ -8364,7 +8394,7 @@ function pdRenderTabelRab(){
   if(!body) return;
   body.innerHTML = PD.rab.map(function(r,i){
     return '<tr><td><select class="form-select form-select-sm" onchange="pdUbahRab('+i+',\'namaKomponen\',this.value)">'+pdOpsiKomponen(r.namaKomponen)+'</select></td>'
-      + '<td><input class="form-control form-control-sm" value="'+esc(r.keterangan)+'" placeholder="mis. 2 orang x Rp 1.500.000" oninput="pdUbahRab('+i+',\'keterangan\',this.value)"></td>'
+      + '<td><textarea class="form-control form-control-sm" rows="1" placeholder="mis. 2 orang x Rp 1.500.000" oninput="pdUbahRab('+i+',\'keterangan\',this.value)">'+esc(r.keterangan)+'</textarea></td>'
       + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRab('+i+',\'nominal\',this.value)"></td>'
       + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisRab('+i+')"><i class="fas fa-trash"></i></button></td></tr>';
   }).join('');
@@ -8432,7 +8462,7 @@ function pdRenderTotalRealisasi(target){
 function pdBarisRealisasiHtml(target, r, i, prefix){
   var daftarTerbatas = (target==='realisasiEdit') ? PD.komponenTerbatasRealisasi : null;
   return '<tr><td><select class="form-select form-select-sm" onchange="pdUbahRealisasi(\''+target+'\','+i+',\'namaKomponen\',this.value)">'+pdOpsiKomponen(r.namaKomponen, daftarTerbatas)+'</select></td>'
-    + '<td><input class="form-control form-control-sm" value="'+esc(r.keterangan)+'" placeholder="Keterangan" oninput="pdUbahRealisasi(\''+target+'\','+i+',\'keterangan\',this.value)"></td>'
+    + '<td><textarea class="form-control form-control-sm" rows="1" placeholder="Keterangan" oninput="pdUbahRealisasi(\''+target+'\','+i+',\'keterangan\',this.value)">'+esc(r.keterangan)+'</textarea></td>'
     + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasi(\''+target+'\','+i+',\'nominal\',this.value)"></td>'
     + '<td><input class="form-control form-control-sm text-end" value="'+(r.pph21?fmtRp(r.pph21):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasi(\''+target+'\','+i+',\'pph21\',this.value)"></td>'
     + '<td><input class="form-control form-control-sm text-end" value="'+(r.pph23?fmtRp(r.pph23):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasi(\''+target+'\','+i+',\'pph23\',this.value)"></td>'
@@ -8608,7 +8638,7 @@ function pdGantiBulanLaporan(bulanBaru){
 function pdBarisLaporanHtml(target, r, i){
   var rentang = pdRentangTanggalLaporan();
   var kolomDasar = '<td><input type="date" class="form-control form-control-sm" value="'+(r.tanggal||'')+'" min="'+rentang.min+'" max="'+rentang.max+'" onchange="pdUbahLaporan(\''+target+'\','+i+',\'tanggal\',this.value)"></td>'
-    + '<td><input class="form-control form-control-sm" value="'+esc(r.keterangan)+'" placeholder="Keterangan" oninput="pdUbahLaporan(\''+target+'\','+i+',\'keterangan\',this.value)"></td>'
+    + '<td><textarea class="form-control form-control-sm" rows="1" placeholder="Keterangan" oninput="pdUbahLaporan(\''+target+'\','+i+',\'keterangan\',this.value)">'+esc(r.keterangan)+'</textarea></td>'
     + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahLaporan(\''+target+'\','+i+',\'nominal\',this.value)"></td>';
   // PERBAIKAN (atas permintaan "dibagian pengeluaran dan operasional
   // kolom PPh 21 dan PPh 23 serta no bukti juga"): kolom ini HANYA
@@ -8639,14 +8669,14 @@ function pdTabelLaporanReadonly(rows, tipe){
   if(tipe !== 'KELUAR'){
     return '<div class="table-responsive mb-2"><table class="table tbl mb-0">'
       + '<thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:20%">Nominal</th></tr></thead><tbody>'
-      + filtered.map(function(r){ return '<tr><td>'+(r.tanggal?new Date(r.tanggal).toLocaleDateString('id-ID'):'-')+'</td><td>'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td></tr>'; }).join('')
+      + filtered.map(function(r){ return '<tr><td>'+(r.tanggal?new Date(r.tanggal).toLocaleDateString('id-ID'):'-')+'</td><td style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td></tr>'; }).join('')
       + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(total)+'</td></tr></tfoot></table></div>';
   }
   var totalPph21 = filtered.reduce(function(s,r){ return s+(Number(r.pph21)||0); }, 0);
   var totalPph23 = filtered.reduce(function(s,r){ return s+(Number(r.pph23)||0); }, 0);
   return '<div class="table-responsive mb-2"><table class="table tbl mb-0">'
     + '<thead><tr><th style="width:14%">Tanggal</th><th style="width:34%">Keterangan</th><th class="text-end" style="width:14%">Nominal</th><th class="text-end" style="width:12%">PPh 21</th><th class="text-end" style="width:12%">PPh 23</th><th style="width:14%">No. Bukti</th></tr></thead><tbody>'
-    + filtered.map(function(r){ return '<tr><td>'+(r.tanggal?new Date(r.tanggal).toLocaleDateString('id-ID'):'-')+'</td><td>'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td><td class="text-end">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="text-end">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td>'+esc(r.noBukti)+'</td></tr>'; }).join('')
+    + filtered.map(function(r){ return '<tr><td>'+(r.tanggal?new Date(r.tanggal).toLocaleDateString('id-ID'):'-')+'</td><td style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td><td class="text-end">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="text-end">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td>'+esc(r.noBukti)+'</td></tr>'; }).join('')
     + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(total)+'</td><td class="text-end">Rp '+fmtRp(totalPph21)+'</td><td class="text-end">Rp '+fmtRp(totalPph23)+'</td><td></td></tr></tfoot></table></div>';
 }
 function pdTabelRealisasiReadonly(rows){
@@ -8654,7 +8684,7 @@ function pdTabelRealisasiReadonly(rows){
   rows.forEach(function(r){ totalNominal+=Number(r.nominal)||0; totalPph21+=Number(r.pph21)||0; totalPph23+=Number(r.pph23)||0; });
   return '<div class="table-responsive mb-2"><table class="table tbl mb-0">'
     + '<thead><tr><th>Komponen</th><th>Keterangan</th><th class="text-end">Nominal</th><th class="text-end">PPh 21</th><th class="text-end">PPh 23</th><th>No. Bukti</th></tr></thead><tbody>'
-    + rows.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td class="text-muted">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td><td class="text-end">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="text-end">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td class="text-muted">'+esc(r.noBukti)+'</td></tr>'; }).join('')
+    + rows.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td class="text-muted" style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td><td class="text-end">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="text-end">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td class="text-muted">'+esc(r.noBukti)+'</td></tr>'; }).join('')
     + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(totalNominal)+'</td><td class="text-end">Rp '+fmtRp(totalPph21)+'</td><td class="text-end">Rp '+fmtRp(totalPph23)+'</td><td></td></tr></tfoot>'
     + '</table></div>';
 }
@@ -8669,7 +8699,7 @@ function pdTabelRealisasiReadonly(rows){
 // memengaruhi perhitungan Total Realisasi/Selisih sama sekali (lihat
 // catatan poin 3 & 4 -- PPh adalah BAGIAN DI DALAM nominal yang sudah
 // dibelanjakan, bukan pengurang). Ditaruh di blok yang SAMA (tidak
-// dibedakan per-role), jadi otomatis terlihat baik oleh Admin maupun
+// dibedakan per-role), jadi otomatis terlihat baik oleh Bagian Keuangan maupun
 // Unit. Kembalikan string kosong kalau tidak ada PPh sama sekali (supaya
 // tidak menampilkan kotak kosong).
 function pdInfoPphHtml(realisasi, namaKegiatan){
@@ -8687,7 +8717,7 @@ function pdTabelRabReadonly(rows){
   var total = rows.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
   return '<div class="table-responsive"><table class="table tbl mb-0">'
     + '<thead><tr><th>Komponen Anggaran</th><th>Keterangan</th><th class="text-end">Nominal</th></tr></thead><tbody>'
-    + rows.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td class="text-muted">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td></tr>'; }).join('')
+    + rows.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td class="text-muted" style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td></tr>'; }).join('')
     + '</tbody><tfoot><tr><td colspan="2" class="text-end">Total Diajukan</td><td class="text-end">Rp '+fmtRp(total)+'</td></tr></tfoot></table></div>';
 }
 
@@ -8698,7 +8728,7 @@ function pdTabelRabReadonly(rows){
 // edit RAB dan Realisasi"). State (PD.rabAdminEdit/PD.realisasiAdminEdit)
 // & elemen tbody-nya SENGAJA TERPISAH SEPENUHNYA dari PD.rab/
 // PD.realisasiEdit yang dipakai form "Ajukan Baru" & alur revisi kirim-
-// ulang milik Unit -- supaya tombol Edit (Admin) di sini TIDAK PERNAH
+// ulang milik Unit -- supaya tombol Edit (Bagian Keuangan) di sini TIDAK PERNAH
 // bentrok/menimpa data yang sedang disiapkan di form lain manapun. Toggle
 // disembunyikan dulu (harus diklik "Edit RAB"/"Edit Realisasi" dulu) supaya
 // tidak mengganggu tampilan normal / tidak terpencet tidak sengaja. BEDA
@@ -8708,9 +8738,9 @@ function pdTabelRabReadonly(rows){
 // yang membatasi kapan boleh dipakai (lihat catatan di masing2 fungsi itu).
 // ============================================================
 function pdBlokEditRabAdmin(idPengajuan){
-  return '<div class="mt-2"><a href="javascript:void(0)" id="pd-editrab-link-'+idPengajuan+'" class="small" onclick="pdToggleEditRab(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit RAB (Admin)</a>'
+  return '<div class="mt-2"><a href="javascript:void(0)" id="pd-editrab-link-'+idPengajuan+'" class="small" onclick="pdToggleEditRab(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit RAB (Bagian Keuangan)</a>'
     + '<div id="pd-editrab-box-'+idPengajuan+'" class="d-none mt-2" style="background:#fef9f9;border:1px solid #f3d9d9;border-radius:8px;padding:10px;">'
-      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Admin (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Admin sendiri sudah tahu perbaikannya.</div>'
+      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Bagian Keuangan (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Bagian Keuangan sendiri sudah tahu perbaikannya.</div>'
       + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:32%">Nama Komponen</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-rab-admin"></tbody></table></div>'
       + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRabAdmin()"><i class="fas fa-plus me-1"></i>Baris</button>'
       + '<div class="text-end mb-2"><b>Total: </b><span id="pd-total-rab-admin">Rp 0</span></div>'
@@ -8742,7 +8772,7 @@ function pdRenderTabelRabAdmin(){
   if(!body) return;
   body.innerHTML = PD.rabAdminEdit.map(function(r,i){
     return '<tr><td><select class="form-select form-select-sm" onchange="pdUbahRabAdmin('+i+',\'namaKomponen\',this.value)">'+pdOpsiKomponen(r.namaKomponen)+'</select></td>'
-      + '<td><input class="form-control form-control-sm" value="'+esc(r.keterangan)+'" oninput="pdUbahRabAdmin('+i+',\'keterangan\',this.value)"></td>'
+      + '<td><textarea class="form-control form-control-sm" rows="1" oninput="pdUbahRabAdmin('+i+',\'keterangan\',this.value)">'+esc(r.keterangan)+'</textarea></td>'
       + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRabAdmin('+i+',\'nominal\',this.value)"></td>'
       + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisRabAdmin('+i+')"><i class="fas fa-trash"></i></button></td></tr>';
   }).join('');
@@ -8757,9 +8787,9 @@ function pdAksiSimpanEditRab(id, btn){
 }
 function pdBlokEditRealisasiAdmin(idPengajuan, statusSaatIni){
   var infoSelesai = (statusSaatIni==='SELESAI') ? '<div class="small mb-2" style="color:#9a3412;"><i class="fas fa-triangle-exclamation me-1"></i>Pengajuan ini sudah <b>Selesai</b> (bukti kas sudah dicatat) -- kalau nominalnya berubah cukup jauh, cek lagi No. Bukti Kas di bawah, apakah masih sesuai.</div>' : '';
-  return '<div class="mt-2"><a href="javascript:void(0)" id="pd-editrealisasi-link-'+idPengajuan+'" class="small" onclick="pdToggleEditRealisasi(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit Realisasi (Admin)</a>'
+  return '<div class="mt-2"><a href="javascript:void(0)" id="pd-editrealisasi-link-'+idPengajuan+'" class="small" onclick="pdToggleEditRealisasi(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit Realisasi (Bagian Keuangan)</a>'
     + '<div id="pd-editrealisasi-box-'+idPengajuan+'" class="d-none mt-2" style="background:#fef9f9;border:1px solid #f3d9d9;border-radius:8px;padding:10px;">'
-      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Admin (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Admin sendiri sudah tahu perbaikannya.</div>'
+      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Bagian Keuangan (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Bagian Keuangan sendiri sudah tahu perbaikannya.</div>'
       + infoSelesai
       + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-admin"></tbody></table></div>'
       + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRealisasiAdmin()"><i class="fas fa-plus me-1"></i>Baris</button>'
@@ -8793,7 +8823,7 @@ function pdRenderTabelRealisasiAdmin(){
   if(!body) return;
   body.innerHTML = PD.realisasiAdminEdit.map(function(r,i){
     return '<tr><td><select class="form-select form-select-sm" onchange="pdUbahRealisasiAdmin('+i+',\'namaKomponen\',this.value)">'+pdOpsiKomponen(r.namaKomponen, PD.komponenTerbatasRealisasiAdmin)+'</select></td>'
-      + '<td><input class="form-control form-control-sm" value="'+esc(r.keterangan)+'" oninput="pdUbahRealisasiAdmin('+i+',\'keterangan\',this.value)"></td>'
+      + '<td><textarea class="form-control form-control-sm" rows="1" oninput="pdUbahRealisasiAdmin('+i+',\'keterangan\',this.value)">'+esc(r.keterangan)+'</textarea></td>'
       + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasiAdmin('+i+',\'nominal\',this.value)"></td>'
       + '<td><input class="form-control form-control-sm text-end" value="'+(r.pph21?fmtRp(r.pph21):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasiAdmin('+i+',\'pph21\',this.value)"></td>'
       + '<td><input class="form-control form-control-sm text-end" value="'+(r.pph23?fmtRp(r.pph23):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRealisasiAdmin('+i+',\'pph23\',this.value)"></td>'
@@ -8814,9 +8844,9 @@ function pdAksiSimpanEditRealisasi(id, btn){
 // updateJudulPengajuan tapi mencakup beberapa field sekaligus.
 function pdBlokEditTagihanAdmin(idPengajuan, h){
   var infoSelesaiTg = (h.status==='SELESAI') ? '<div class="small mb-2" style="color:#9a3412;"><i class="fas fa-triangle-exclamation me-1"></i>Tagihan ini sudah <b>Selesai</b> (bukti kas sudah dicatat) -- kalau nominalnya berubah cukup jauh, cek lagi No. Bukti Kas Keluar di bawah, apakah masih sesuai.</div>' : '';
-  return '<div class="mt-2"><a href="javascript:void(0)" id="pd-edittagihan-link-'+idPengajuan+'" class="small" onclick="pdToggleEditTagihan(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit Tagihan (Admin)</a>'
+  return '<div class="mt-2"><a href="javascript:void(0)" id="pd-edittagihan-link-'+idPengajuan+'" class="small" onclick="pdToggleEditTagihan(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit Tagihan (Bagian Keuangan)</a>'
     + '<div id="pd-edittagihan-box-'+idPengajuan+'" class="d-none mt-2" style="background:#fef9f9;border:1px solid #f3d9d9;border-radius:8px;padding:10px;">'
-      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Admin (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Admin sendiri sudah tahu perbaikannya.</div>'
+      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Bagian Keuangan (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Bagian Keuangan sendiri sudah tahu perbaikannya.</div>'
       + infoSelesaiTg
       + '<div class="mb-2"><label class="form-label small mb-1">Nama Tagihan</label><input type="text" class="form-control form-control-sm" id="pd-judul-tagihan-admin-'+idPengajuan+'" value="'+esc(h.judul)+'"></div>'
       + '<div class="mb-2"><label class="form-label small mb-1">Dibayarkan Kepada</label><input type="text" class="form-control form-control-sm" id="pd-kepada-tagihan-admin-'+idPengajuan+'" value="'+esc(h.dibayarkanKepada)+'"></div>'
@@ -8846,9 +8876,9 @@ function pdAksiSimpanEditTagihan(id, btn){
 // field tipe/tanggal itu tidak hilang/tertimpa 0 kalau dipaksa pakai
 // fungsi yg sama dgn RAB/Realisasi MUKA & Penggantian Biaya.
 function pdBlokEditLaporanAdmin(idPengajuan){
-  return '<div class="mt-3"><a href="javascript:void(0)" id="pd-editlaporan-link-'+idPengajuan+'" class="small" onclick="pdToggleEditLaporan(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit Pemasukan/Pengeluaran (Admin)</a>'
+  return '<div class="mt-3"><a href="javascript:void(0)" id="pd-editlaporan-link-'+idPengajuan+'" class="small" onclick="pdToggleEditLaporan(\''+idPengajuan+'\')"><i class="fas fa-pen me-1"></i>Edit Pemasukan/Pengeluaran (Bagian Keuangan)</a>'
     + '<div id="pd-editlaporan-box-'+idPengajuan+'" class="d-none mt-2" style="background:#fef9f9;border:1px solid #f3d9d9;border-radius:8px;padding:10px;">'
-      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Admin (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Admin sendiri sudah tahu perbaikannya.</div>'
+      + '<div class="small text-muted mb-2">Perbaikan langsung oleh Bagian Keuangan (tanpa mengubah tahap alur kerja) -- dipakai kalau ada salah ketik/kekeliruan yang Bagian Keuangan sendiri sudah tahu perbaikannya.</div>'
       + '<div class="fw-bold small text-success mb-1"><i class="fas fa-circle-plus me-1"></i>Pemasukan</div>'
       + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:18%">Tanggal</th><th style="width:62%">Keterangan</th><th class="text-end" style="width:20%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-laporan-admin-masuk"></tbody></table></div>'
       + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisLaporan(\'laporanAdminMasuk\')"><i class="fas fa-plus me-1"></i>Baris</button>'
@@ -8982,10 +9012,10 @@ function pdCekSerupaLaluLanjut(judul, jenis, lanjutFn, btn){
     }
   }).catch(function(){ lanjutFn(); });
 }
-// Ambil Unit yang dipilih Admin di dropdown "Ajukan atas nama Unit" (kalau
-// diisi) -- dipakai supaya Admin bisa bantu upload pengajuan/tagihan yang
+// Ambil Unit yang dipilih Bagian Keuangan di dropdown "Ajukan atas nama Unit" (kalau
+// diisi) -- dipakai supaya Bagian Keuangan bisa bantu upload pengajuan/tagihan yang
 // masuk LANGSUNG ke LPPM (bukan lewat Unit), tanpa perlu akun Unit ybs.
-// Kosong/bukan Admin -> undefined (backend otomatis pakai Unit akun sendiri).
+// Kosong/bukan Bagian Keuangan -> undefined (backend otomatis pakai Unit akun sendiri).
 function pdKodeUnitAdminTerpilih(prefix){
   if(STATE.role!=='ADMIN') return undefined;
   var el = document.getElementById('pd-unit-admin-'+prefix);
@@ -9110,7 +9140,7 @@ function pdSubmitLaporanUnit(btn){
 // ============================================================
 // DETAIL -- mini-stepper (indikator posisi, mendatar, di paling atas) +
 // blok kartu (konten sebenarnya, disusun ke bawah sesuai urutan tahap).
-// Peran (Admin/Unit) diambil dari STATE.role SUNGGUHAN (bukan saklar
+// Peran (Bagian Keuangan/Unit) diambil dari STATE.role SUNGGUHAN (bukan saklar
 // manual) -- backend tetap validasi ulang semua hak akses, ini cuma UI.
 // ============================================================
 function pdBukaDetail(idPengajuan, btn){
@@ -9229,8 +9259,8 @@ function pdBlock(icon, judul, state, badgeHtml, bodyHtml){
 // Ketua LPPM sama sekali (Ketua cuma mengambil KEPUTUSAN persetujuan --
 // RAB/Verifikasi/Defisit -- bukan menangani uang fisik) -- SEBELUMNYA
 // Ketua tetap melihat card LENGKAP tahap2 ini (form/placeholder "menunggu
-// Admin...", sama seperti yg dilihat Unit), yang bikin tampilannya terasa
-// penuh & "seperti Admin" walau sebenarnya tidak bisa apa2 di situ.
+// Bagian Keuangan...", sama seperti yg dilihat Unit), yang bikin tampilannya terasa
+// penuh & "seperti Bagian Keuangan" walau sebenarnya tidak bisa apa2 di situ.
 // Dipakai KHUSUS utk tahap yg BUKAN sedang aktif butuh keputusan Ketua
 // (kalau SEDANG aktif -- mis. Approval Defisit -- tetap pakai pdBlock
 // biasa spt sekarang, TIDAK disederhanakan, krn itu justru YANG PALING
@@ -9394,15 +9424,15 @@ function pdRenderDetail(res){
   // PERBAIKAN BUG PENTING ("kalau Tunai jadi narik upload dari yang lain"):
   // PD.buktiBayarFile (bukti bayar Tagihan) & PD.buktiTransferSekaligus
   // (bukti transfer Penggantian Biaya) SEBELUMNYA cuma di-null-kan SEKALI
-  // waktu halaman pertama dimuat -- begitu Admin sempat memilih file di 1
+  // waktu halaman pertama dimuat -- begitu Bagian Keuangan sempat memilih file di 1
   // pengajuan (mis. upload bukti bayar utk pengajuan A), variabel itu TETAP
-  // terisi file itu selamanya di memori browser. Kalau Admin lalu membuka
+  // terisi file itu selamanya di memori browser. Kalau Bagian Keuangan lalu membuka
   // pengajuan LAIN (mis. pengajuan B, metode Tunai) dan langsung klik
   // "Selesai" TANPA mengunggah file baru khusus utk B, kode ini sebelumnya
   // tidak menyadari file itu bukan milik B -- akibatnya file bukti bayar
   // pengajuan A ikut "ketarik"/terpasang ke pengajuan B yang berbeda.
   // Sekarang di-reset TIAP KALI detail pengajuan mana pun dirender (dibuka
-  // baru ATAUPUN disegarkan sesudah aksi) -- jadi Admin WAJIB pilih file
+  // baru ATAUPUN disegarkan sesudah aksi) -- jadi Bagian Keuangan WAJIB pilih file
   // baru yang benar-benar khusus utk pengajuan yang sedang dibuka, tidak
   // bisa lagi kebawa dari pengajuan lain yang sempat dibuka sebelumnya.
   PD.buktiBayarFile = null;
@@ -9429,7 +9459,7 @@ function pdRenderDetail(res){
   // FITUR BARU (atas permintaan "cek dibuat simpel agar pimpinan tidak
   // bingung"): Ketua LPPM SELALU dialihkan ke tampilan super sederhana
   // (lihat pdRenderDetailKetua), TIDAK PERNAH melihat ministep/tahap
-  // lengkap milik Admin/Unit -- berlaku utk SEMUA jenis pengajuan (MUKA,
+  // lengkap milik Bagian Keuangan/Unit -- berlaku utk SEMUA jenis pengajuan (MUKA,
   // Penggantian Biaya, Tagihan, Laporan Unit), bukan cuma RAB.
   if(STATE.role==='KETUA') pdRenderDetailKetua(res);
   else if(h.jenis === 'MUKA') pdRenderDetailMuka(res);
@@ -9441,12 +9471,12 @@ function pdRenderDetail(res){
 // FITUR BARU (atas permintaan "cek dibuat simpel agar pimpinan tidak
 // bingung"): tampilan Detail KHUSUS Ketua LPPM -- GANTI TOTAL dari
 // pdRenderDetailMuka/Singkat/LaporanUnit yang lengkap 5-6 tahap (isinya
-// BANYAK proses administratif Admin/Bagian Keuangan yang TIDAK relevan
+// BANYAK proses administratif Bagian Keuangan yang TIDAK relevan
 // bagi Ketua). Ketua LPPM HANYA punya 2 keputusan di SELURUH sistem:
 // (1) Setujui/Revisi/Tolak RAB baru, (2) Setujui/Kembalikan Approval
 // Defisit -- SELAIN 2 momen itu, Ketua CUKUP tahu "sedang diproses" atau
 // "sudah selesai", TANPA rincian tahap mana yang sedang berjalan (itu
-// murni urusan Admin/Bagian Keuangan). TIDAK ADA ministep 5-6 tahap,
+// murni urusan Bagian Keuangan). TIDAK ADA ministep 5-6 tahap,
 // TIDAK ADA Riwayat Keputusan lengkap -- keduanya disembunyikan total di
 // sini supaya benar2 sederhana.
 function pdRenderDetailKetua(res){
@@ -9468,7 +9498,7 @@ function pdRenderDetailKetua(res){
   // punya konteks (Unit mana, nominal berapa) tanpa perlu buka tahap lain.
   // PERBAIKAN (atas permintaan "ga konsisten, cek 4 pengajuan"): label
   // "Total Diajukan"/"Total Realisasi" SEBELUMNYA generik utk SEMUA jenis
-  // -- padahal utk Laporan Unit istilah yang KONSISTEN dgn yg Admin/Unit
+  // -- padahal utk Laporan Unit istilah yang KONSISTEN dgn yg Bagian Keuangan/Unit
   // lihat di tempat lain adalah "Total Pemasukan"/"Total Pengeluaran"
   // (bukan "Diajukan"/"Realisasi" -- Laporan Unit tidak "mengajukan" dana
   // dari LPPM, itu laporan kas milik Unit sendiri).
@@ -9501,7 +9531,7 @@ function pdRenderDetailKetua(res){
     // RAB (atas permintaan "ketika defisit ketua bisa lihat RAB agar sesuai
     // konteks" -- tanpa RAB, Ketua tidak bisa menilai APAKAH kelebihan
     // realisasi itu wajar/masuk akal dibanding rencana awal). TETAP TANPA
-    // rincian proses Verifikasi LPJ/Dokumen (itu sudah diperiksa Admin,
+    // rincian proses Verifikasi LPJ/Dokumen (itu sudah diperiksa Bagian Keuangan,
     // bukan wewenang Ketua). --------
     var kekuranganKetua = Math.abs((Number(h.totalDiajukan)||0) - (Number(h.totalRealisasi)||0));
     if(h.jenis==='MUKA' && res.detail && res.detail.length){
@@ -9511,7 +9541,7 @@ function pdRenderDetailKetua(res){
         + '</div></div>';
     }
     // FITUR BARU (atas permintaan "apakah Ketua perlu melihat status LPJ
-    // sudah diverifikasi Admin sebagai konteks -- ya boleh ditambahkan"):
+    // sudah diverifikasi Bagian Keuangan sebagai konteks -- ya boleh ditambahkan"):
     // info PASIF saja (nama & tanggal verifikator), TANPA tombol/aksi apa
     // pun -- Ketua cuma perlu TAHU dokumennya sudah diperiksa lengkap
     // sebelum memutuskan defisitnya, TIDAK PERLU & TIDAK BISA membuka lagi
@@ -9528,7 +9558,7 @@ function pdRenderDetailKetua(res){
       + '<div class="section-title mb-2"><i class="fas fa-receipt"></i>RINCIAN REALISASI</div>';
     // PERBAIKAN BUG NYATA (dilaporkan langsung: "Dana Dicairkan/Total
     // Realisasi/Selisih belum ada di Ketua LPPM"): SEBELUMNYA kotak 3
-    // ringkasan berdampingan ini (SAMA PERSIS yang Admin/Unit lihat di
+    // ringkasan berdampingan ini (SAMA PERSIS yang Bagian Keuangan/Unit lihat di
     // Tahap 4/4 "done") TIDAK ikut disalin ke tampilan Ketua -- padahal
     // itu justru INFO PALING PENTING utk menilai defisit (bukan cuma lihat
     // tabel rincian per baris). Disalin PERSIS (termasuk kelas, pewarnaan
@@ -9567,7 +9597,7 @@ function pdRenderDetailKetua(res){
     // tidak membuat bingung pimpinan"): SEBELUMNYA cuma tulisan "ditolak"
     // TANPA alasan/catatan sama sekali -- Ketua tidak tahu KENAPA ditolak
     // (mis. RAB-nya sendiri yang ditolak Ketua, ATAU dokumen LPJ/Tagihan
-    // yang ditolak Admin belakangan) padahal itu justru info PALING
+    // yang ditolak Bagian Keuangan belakangan) padahal itu justru info PALING
     // penting di status terminal ini. DITOLAK adalah status FINAL (tidak
     // ada keputusan lain sesudahnya yang bisa menimpa) -- AMAN dibaca
     // LANGSUNG dari header, tidak perlu lewat Riwayat spt status lain yg
@@ -9577,16 +9607,16 @@ function pdRenderDetailKetua(res){
       + '</div></div>';
   } else {
     // DISETUJUI, DICAIRKAN, MENUNGGU_VERIFIKASI, MENUNGGU_PENCATATAN --
-    // murni proses administratif Admin/Bagian Keuangan, TIDAK ADA
+    // murni proses administratif Bagian Keuangan, TIDAK ADA
     // keputusan yang perlu Ketua ambil -- cukup 1 pesan pasif, TANPA
     // rincian tahap mana pun. PERLU_REVISI dibedakan (atas semangat SAMA
     // dgn perbaikan "alasan ditolak" -- jangan bikin bingung pimpinan):
     // itu sebenarnya sedang menunggu UNIT memperbaiki, BUKAN "diproses
-    // Admin" -- pesan generik yg SEBELUMNYA dipakai sedikit menyesatkan.
+    // Bagian Keuangan" -- pesan generik yg SEBELUMNYA dipakai sedikit menyesatkan.
     if(h.status==='PERLU_REVISI'){
       html += '<div class="pd-locked-note"><i class="fas fa-rotate-left"></i><div>Pengajuan ini sedang <b>menunggu Unit memperbaiki</b> & mengirim ulang, sesudah diminta revisi. Tidak ada tindakan yang perlu Anda ambil saat ini.</div></div>';
     } else {
-      html += '<div class="pd-locked-note"><i class="fas fa-hourglass-half"></i><div>Sedang diproses oleh Admin/Bagian Keuangan. Tidak ada tindakan yang perlu Anda ambil saat ini.</div></div>';
+      html += '<div class="pd-locked-note"><i class="fas fa-hourglass-half"></i><div>Sedang diproses oleh Bagian Keuangan. Tidak ada tindakan yang perlu Anda ambil saat ini.</div></div>';
     }
   }
 
@@ -9603,13 +9633,13 @@ function pdRenderDetailMuka(res){
   // tolakPermohonanDana/setujuiDefisitLpj) SUDAH menerima role ini juga
   // (lihat Code.gs), jadi tombolnya perlu ikut ditampilkan di sini. TIDAK
   // dipakai utk titik LAIN (Verifikasi LPJ, Kembalikan pasca-cair, Edit
-  // Admin, Cairkan Dana, Catat Kasir) -- itu TETAP Admin-only spt semula
+  // Bagian Keuangan, Cairkan Dana, Catat Kasir) -- itu TETAP Bagian Keuangan-only spt semula
   // (masih pakai isAdmin biasa), sesuai cakupan yang sudah disepakati.
   var isKetua = STATE.role==='KETUA';
   var canApproveRab = isAdmin || isKetua;
   var mapDasar = { DIAJUKAN:{t:2}, DISETUJUI:{t:3}, DICAIRKAN:{t:4}, MENUNGGU_VERIFIKASI:{t:5}, MENUNGGU_APPROVAL_DEFISIT:{t:6}, MENUNGGU_PENCATATAN:{t:6}, SELESAI:{t:7}, DITOLAK:{ditolak: h.tglDicairkan?5:2} };
   // PERLU_REVISI dipakai bersama utk 2 titik yang beda: kalau BELUM dicairkan
-  // = revisi tahap 1 (Pengajuan Dana, Admin belum ACC); kalau SUDAH dicairkan
+  // = revisi tahap 1 (Pengajuan Dana, Bagian Keuangan belum ACC); kalau SUDAH dicairkan
   // = revisi tahap 4 (Realisasi & LPJ). Dibedakan dari ada/tidaknya tglDicairkan.
   var map = (h.status==='PERLU_REVISI')
     ? (h.tglDicairkan ? {t:4, revisi:4} : {t:1, revisi:1})
@@ -9628,14 +9658,14 @@ function pdRenderDetailMuka(res){
     PD.rab = res.detail.length ? res.detail.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal}; }) : [{namaKomponen:'',keterangan:'',nominal:0}];
     PD.suratFile = null;
     html += pdBlock('fa-file-lines','1. Pengajuan Dana','revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
-      (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisiTerakhir.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
+      (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Bagian Keuangan · '+pdFmtWaktu(catatanRevisiTerakhir.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
       // FITUR BARU/PERBAIKAN BUG NYATA (Ketua LPPM): SEBELUMNYA cek di sini
-      // cuma "isAdmin" -- Ketua LPPM (bukan Admin) jatuh ke cabang ELSE yang
+      // cuma "isAdmin" -- Ketua LPPM (bukan Bagian Keuangan) jatuh ke cabang ELSE yang
       // ternyata FORM KIRIM ULANG RAB milik UNIT (bisa ubah komponen RAB &
       // unggah surat pengganti) -- Ketua bisa "menyamar" jadi Unit yang
       // mengirim ulang pengajuan, padahal Ketua cuma seharusnya approve,
       // BUKAN mengisi/mengirim data atas nama Unit. Sekarang Ketua JUGA
-      // masuk cabang "menunggu" (isAdmin||isKetua), SAMA spt Admin.
+      // masuk cabang "menunggu" (isAdmin||isKetua), SAMA spt Bagian Keuangan.
       + ((isAdmin||isKetua) ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit memperbaiki & mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki RAB &amp; surat, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:32%">Nama Komponen</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-rab-revisi"></tbody></table></div>'
@@ -9670,9 +9700,9 @@ function pdRenderDetailMuka(res){
         + '<button class="btn btn-sm" id="btn-setujui-'+h.idPengajuan+'" onclick="pdAksiSetujui(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
         + '<button class="btn btn-sm btn-outline-warning" id="btn-revisi-'+h.idPengajuan+'" onclick="pdAksiRevisi(\''+h.idPengajuan+'\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
         + '<button class="btn btn-sm btn-outline-danger" id="btn-tolak-'+h.idPengajuan+'" onclick="pdAksiTolak(\''+h.idPengajuan+'\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
-        : pdCatatanTunggu('Menunggu keputusan Ketua LPPM/Admin.'));
+        : pdCatatanTunggu('Menunggu keputusan Ketua LPPM/Bagian Keuangan.'));
   } else if(st(2)==='done'){
-    // PERBAIKAN (atas permintaan): SETELAH disetujui Admin, belum tentu
+    // PERBAIKAN (atas permintaan): SETELAH disetujui Bagian Keuangan, belum tentu
     // jelas langkah selanjutnya adalah AMBIL dana secara fisik ke Bagian
     // Keuangan (dana TIDAK otomatis ditransfer/dikirim) -- sebelumnya blok
     // ini cuma menampilkan "Disetujui oleh ..." tanpa info tindak lanjut
@@ -9683,7 +9713,7 @@ function pdRenderDetailMuka(res){
       ? '<div class="pd-locked-note" style="background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;margin-top:10px;"><i class="fas fa-sack-dollar"></i><div>Pengajuan sudah disetujui. Silakan lakukan pencairan dana di Bagian Keuangan dengan membawa <b>surat pengajuan asli (hardcopy)</b> sebagai syarat pencairan.</div></div>'
       : '';
     // FITUR BARU (atas permintaan "kembalikan ... sudah disetujui"): SELAMA
-    // dana BELUM dicairkan, Admin masih bisa menarik kembali RAB yang sudah
+    // dana BELUM dicairkan, Bagian Keuangan masih bisa menarik kembali RAB yang sudah
     // disetujui ini utk direvisi Unit (mis. Unit lapor RAB perlu diubah) --
     // begitu SUDAH dicairkan (st(3)==='done'), tombol ini TIDAK ditampilkan
     // lagi (lihat catatan di revisiPengajuan Code.gs -- uang sudah keluar
@@ -9708,17 +9738,17 @@ function pdRenderDetailMuka(res){
   // pdBlockRingkasKetua): tahap ini MURNI Bagian Keuangan mencairkan uang
   // fisik, BUKAN keputusan yang perlu dilihat Ketua secara detail.
   if(st(3)==='active'){
-    html += pdBlockRingkasKetua('fa-sack-dollar','3. Pencairan Dana','active','Menunggu Bagian Keuangan mencairkan dana.') || pdBlock('fa-sack-dollar','3. Pencairan Dana','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+    html += pdBlockRingkasKetua('fa-sack-dollar','3. Pencairan Dana','active','Menunggu Bagian Keuangan mencairkan dana.') || pdBlock('fa-sack-dollar','3. Pencairan Dana','active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
       isAdmin ? ('<div class="row g-2 align-items-end"><div class="col-auto"><label class="form-label small mb-1">Tanggal Dicairkan</label><input type="date" class="form-control form-control-sm" id="pd-tgl-cair-'+h.idPengajuan+'" value="'+new Date().toISOString().slice(0,10)+'"></div>'
         + '<div class="col-auto"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-cair-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="width:160px;"></div>'
         + '<div class="col-auto"><button class="btn btn-sm" id="btn-cairkan-'+h.idPengajuan+'" onclick="pdAksiCairkan(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-sack-dollar me-1"></i>Tandai Sudah Dicairkan</button></div></div>')
-        : pdCatatanTunggu('Sudah disetujui, menunggu Admin mencairkan dana.'));
+        : pdCatatanTunggu('Sudah disetujui, menunggu Bagian Keuangan mencairkan dana.'));
   } else if(st(3)==='done'){
     html += pdBlockRingkasKetua('fa-sack-dollar','3. Pencairan Dana','done','Dicairkan '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' &middot; Rp '+fmtRp(h.totalDiajukan)) || pdBlock('fa-sack-dollar','3. Pencairan Dana','done','<span class="badge-pd badge-pd-dicairkan">Dicairkan</span>',
       '<div class="fw-bold small" style="color:#1d4ed8;">Dicairkan '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+' \u00b7 Rp '+fmtRp(h.totalDiajukan)+'</div>'
       + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar));
   } else {
-    html += pdBlockRingkasKetua('fa-sack-dollar','3. Pencairan Dana','locked','Menunggu persetujuan RAB selesai diproses.') || pdBlock('fa-sack-dollar','3. Pencairan Dana','locked','', pdLockedBody('Menunggu persetujuan Admin.'));
+    html += pdBlockRingkasKetua('fa-sack-dollar','3. Pencairan Dana','locked','Menunggu persetujuan RAB selesai diproses.') || pdBlock('fa-sack-dollar','3. Pencairan Dana','locked','', pdLockedBody('Menunggu persetujuan Bagian Keuangan.'));
   }
 
   // Tahap 4 -- Realisasi & LPJ. Kalau PERLU_REVISI & SUDAH dicairkan = blok
@@ -9728,7 +9758,7 @@ function pdRenderDetailMuka(res){
     PD.lpjFileEdit = null;
     PD.komponenTerbatasRealisasi = res.detail.map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
-      (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisiTerakhir.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
+      (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Bagian Keuangan · '+pdFmtWaktu(catatanRevisiTerakhir.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
       // PERBAIKAN BUG NYATA (Ketua LPPM) -- SAMA persis dgn Tahap 1 di atas:
       // ini form kirim-ulang REALISASI/LPJ milik UNIT, BUKAN utk Ketua.
       + ((isAdmin||isKetua) ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
@@ -9748,12 +9778,12 @@ function pdRenderDetailMuka(res){
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','active', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
       // PERBAIKAN BUG NYATA (Ketua LPPM, dilaporkan langsung dari screenshot
       // "kok ketua bisa unggah realisasi"): SEBELUMNYA cek di sini cuma
-      // "isAdmin" -- Ketua (bukan Admin) jatuh ke cabang ELSE yang ternyata
+      // "isAdmin" -- Ketua (bukan Bagian Keuangan) jatuh ke cabang ELSE yang ternyata
       // FORM ISI REALISASI & UNGGAH LPJ milik UNIT sepenuhnya (Tambah
       // Komponen, Simpan Draft, upload PDF, Kirim LPJ) -- padahal Ketua
       // SAMA SEKALI TIDAK BOLEH mengisi/mengirim data pertanggungjawaban
       // atas nama Unit, itu murni tugas Unit. Sekarang Ketua JUGA masuk
-      // cabang "menunggu Unit", SAMA spt Admin.
+      // cabang "menunggu Unit", SAMA spt Bagian Keuangan.
       (isAdmin||isKetua) ? pdCatatanTunggu('Dana sudah dicairkan. Menunggu Unit mengisi realisasi & mengunggah LPJ.')
         : ('<p class="text-muted small mb-2">Pilihan komponen dibatasi hanya yang sudah dianggarkan di RAB (akuntabel) -- isi keterangan &amp; nominal sesuai bukti riil di lapangan.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
@@ -9796,7 +9826,7 @@ function pdRenderDetailMuka(res){
 
   // Tahap 5 -- Verifikasi DOKUMEN LPJ. PERBAIKAN (atas permintaan "cek
   // dibuat simpel ... verifikasi LPJ ada di admin"): DIKEMBALIKAN
-  // Admin-only murni (SEBELUMNYA sempat dibuka utk Ketua LPPM juga di
+  // Bagian Keuangan-only murni (SEBELUMNYA sempat dibuka utk Ketua LPPM juga di
   // perluasan singkat -- sudah direvert, KONSISTEN dgn backend
   // setujuiDokumenLpj yg sudah kembali _cekSesi(['ADMIN']) saja). Ketua
   // LPPM SEKARANG TIDAK PERNAH melihat kode ini sama sekali (selalu
@@ -9805,12 +9835,12 @@ function pdRenderDetailMuka(res){
   // SENGAJA TIDAK ada input No. Bukti Kas Masuk/Keluar di sini sama sekali
   // -- itu tugas Kasir di tahap 6 terpisah (lihat di bawah), SETELAH LPJ ini disetujui.
   if(st(5)==='active'){
-    html += pdBlock('fa-flag-checkered','5. Verifikasi LPJ','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+    html += pdBlock('fa-flag-checkered','5. Verifikasi LPJ','active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
       isAdmin ? ('<p class="small text-muted mb-2">Periksa realisasi & bukti LPJ di atas, lalu putuskan. Pencatatan No. Bukti Kas Masuk/Keluar dilakukan Kasir di tahap berikutnya, setelah LPJ ini disetujui.</p>'
         + '<textarea class="form-control form-control-sm mb-2" id="pd-catatan-verif-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi)"></textarea>'
         + '<button class="btn btn-sm" id="btn-verif-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLpj(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui LPJ</button> '
         + '<button class="btn btn-sm btn-outline-danger" id="btn-verif-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLpj(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button>')
-        : pdCatatanTunggu('LPJ sudah dikirim, menunggu diverifikasi Admin.'));
+        : pdCatatanTunggu('LPJ sudah dikirim, menunggu diverifikasi Bagian Keuangan.'));
   } else if(st(5)==='done'){
     var blokKembalikanLpj5 = isAdmin ? pdBlokKembalikan('pd-kembalikan-lpj5-'+h.idPengajuan, 'pdAksiKembalikanLpj', h.idPengajuan) : '';
     // PERBAIKAN BUG NYATA (dilaporkan: "saya setujui sebagai admin kok
@@ -9876,7 +9906,7 @@ function pdRenderDetailMuka(res){
         + (canApproveRab ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-defisit-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau dikembalikan untuk revisi)"></textarea>'
             + '<button class="btn btn-sm" id="btn-defisit-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui Defisit</button> '
             + '<button class="btn btn-sm btn-outline-warning" id="btn-defisit-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</button>')
-          : pdCatatanTunggu('Menunggu persetujuan Ketua LPPM/Admin atas kekurangan dana (defisit) ini.')));
+          : pdCatatanTunggu('Menunggu persetujuan Ketua LPPM/Bagian Keuangan atas kekurangan dana (defisit) ini.')));
     } else {
     // PERBAIKAN BUG NYATA (dilaporkan langsung: "akun unit belum dapat
     // info persetujuan defisitnya, ga konsisten"): SEBELUMNYA begitu
@@ -9896,7 +9926,7 @@ function pdRenderDetailMuka(res){
     // menunggu apa pun) -- supaya Nama Penyetor sudah termuat di Cetak
     // Lampiran LPJ SEBELUM diserahkan fisik. BKK/BKM (kalau ada
     // surplus/defisit) TIDAK LAGI tahap terpisah lebih awal -- sekarang
-    // dicatat Admin BERSAMAAN dgn tombol PALING AKHIR (Tandai Selesai),
+    // dicatat Bagian Keuangan BERSAMAAN dgn tombol PALING AKHIR (Tandai Selesai),
     // persis saat menerima LPJ fisik dari Unit -- SATU aksi, bukan dua
     // langkah terpisah lagi. Satu-satunya syarat tombol akhir itu: Data
     // Penyetor sudah diisi Unit (tandanya LPJ fisik sudah/segera diserahkan).
@@ -9947,13 +9977,13 @@ function pdRenderDetailMuka(res){
           + inputBuktiAkhir
           + '<button class="btn btn-sm" id="btn-kasir-lpj-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>'+tombolSelesaiTeks+'</button>';
       } else {
-        bagianPenutup = pdCatatanTunggu('Data Penyetor sudah tersimpan. Setelah dokumen fisik diterima Bagian Keuangan, Admin akan menandai pengajuan ini selesai.');
+        bagianPenutup = pdCatatanTunggu('Data Penyetor sudah tersimpan. Setelah dokumen fisik diterima, Bagian Keuangan akan menandai pengajuan ini selesai.');
       }
     } else {
       bagianPenutup = '';
     }
 
-    html += pdBlockRingkasKetua('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active','Menunggu Bagian Keuangan mencatat bukti kas.') || pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+    html += pdBlockRingkasKetua('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active','Menunggu Bagian Keuangan mencatat bukti kas.') || pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
       infoDefisitSelesai + bagianPenyetor + (bagianPenutup ? ('<hr class="my-3">' + bagianPenutup) : ''));
     }
   } else if(st(6)==='done'){
@@ -9972,7 +10002,7 @@ function pdRenderDetailMuka(res){
     // di admin"): percabangan role KETUA di sini SUDAH TIDAK PERNAH
     // terjadi lagi (Ketua LPPM SELALU dialihkan ke pdRenderDetailKetua
     // SEBELUM sampai sini sama sekali) -- disederhanakan lagi jadi HANYA
-    // versi Admin/Unit yang lengkap, dgn atribusi "disetujui/dicatat oleh"
+    // versi Bagian Keuangan/Unit yang lengkap, dgn atribusi "disetujui/dicatat oleh"
     // diambil dari Riwayat (BUKAN header yg bisa tertimpa keputusan lain --
     // lihat catatan lengkap di pdCariRiwayat).
     html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','done','<span class="badge-pd badge-pd-selesai">Selesai</span>',
@@ -9983,7 +10013,7 @@ function pdRenderDetailMuka(res){
       + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar (kekurangan dibayar)', h.noBuktiKasKeluarTambahan)
       + blokKembalikanLpj6);
   } else {
-    html += pdBlockRingkasKetua('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','locked','Menunggu LPJ disetujui.') || pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','locked','', pdLockedBody('Menunggu LPJ disetujui Admin.'));
+    html += pdBlockRingkasKetua('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','locked','Menunggu LPJ disetujui.') || pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','locked','', pdLockedBody('Menunggu LPJ disetujui Bagian Keuangan.'));
   }
 
   document.getElementById('pd-blocks').innerHTML = html;
@@ -10009,9 +10039,9 @@ function pdRenderDetailSingkat(res){
   var h = res.header; var isAdmin = STATE.role==='ADMIN';
   // FITUR BARU -- Ketua LPPM (DIPERLUAS atas permintaan "semua pengajuan
   // bisa di approve ketua LPPM, semuanya, admin lengkap"): SEBELUMNYA
-  // Tagihan/Penggantian Biaya SENGAJA dikecualikan (Admin-only) -- sekarang
+  // Tagihan/Penggantian Biaya SENGAJA dikecualikan (Bagian Keuangan-only) -- sekarang
   // Ketua LPPM JUGA bisa Setujui/Revisi/Tolak verifikasi dokumen kedua
-  // jenis ini, SAMA seperti RAB (MUKA) & Laporan Unit -- Admin TETAP bisa
+  // jenis ini, SAMA seperti RAB (MUKA) & Laporan Unit -- Bagian Keuangan TETAP bisa
   // juga (paralel, bukan digantikan). Form kirim-ulang milik UNIT di bawah
   // (isi ulang realisasi/tagihan sesudah revisi) TETAP TIDAK boleh diisi
   // Ketua LPPM -- itu murni tugas Unit, Ketua cuma mengambil KEPUTUSAN
@@ -10032,7 +10062,7 @@ function pdRenderDetailSingkat(res){
   var st = function(tahap){ if(map.ditolak) return tahap<map.ditolak?'done':(tahap===map.ditolak?'ditolak':'locked'); return tahap<map.t?'done':(tahap===map.t?'active':'locked'); };
 
   var judul1 = h.jenis==='TAGIHAN' ? '1. Pengajuan Tagihan' : '1. Pengajuan Penggantian Biaya';
-  // PERBAIKAN ALUR BESAR (atas permintaan): "Verifikasi Dokumen" (Admin) &
+  // PERBAIKAN ALUR BESAR (atas permintaan): "Verifikasi Dokumen" (Bagian Keuangan) &
   // "Pencatatan BKK/BKM"/"Verifikasi Transfer" SEKARANG 2 tahap TERPISAH,
   // bukan 1 tahap gabungan seperti sebelumnya.
   var judul2 = '2. Verifikasi Pengajuan';
@@ -10062,7 +10092,7 @@ function pdRenderDetailSingkat(res){
     // sekali, mulai dari 1 baris kosong.
     PD.rekeningTagihanEdit = (res.rekening && res.rekening.length) ? res.rekening.map(function(r){ return {namaPenerima:r.namaPenerima,noRekening:r.noRekening,namaBank:r.namaBank,nominal:r.nominal}; }) : [{namaPenerima:'',noRekening:'',namaBank:'',nominal:0}];
     html += pdBlock('fa-file-invoice-dollar', judul1, 'revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
-      (catatanRevisiTg ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisiTg.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTg.teks)+'</span></div></div>' : '')
+      (catatanRevisiTg ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Bagian Keuangan · '+pdFmtWaktu(catatanRevisiTg.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTg.teks)+'</span></div></div>' : '')
       // PERBAIKAN BUG NYATA (Ketua LPPM): form kirim-ulang Tagihan milik
       // UNIT -- SEBELUMNYA cuma cek "isAdmin", Ketua ikut jatuh ke cabang
       // FORM ini.
@@ -10094,7 +10124,7 @@ function pdRenderDetailSingkat(res){
     PD.lpjFileEdit = null;
     PD.komponenTerbatasRealisasi = null; // Penggantian Biaya tidak punya RAB -- tetap pakai daftar komponen lengkap
     html += pdBlock('fa-receipt', judul1, 'revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
-      (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisi.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
+      (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Bagian Keuangan · '+pdFmtWaktu(catatanRevisi.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
       // PERBAIKAN BUG NYATA (Ketua LPPM): form kirim-ulang Penggantian
       // Biaya milik UNIT -- SAMA persis dgn Tagihan di atas.
       + ((isAdmin||isKetua) ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
@@ -10136,7 +10166,7 @@ function pdRenderDetailSingkat(res){
     html += pdBlock(h.jenis==='TAGIHAN'?'fa-file-invoice-dollar':'fa-receipt', judul1, 'done', '', bodyTahap1);
   }
 
-  // Tahap 2 -- Verifikasi DOKUMEN (Admin, ACC/Revisi/Tolak). SENGAJA TIDAK
+  // Tahap 2 -- Verifikasi DOKUMEN (Bagian Keuangan, ACC/Revisi/Tolak). SENGAJA TIDAK
   // ada input bukti bayar/BKK sama sekali di sini -- itu tugas Kasir di
   // tahap 3 terpisah (lihat di bawah), SETELAH disetujui di sini.
   if(map.ditolak===2){
@@ -10146,19 +10176,19 @@ function pdRenderDetailSingkat(res){
   }
   if(st(2)==='active'){
     if(h.jenis==='TAGIHAN'){
-      html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+      html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
         isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-tagihan-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi/Tolak)"></textarea>'
           + '<button class="btn btn-sm" id="btn-tagihan-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenTagihan(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
           + '<button class="btn btn-sm btn-outline-danger" id="btn-tagihan-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenTagihan(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
           + '<button class="btn btn-sm btn-outline-secondary" id="btn-tagihan-tolak-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenTagihan(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
-          : pdCatatanTunggu('Menunggu Admin memverifikasi dokumen tagihan.'));
+          : pdCatatanTunggu('Menunggu Bagian Keuangan memverifikasi dokumen tagihan.'));
     } else {
-      html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+      html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
         isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-verif-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi/Tolak)"></textarea>'
           + '<button class="btn btn-sm" id="btn-sk-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenSekaligus(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
           + '<button class="btn btn-sm btn-outline-danger" id="btn-sk-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenSekaligus(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
           + '<button class="btn btn-sm btn-outline-secondary" id="btn-sk-tolak-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenSekaligus(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
-          : pdCatatanTunggu('Menunggu diverifikasi Admin.'));
+          : pdCatatanTunggu('Menunggu diverifikasi Bagian Keuangan.'));
     }
   } else if(st(2)==='done'){
     // PERBAIKAN (atas permintaan "pengajuan reimburse dan tagihan baik trf
@@ -10212,15 +10242,15 @@ function pdRenderDetailSingkat(res){
       // penyerta sudah diunggah sejak pengajuan, dan No. Bukti Kas Keluar
       // (nomor BKK fisik) di bawah sudah cukup jadi bukti resminya (sama
       // seperti Penggantian Biaya). Cuma wajib kalau Transfer.
-      var judulUnggahBukti = h.metodePembayaran==='TRANSFER' ? 'UNGGAH BUKTI TRANSFER (oleh Admin)' : 'UNGGAH BUKTI BAYAR (oleh Admin, opsional)';
+      var judulUnggahBukti = h.metodePembayaran==='TRANSFER' ? 'UNGGAH BUKTI TRANSFER (oleh Bagian Keuangan)' : 'UNGGAH BUKTI BAYAR (oleh Bagian Keuangan, opsional)';
       var placeholderUnggahBukti = h.metodePembayaran==='TRANSFER' ? 'Klik atau seret bukti transfer (PDF) ke sini' : 'Klik atau seret bukti bayar (PDF) ke sini -- boleh dilewati';
-      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
         isAdmin ? ('<p class="small text-muted mb-2">Tagihan sudah disetujui. Catat bukti pembayaran untuk menyelesaikan pengajuan ini.</p>'
           + '<div class="small fw-bold mb-1 text-muted">'+judulUnggahBukti+'</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-bukti-bayar" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-bayar\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">'+placeholderUnggahBukti+'</div><input type="file" id="pd-file-bukti-bayar" accept="application/pdf" class="d-none" data-drop-id="pd-drop-bukti-bayar" onchange="pdPilihFile(this,\'buktiBayarFile\')"></div>'
           + inputBuktiKasTagihan
           + '<button class="btn btn-sm" id="btn-tagihan-kasir-'+h.idPengajuan+'" onclick="pdAksiCatatKasirTagihan(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Catat & Tandai Sudah Dibayar</button>')
-          : pdCatatanTunggu('Tagihan sudah disetujui, menunggu Admin mencatat pembayaran.'));
+          : pdCatatanTunggu('Tagihan sudah disetujui, menunggu Bagian Keuangan mencatat pembayaran.'));
     } else {
       // Penggantian Biaya: kalau metode TRANSFER, ganti "No. Bukti Kas
       // Keluar" jadi unggah bukti transfer (menggantikan bukti kas manual,
@@ -10229,21 +10259,21 @@ function pdRenderDetailSingkat(res){
         ? ('<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI TRANSFER</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-bukti-transfer" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-transfer\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret bukti transfer (PDF/gambar) ke sini</div><input type="file" id="pd-file-bukti-transfer" accept="application/pdf,image/*" class="d-none" data-drop-id="pd-drop-bukti-transfer" onchange="pdPilihFile(this,\'buktiTransferSekaligus\')"></div>')
         : ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>');
-      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
         isAdmin ? ('<p class="small text-muted mb-2">Penggantian Biaya sudah disetujui. Catat bukti penggantian dana untuk menyelesaikan pengajuan ini.</p>'
           + inputBayarSekaligus
           + '<button class="btn btn-sm" id="btn-sk-kasir-'+h.idPengajuan+'" onclick="pdAksiCatatKasirSekaligus(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Catat & Ganti Dana</button>')
-          : pdCatatanTunggu('Sudah disetujui, menunggu Admin mencatat penggantian dana.'));
+          : pdCatatanTunggu('Sudah disetujui, menunggu Bagian Keuangan mencatat penggantian dana.'));
     }
   } else if(st(3)==='done'){
     // PERBAIKAN (atas permintaan): teks "done" ikut dibedakan sesuai
     // metode pembayaran juga -- Transfer bukan "kas" (konsisten dgn judul3
     // "Verifikasi Transfer" & label status "Menunggu Verifikasi Transfer").
-    var teksDicatat3 = h.metodePembayaran==='TRANSFER' ? 'Bukti transfer sudah diverifikasi oleh Admin.' : 'Bukti kas sudah dicatat oleh Admin.';
+    var teksDicatat3 = h.metodePembayaran==='TRANSFER' ? 'Bukti transfer sudah diverifikasi oleh Bagian Keuangan.' : 'Bukti kas sudah dicatat oleh Bagian Keuangan.';
     html += pdBlockRingkasKetua('fa-cash-register', judul3, 'done', teksDicatat3) || pdBlock('fa-cash-register', judul3, 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
       '<div class="fw-bold small" style="color:#166534;">'+teksDicatat3+'</div>');
   } else {
-    html += pdBlockRingkasKetua('fa-cash-register', judul3, 'locked', 'Menunggu dokumen disetujui.') || pdBlock('fa-cash-register', judul3, 'locked', '', pdLockedBody('Menunggu dokumen disetujui Admin.'));
+    html += pdBlockRingkasKetua('fa-cash-register', judul3, 'locked', 'Menunggu dokumen disetujui.') || pdBlock('fa-cash-register', judul3, 'locked', '', pdLockedBody('Menunggu dokumen disetujui Bagian Keuangan.'));
   }
 
   // Tahap 4 -- Selesai (ringkasan akhir)
@@ -10257,7 +10287,7 @@ function pdRenderDetailSingkat(res){
       } else {
       html += pdBlock('fa-flag-checkered', judul4, 'done', '<span class="badge-pd badge-pd-selesai">Selesai</span>',
         '<div class="fw-bold small mb-2" style="color:#166534;">'+ringkasTg4+'</div>'
-        + (buktiBayar ? ('<div class="small fw-bold mb-1 text-muted">BUKTI BAYAR (diunggah Admin)</div>'+pdFileChip(buktiBayar)) : '') // opsional utk Tunai -- kalau tidak diunggah, bagian ini disembunyikan saja (tidak nampilkan label tanpa isi)
+        + (buktiBayar ? ('<div class="small fw-bold mb-1 text-muted">BUKTI BAYAR (diunggah Bagian Keuangan)</div>'+pdFileChip(buktiBayar)) : '') // opsional utk Tunai -- kalau tidak diunggah, bagian ini disembunyikan saja (tidak nampilkan label tanpa isi)
         + pdBaristNoBuktiEdit('noBuktiKasKeluar','No. Bukti Kas Keluar', h.noBuktiKasKeluar)
         + blokKembalikanTg4);
       }
@@ -10289,7 +10319,7 @@ function pdRenderDetailSingkat(res){
 // "KEMBALIKAN UNTUK REVISI" -- FITUR BARU (atas permintaan "tidak ada fitur
 // kembalikan atau edit ketika sudah disetujui, di semua pengajuan" & "ada
 // kembalikan juga sudah disetujui tapi unit minta dikembalikan karena ada
-// perubahan"): tombol kecil (KHUSUS Admin) yang dipasang di tahap-tahap
+// perubahan"): tombol kecil (KHUSUS Bagian Keuangan) yang dipasang di tahap-tahap
 // yang SUDAH disetujui/selesai -- membuka textarea alasan (WAJIB diisi)
 // lalu konfirmasi, sebelum memanggil backend yang SAMA PERSIS dgn tombol
 // "Minta Revisi" di tahap verifikasi biasa (bedanya cuma status ASALNYA --
@@ -10355,7 +10385,7 @@ function pdAksiSetujui(id, btn){
   var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
   pdJalankanAksi('setujuiPermohonanDana', [id, catatan, STATE.token, _idemKey('setuju_muka', {id:id, catatan:catatan})], btn, 'Pengajuan disetujui');
 }
-// Admin minta REVISI di tahap Persetujuan awal -- tahap 1 (Pengajuan) akan
+// Bagian Keuangan minta REVISI di tahap Persetujuan awal -- tahap 1 (Pengajuan) akan
 // terbuka lagi utk Unit perbaiki & kirim ulang (menimpa, bukan menyimpan versi).
 function pdAksiRevisi(id, btn){
   var catatan = (document.getElementById('pd-catatan-setuju-'+id)||{}).value || '';
@@ -10383,7 +10413,7 @@ function pdAksiKirimUlang(id, btn){
   if(!rab.length){ toast('error','RAB minimal 1 komponen dengan nominal > 0'); return; }
   pdJalankanAksi('kirimUlangPengajuan', [id, {rab:rab, suratFile:PD.suratFile}, STATE.token], btn, 'Pengajuan dikirim ulang');
 }
-// Hapus pengajuan (khusus Admin) -- WAJIB konfirmasi dulu karena ireversibel
+// Hapus pengajuan (khusus Bagian Keuangan) -- WAJIB konfirmasi dulu karena ireversibel
 // (data di sheet aktif dihapus permanen; file yg sudah terunggah ke Drive
 // TIDAK ikut terhapus, cuma catatannya di sistem yang hilang).
 function pdAksiHapus(id, btn){
@@ -10415,7 +10445,7 @@ function pdAksiKirimLpj(id, btn){
     if(res) gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){});
   });
 }
-// TAHAP 1/2 (Admin): Verifikasi DOKUMEN LPJ (MUKA) atau Penggantian Biaya
+// TAHAP 1/2 (Bagian Keuangan): Verifikasi DOKUMEN LPJ (MUKA) atau Penggantian Biaya
 // (SEKALIGUS, lihat pdAksiSetujuiDokumenSekaligus di bawah -- fungsi sama
 // persis, cuma dipisah nama biar jelas per jenis). SENGAJA TIDAK ada input
 // No. Bukti Kas di sini -- itu tahap 2 (pdAksiCatatKasirLpj).
@@ -10426,7 +10456,7 @@ function pdAksiSetujuiDokumenLpj(id, keputusan, btn){
 }
 // FITUR BARU (atas permintaan, Unit): mengisi identitas orang yang
 // menyerahkan LPJ asli (hardcopy) ke Bagian Keuangan -- WAJIB diisi
-// sebelum Admin bisa menyelesaikan pengajuan (lihat pdAksiCatatKasirLpj &
+// sebelum Bagian Keuangan bisa menyelesaikan pengajuan (lihat pdAksiCatatKasirLpj &
 // catatKasirLpj di Code.gs).
 // PERBAIKAN BUG NYATA ("can't access property 0, hasil is null"): fungsi
 // ini sebelumnya lewat pdJalankanAksi -- yang menggabungkan aksi INI dgn 3
@@ -10461,7 +10491,7 @@ function pdAksiIsiDataPenyetorLpj(id, btn){
 // TAHAP AKHIR (ADMIN): mencatat No. Bukti Kas (kalau ada surplus/defisit)
 // SEKALIGUS menandai LPJ MUKA selesai, dalam 1 klik -- atas permintaan
 // TERBARU, BKK/BKM tidak lagi tahap terpisah lebih awal, sekarang
-// disatukan di sini, bersamaan saat Admin menerima LPJ fisik dari Unit.
+// disatukan di sini, bersamaan saat Bagian Keuangan menerima LPJ fisik dari Unit.
 function pdAksiCatatKasirLpj(id, btn){
   var noBukti = (document.getElementById('pd-bukti-kasir-'+id)||{}).value || '';
   if(document.getElementById('pd-bukti-kasir-'+id) && !noBukti){ toast('error','No. Bukti Kas wajib diisi'); return; }
@@ -10475,7 +10505,7 @@ function pdAksiKirimRevisiSekaligus(id, btn){
     if(res) gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){});
   });
 }
-// TAHAP 1/2 (Admin): Verifikasi DOKUMEN Penggantian Biaya. Fungsi backend
+// TAHAP 1/2 (Bagian Keuangan): Verifikasi DOKUMEN Penggantian Biaya. Fungsi backend
 // sama persis dgn LPJ MUKA (setujuiDokumenPenggantianBiaya cuma wrapper
 // tipis ke setujuiDokumenLpj) -- lihat catatan di pdAksiSetujuiDokumenLpj.
 function pdAksiSetujuiDokumenSekaligus(id, keputusan, btn){
@@ -10496,7 +10526,7 @@ function pdAksiCatatKasirSekaligus(id, btn){
   }
   pdJalankanAksi('catatKasirPenggantianBiaya', [id, noBukti, buktiTransferFile, STATE.token, _idemKey('kasir_sekaligus', {id:id, noBukti:noBukti, punyaFile:!!buktiTransferFile})], btn, 'Dana tercatat, pengajuan selesai');
 }
-// TAHAP 1/2 (Admin): Verifikasi DOKUMEN Tagihan. FITUR BARU (atas
+// TAHAP 1/2 (Bagian Keuangan): Verifikasi DOKUMEN Tagihan. FITUR BARU (atas
 // permintaan "pengajuan reimburse dan tagihan belum ada fitur revisi"):
 // SEKARANG ikut punya 'PERLU_REVISI', SAMA seperti Penggantian Biaya
 // (pdAksiSetujuiDokumenSekaligus) -- sebelumnya cuma Setuju/Tolak.
@@ -10590,7 +10620,7 @@ function pdRenderDetailLaporanUnit(res){
   var labelBulan = (BULAN_NAMA[Number(h.bulanLaporan)-1] || h.bulanLaporan) + ' ' + h.tahunAnggaran;
   // FITUR BARU -- Ketua LPPM (DIPERLUAS atas permintaan "semua pengajuan
   // bisa di approve ketua LPPM, semuanya"): Laporan Unit SEKARANG JUGA bisa
-  // diverifikasi Ketua LPPM (Setuju/Revisi/Tolak), Admin TETAP bisa juga
+  // diverifikasi Ketua LPPM (Setuju/Revisi/Tolak), Bagian Keuangan TETAP bisa juga
   // (paralel). Form kirim-ulang milik UNIT di bawah TETAP TIDAK boleh
   // diisi Ketua LPPM -- itu murni tugas Unit.
   var isKetua = STATE.role==='KETUA';
@@ -10640,7 +10670,7 @@ function pdRenderDetailLaporanUnit(res){
     if(!PD.laporanEditKeluar.length) PD.laporanEditKeluar = [{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.laporanEditBuktiFile = null;
     html += pdBlock('fa-store', '1. Laporan '+labelBulan, 'revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
-      (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisi.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
+      (catatanRevisi ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Bagian Keuangan · '+pdFmtWaktu(catatanRevisi.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisi.teks)+'</span></div></div>' : '')
       // PERBAIKAN BUG NYATA (Ketua LPPM): form kirim-ulang Laporan Unit
       // milik UNIT -- SAMA persis dgn RAB/LPJ MUKA & Tagihan/Penggantian
       // Biaya di atas.
@@ -10665,12 +10695,12 @@ function pdRenderDetailLaporanUnit(res){
     // terkirim, tampilan "done" ini CUMA menampilkan 2 tabel Pemasukan &
     // Pengeluaran terpisah -- selisihnya (Surplus/Defisit) TIDAK PERNAH
     // ditampilkan sampai tahap 4 "Selesai" di paling akhir. Akibatnya
-    // Admin (dan siapa pun yang buka Detail sebelum tahap akhir) cuma
+    // Bagian Keuangan (dan siapa pun yang buka Detail sebelum tahap akhir) cuma
     // lihat 2 total mentah, harus menghitung sendiri surplus/defisitnya --
     // padahal Unit yang MENGISI laporan ini sudah lebih dulu melihat kotak
     // Selisih yang sama persis (lihat pd-laporan-selisih-edit-box di form
     // isi/revisi). Sekarang kotak Selisih yang SAMA ditampilkan di sini
-    // juga -- konsisten utk Admin MAUPUN Unit, dari awal, bukan cuma di
+    // juga -- konsisten utk Bagian Keuangan MAUPUN Unit, dari awal, bukan cuma di
     // akhir setelah semuanya diproses.
     var selisihAwal = h.totalDiajukan - h.totalRealisasi;
     PD.laporanAdminAsli = res.realisasi;
@@ -10688,7 +10718,7 @@ function pdRenderDetailLaporanUnit(res){
       + pdKomentarThreadHtml(h.idPengajuan, res.komentar));
   }
 
-  // Tahap 2 -- Verifikasi DOKUMEN (Admin, ACC/Revisi/Tolak). SENGAJA TIDAK
+  // Tahap 2 -- Verifikasi DOKUMEN (Bagian Keuangan, ACC/Revisi/Tolak). SENGAJA TIDAK
   // ada input No. Bukti Kas Masuk/Keluar sama sekali di sini -- itu tugas
   // Kasir di tahap 3 terpisah (lihat di bawah), SETELAH disetujui di sini.
   if(map.ditolak===2){
@@ -10697,12 +10727,12 @@ function pdRenderDetailLaporanUnit(res){
     document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
   }
   if(st(2)==='active'){
-    html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+    html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
       isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-verif-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi/Tolak)"></textarea>'
         + '<button class="btn btn-sm" id="btn-lap-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLaporanUnit(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
         + '<button class="btn btn-sm btn-outline-danger" id="btn-lap-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLaporanUnit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
         + '<button class="btn btn-sm btn-outline-secondary" id="btn-lap-tolak-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLaporanUnit(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
-        : pdCatatanTunggu('Menunggu diverifikasi Admin.'));
+        : pdCatatanTunggu('Menunggu diverifikasi Bagian Keuangan.'));
   } else if(st(2)==='done'){
     var blokKembalikanLap2 = isAdmin ? pdBlokKembalikan('pd-kembalikan-lap2-'+h.idPengajuan, 'pdAksiKembalikanLaporan', h.idPengajuan) : '';
     // PERBAIKAN BUG NYATA -- SAMA persis dgn Tahap 2 MUKA (lihat catatan
@@ -10728,7 +10758,7 @@ function pdRenderDetailLaporanUnit(res){
     // MENUNGGU_APPROVAL_DEFISIT berbagi SLOT tahap yg SAMA (t:3) dgn
     // MENUNGGU_PENCATATAN (lihat map di atas) -- SAMA PERSIS pola dgn MUKA
     // (pdRenderDetailMuka tahap 6) supaya kasus TANPA defisit (mayoritas)
-    // TIDAK berubah SAMA SEKALI. Kartu Pencatatan Kasir TETAP Admin-only
+    // TIDAK berubah SAMA SEKALI. Kartu Pencatatan Kasir TETAP Bagian Keuangan-only
     // (Kasir mencatat, bukan Ketua) -- yang dibuka utk Ketua LPPM HANYA
     // keputusan approve/kembalikan defisitnya, SEBELUM sampai ke Kasir.
     if(h.status==='MENUNGGU_APPROVAL_DEFISIT'){
@@ -10738,7 +10768,7 @@ function pdRenderDetailLaporanUnit(res){
           + (canApproveRab ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-defisit-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau dikembalikan untuk revisi)"></textarea>'
               + '<button class="btn btn-sm" id="btn-defisit-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui Defisit</button> '
               + '<button class="btn btn-sm btn-outline-warning" id="btn-defisit-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</button>')
-            : pdCatatanTunggu('Menunggu persetujuan Ketua LPPM/Admin atas kekurangan dana (defisit) ini.')));
+            : pdCatatanTunggu('Menunggu persetujuan Ketua LPPM/Bagian Keuangan atas kekurangan dana (defisit) ini.')));
     } else {
     // PERBAIKAN BUG NYATA -- SAMA persis dgn MUKA (lihat catatan lengkap
     // di pdRenderDetailMuka tahap 6): info "siapa & kapan defisit ini
@@ -10753,11 +10783,11 @@ function pdRenderDetailLaporanUnit(res){
     } else {
     var inputBuktiMasuk = h.totalDiajukan>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk (Pemasukan Rp '+fmtRp(h.totalDiajukan)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-masuk-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>') : '';
     var inputBuktiKeluar = h.totalRealisasi>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar (Pengeluaran Rp '+fmtRp(h.totalRealisasi)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-keluar-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>') : '';
-    html += pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
+    html += pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
       infoDefisitLap + (isAdmin ? ('<p class="small text-muted mb-2">Laporan sudah disetujui. Catat No. Bukti Kas Masuk/Keluar untuk menyelesaikan pengajuan ini.</p>'
         + inputBuktiMasuk + inputBuktiKeluar
         + '<button class="btn btn-sm" id="btn-lap-kasir-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLaporanUnit(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Catat &amp; Selesaikan</button>')
-        : pdCatatanTunggu('Laporan sudah disetujui, menunggu Admin mencatat BKM/BKK.')));
+        : pdCatatanTunggu('Laporan sudah disetujui, menunggu Bagian Keuangan mencatat BKM/BKK.')));
     }
     }
   } else if(st(3)==='done'){
@@ -10765,10 +10795,10 @@ function pdRenderDetailLaporanUnit(res){
     var infoDefisitLapDone = riwayatDefisitLapDone
       ? ('<div class="pd-total-box ok mb-2"><div class="small text-muted"><i class="fas fa-scale-balanced me-1"></i>Kekurangan dana (defisit) sudah disetujui utk dibayar</div><div class="fw-bold small">oleh '+esc(riwayatDefisitLapDone.namaOleh)+' &middot; '+pdFmtWaktu(riwayatDefisitLapDone.waktu)+(riwayatDefisitLapDone.catatan?('<div class="fw-normal text-muted mt-1">'+esc(riwayatDefisitLapDone.catatan)+'</div>'):'')+'</div></div>')
       : '';
-    html += pdBlockRingkasKetua('fa-cash-register', '3. Pencatatan BKK/BKM', 'done', 'Bukti kas sudah dicatat oleh Admin.') || pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
-      infoDefisitLapDone + '<div class="fw-bold small" style="color:#166534;">Bukti kas sudah dicatat oleh Admin.</div>');
+    html += pdBlockRingkasKetua('fa-cash-register', '3. Pencatatan BKK/BKM', 'done', 'Bukti kas sudah dicatat oleh Bagian Keuangan.') || pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
+      infoDefisitLapDone + '<div class="fw-bold small" style="color:#166534;">Bukti kas sudah dicatat oleh Bagian Keuangan.</div>');
   } else {
-    html += pdBlockRingkasKetua('fa-cash-register', '3. Pencatatan BKK/BKM', 'locked', 'Menunggu dokumen disetujui.') || pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'locked', '', pdLockedBody('Menunggu dokumen disetujui Admin.'));
+    html += pdBlockRingkasKetua('fa-cash-register', '3. Pencatatan BKK/BKM', 'locked', 'Menunggu dokumen disetujui.') || pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'locked', '', pdLockedBody('Menunggu dokumen disetujui Bagian Keuangan.'));
   }
 
   // Tahap 4 -- Selesai
@@ -10790,7 +10820,7 @@ function pdRenderDetailLaporanUnit(res){
   // PERBAIKAN (atas permintaan "cetak tanda terima laporan muncul SETELAH
   // sudah selesai catat BKK/BKM"): SEBELUMNYA selalu false (tidak pernah
   // muncul tombol cetak apa pun utk Laporan Unit) -- sekarang true begitu
-  // status SELESAI (tahap 3 Pencatatan BKK/BKM sudah diproses Admin),
+  // status SELESAI (tahap 3 Pencatatan BKK/BKM sudah diproses Bagian Keuangan),
   // konsisten dgn pola SEKALIGUS/TAGIHAN (lihat pdRenderDetailSingkat).
   pdRenderTombolCetak(h, h.status==='SELESAI');
 }
@@ -10802,8 +10832,8 @@ function pdAksiKirimUlangLaporanUnit(id, btn){
     if(res) gasCall('hapusDraftPengajuan', 'lapedit_'+id, STATE.token).catch(function(){});
   });
 }
-// TAHAP 1/2 (Admin): Verifikasi DOKUMEN Laporan Unit. SENGAJA TIDAK ada
-// input No. Bukti Kas Masuk/Keluar di sini -- itu tahap 2 (Admin).
+// TAHAP 1/2 (Bagian Keuangan): Verifikasi DOKUMEN Laporan Unit. SENGAJA TIDAK ada
+// input No. Bukti Kas Masuk/Keluar di sini -- itu tahap 2 (Bagian Keuangan).
 function pdAksiSetujuiDokumenLaporanUnit(id, keputusan, btn){
   var catatan = (document.getElementById('pd-catatan-verif-'+id)||{}).value || '';
   if(keputusan!=='DISETUJUI' && !catatan){ toast('error','Catatan wajib diisi kalau Minta Revisi/Tolak'); return; }
@@ -10905,7 +10935,7 @@ function cetakLampiranLpj(){
   var body = pdKopHtml();
 
   if(h.jenis==='TAGIHAN'){
-    // Tagihan TIDAK punya RAB/Realisasi (Admin langsung bayar ke pihak
+    // Tagihan TIDAK punya RAB/Realisasi (Bagian Keuangan langsung bayar ke pihak
     // ketiga sesuai memo) -- jadi formatnya beda, BUKAN dipaksa masuk pola
     // surplus/defisit yang tidak relevan (itu bug yg dilaporkan: tagihan yg
     // sudah lunas dibayar malah tercetak seolah ada sisa "dikembalikan ke
@@ -10967,7 +10997,7 @@ function cetakLampiranLpj(){
       // Keterangan yang panjangnya beda-beda tiap baris, jadi kolom
       // Nominal ikut goyang tidak sejajar).
       + '<table class="pt-tbl"><colgroup><col style="width:85px"><col><col style="width:145px"></colgroup><thead><tr><th>Komponen Anggaran</th><th>Keterangan</th><th class="r">Nominal</th></tr></thead><tbody>'
-      + res.detail.map(function(d){ return '<tr><td>'+esc(d.namaKomponen)+'</td><td>'+esc(d.keterangan)+'</td><td class="r">Rp '+fmtRp(d.nominal)+'</td></tr>'; }).join('')
+      + res.detail.map(function(d){ return '<tr><td>'+esc(d.namaKomponen)+'</td><td style="white-space:pre-line;">'+esc(d.keterangan)+'</td><td class="r">Rp '+fmtRp(d.nominal)+'</td></tr>'; }).join('')
       + '</tbody><tfoot><tr><td colspan="2"><b>Total RAB</b></td><td class="r"><b>Rp '+fmtRp(h.totalDiajukan)+'</b></td></tr></tfoot></table>';
   }
   // PERBAIKAN (atas permintaan): kolom "No. Bukti" DIKEMBALIKAN -- ternyata
@@ -10992,7 +11022,7 @@ function cetakLampiranLpj(){
     // terpotong/meluber -- font tabel juga sudah dikecilkan sedikit (lihat
     // catatan di atas) supaya ada margin ruang ekstra.
     + '<table class="pt-tbl"><colgroup><col style="width:85px"><col><col style="width:145px"><col style="width:95px"><col style="width:95px"><col style="width:68px"></colgroup><thead><tr><th>Komponen</th><th>Keterangan</th><th class="r">Nominal</th><th class="r">PPh 21</th><th class="r">PPh 23</th><th class="nb">No. Bukti</th></tr></thead><tbody>'
-    + realisasi.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td>'+esc(r.keterangan)+'</td><td class="r">Rp '+fmtRp(r.nominal)+'</td><td class="r">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="r">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td class="nb">'+esc(r.noBukti)+'</td></tr>'; }).join('')
+    + realisasi.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="r">Rp '+fmtRp(r.nominal)+'</td><td class="r">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="r">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td class="nb">'+esc(r.noBukti)+'</td></tr>'; }).join('')
     + '</tbody><tfoot><tr><td colspan="2"><b>Total Realisasi</b></td><td class="r"><b>Rp '+fmtRp(totalRealisasi)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph21)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph23)+'</b></td><td></td></tr></tfoot></table>';
   body += '<div class="pt-sec">'+(res.detail&&res.detail.length?'C':'B')+'. Ringkasan</div>'
     + '<table class="pt-summary"><tr><td>Dana Dicairkan / Diajukan</td><td class="r">Rp '+fmtRp(h.totalDiajukan)+'</td></tr>'
@@ -11152,7 +11182,7 @@ function cetakTandaTerimaLpj(){
 // Tanda terima KHUSUS jenis LAPORAN_UNIT (Pemasukan/Pengeluaran usaha
 // bulanan) -- beda dari cetakTandaTerimaLpj() yang istilahnya utk jenis
 // MUKA (Dana Dicairkan/LPJ). Muncul setelah status SELESAI (BKK/BKM
-// sudah dicatat Admin) -- lihat pemanggilnya di
+// sudah dicatat Bagian Keuangan) -- lihat pemanggilnya di
 // pdRenderDetailLaporanUnit/pdRenderTombolCetak. Menampilkan
 // Surplus/Defisit & rincian PPh 21/23, dgn gaya/tata letak SAMA PERSIS
 // dgn cetak Tanda Terima LPJ (lewat _pdTandaTerimaCss/_pdTandaTerimaBody)
