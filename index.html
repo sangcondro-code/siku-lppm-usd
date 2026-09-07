@@ -7480,19 +7480,23 @@ function pdDaftarTersaring(){
     // mengubah PD_KATEGORI_STATUS global (Admin/Unit TETAP melihat defisit
     // di tab "Proses" spt biasa) -- cuma ditambahkan LOKAL di sini KHUSUS
     // utk kategori BARU-nya Ketua saja.
-    // FITUR BARU (atas permintaan "ketua hanya approval pengajuan, dan
-    // approval defisit saja ... ketika ada defisit muncul baru lalu di
-    // pengajuan baru approval defisit"): KHUSUS Ketua LPPM, tab "Pengajuan
-    // Baru" diganti TOTAL isinya jadi PERSIS 2 hal yang MEMANG jadi
-    // wewenangnya (DIAJUKAN utk Persetujuan RAB, MENUNGGU_APPROVAL_DEFISIT
-    // utk Approval Defisit) -- BUKAN ditambah ke daftar biasa, karena
-    // MENUNGGU_VERIFIKASI (verifikasi dokumen) SUDAH BUKAN wewenang Ketua
-    // lagi (verifikasi LPJ/Tagihan/Penggantian Biaya/Laporan Unit murni
-    // tugas Admin) -- kalau tetap ikut dihitung, Ketua akan melihat item
-    // yang TIDAK BISA dia apa-apakan tercampur di tab "Pengajuan Baru"
-    // miliknya, jadi tidak selaras dgn "cek dibuat simpel". TIDAK mengubah
-    // PD_KATEGORI_STATUS global (Admin/Unit TETAP seperti semula).
-    if(STATE.role==='KETUA' && PD.kategori==='BARU') daftarStatus = ['DIAJUKAN','MENUNGGU_APPROVAL_DEFISIT'];
+    // PERBAIKAN BUG NYATA (dilaporkan langsung dgn screenshot: "di admin
+    // ada 4 pengajuan, di ketua LPPM cuma 2, kan 4 pengajuan!!!"):
+    // SEBELUMNYA daftar status utk kategori BARU Ketua di-GANTI TOTAL jadi
+    // cuma ['DIAJUKAN','MENUNGGU_APPROVAL_DEFISIT'] -- niatnya supaya
+    // Ketua tidak lihat item yg BUKAN wewenangnya (Tagihan/dst yg lagi
+    // MENUNGGU_VERIFIKASI), TAPI ini SALAH INTERPRETASI: Ketua LPPM tetap
+    // PERLU tahu ADA berapa pengajuan baru scr keseluruhan (utk kesadaran/
+    // oversight -- SAMA seperti yg Admin lihat), WALAUPUN dia tidak bisa
+    // bertindak di semuanya (Tagihan/dll TETAP akan menampilkan "Sedang
+    // diproses oleh Admin" begitu dibuka, lihat pdRenderDetailKetua --
+    // ITU SUDAH BENAR, yang salah cuma daftar filternya). Sekarang
+    // DITAMBAHKAN ke daftar dasar (SAMA dgn Admin: DIAJUKAN +
+    // MENUNGGU_VERIFIKASI), BUKAN menggantikannya -- PLUS
+    // MENUNGGU_APPROVAL_DEFISIT (yg utk Admin masuk kategori "Proses",
+    // TAPI utk Ketua LPPM tetap perlu tampil di "Pengajuan Baru" krn itu
+    // yg PALING butuh keputusan Ketua segera).
+    if(STATE.role==='KETUA' && PD.kategori==='BARU') daftarStatus = daftarStatus.concat(['MENUNGGU_APPROVAL_DEFISIT']);
     hasil = hasil.filter(function(p){ return daftarStatus.indexOf(p.status)!==-1; });
   }
   // Draft "Ajukan Baru" HANYA muncul di tab "Pengajuan Baru" -- ditaruh
