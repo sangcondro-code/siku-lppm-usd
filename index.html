@@ -9370,13 +9370,31 @@ function pdRenderDetailKetua(res){
   } else if(h.status==='SELESAI'){
     html += '<div class="pd-locked-note" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;"><i class="fas fa-circle-check"></i><div>Pengajuan ini sudah <b>selesai</b> diproses.</div></div>';
   } else if(h.status==='DITOLAK'){
-    html += '<div class="pd-locked-note" style="background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;"><i class="fas fa-circle-xmark"></i><div>Pengajuan ini <b>ditolak</b>.</div></div>';
+    // PERBAIKAN (atas permintaan "kalau ditolak alasannya disertakan agar
+    // tidak membuat bingung pimpinan"): SEBELUMNYA cuma tulisan "ditolak"
+    // TANPA alasan/catatan sama sekali -- Ketua tidak tahu KENAPA ditolak
+    // (mis. RAB-nya sendiri yang ditolak Ketua, ATAU dokumen LPJ/Tagihan
+    // yang ditolak Admin belakangan) padahal itu justru info PALING
+    // penting di status terminal ini. DITOLAK adalah status FINAL (tidak
+    // ada keputusan lain sesudahnya yang bisa menimpa) -- AMAN dibaca
+    // LANGSUNG dari header, tidak perlu lewat Riwayat spt status lain yg
+    // masih bisa berlanjut (lihat catatan lengkap di pdCariRiwayat).
+    html += '<div class="pd-locked-note" style="background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;"><i class="fas fa-circle-xmark"></i><div>Pengajuan ini <b>ditolak</b> oleh '+esc(h.disetujuiOlehNama || h.disetujuiOleh)+'.'
+      + (h.catatanKeputusan ? ('<div class="mt-1">Alasan: '+esc(h.catatanKeputusan)+'</div>') : '<div class="mt-1 fst-italic">Tidak ada catatan alasan.</div>')
+      + '</div></div>';
   } else {
-    // DISETUJUI, DICAIRKAN, MENUNGGU_VERIFIKASI, MENUNGGU_PENCATATAN,
-    // PERLU_REVISI -- SEMUA status "di tengah" ini murni proses
-    // administratif Admin/Bagian Keuangan, TIDAK ADA keputusan yang perlu
-    // Ketua ambil -- cukup 1 pesan pasif, TANPA rincian tahap mana pun.
-    html += '<div class="pd-locked-note"><i class="fas fa-hourglass-half"></i><div>Sedang diproses oleh Admin/Bagian Keuangan. Tidak ada tindakan yang perlu Anda ambil saat ini.</div></div>';
+    // DISETUJUI, DICAIRKAN, MENUNGGU_VERIFIKASI, MENUNGGU_PENCATATAN --
+    // murni proses administratif Admin/Bagian Keuangan, TIDAK ADA
+    // keputusan yang perlu Ketua ambil -- cukup 1 pesan pasif, TANPA
+    // rincian tahap mana pun. PERLU_REVISI dibedakan (atas semangat SAMA
+    // dgn perbaikan "alasan ditolak" -- jangan bikin bingung pimpinan):
+    // itu sebenarnya sedang menunggu UNIT memperbaiki, BUKAN "diproses
+    // Admin" -- pesan generik yg SEBELUMNYA dipakai sedikit menyesatkan.
+    if(h.status==='PERLU_REVISI'){
+      html += '<div class="pd-locked-note"><i class="fas fa-rotate-left"></i><div>Pengajuan ini sedang <b>menunggu Unit memperbaiki</b> & mengirim ulang, sesudah diminta revisi. Tidak ada tindakan yang perlu Anda ambil saat ini.</div></div>';
+    } else {
+      html += '<div class="pd-locked-note"><i class="fas fa-hourglass-half"></i><div>Sedang diproses oleh Admin/Bagian Keuangan. Tidak ada tindakan yang perlu Anda ambil saat ini.</div></div>';
+    }
   }
 
   document.getElementById('pd-blocks').innerHTML = html;
