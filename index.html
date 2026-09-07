@@ -713,7 +713,7 @@
       <h5 class="page-title mb-3">Log Aktivitas</h5>
       <p class="text-muted small mb-3" id="logunit-desc">Riwayat aktivitas seluruh akun yang terhubung ke Unit Anda (login, pengajuan, dsb).</p>
       <div class="card"><div class="card-body">
-        <table class="table tbl mb-0"><thead><tr><th style="white-space:nowrap;width:150px;">Waktu</th><th style="width:130px;">Username</th><th style="width:110px;">Aksi</th><th>Detail</th></tr></thead><tbody id="tbody-log-unit"></tbody></table>
+        <div class="table-responsive"><table class="table tbl mb-0"><thead><tr><th style="white-space:nowrap;width:150px;">Waktu</th><th style="width:130px;">Username</th><th style="width:110px;">Aksi</th><th style="width:40%;">Detail</th></tr></thead><tbody id="tbody-log-unit"></tbody></table></div>
       </div></div>
     </div>
 
@@ -882,7 +882,7 @@
     <div id="view-log" class="view d-none">
       <h5 class="page-title mb-3">Log Aktivitas</h5>
       <div class="card"><div class="card-body">
-        <table class="table tbl mb-0"><thead><tr><th style="white-space:nowrap;width:150px;">Waktu</th><th style="width:130px;">Username</th><th style="width:170px;">Aksi</th><th>Detail</th></tr></thead><tbody id="tbody-log"></tbody></table>
+        <div class="table-responsive"><table class="table tbl mb-0"><thead><tr><th style="white-space:nowrap;width:150px;">Waktu</th><th style="width:130px;">Username</th><th style="width:170px;">Aksi</th><th style="width:40%;">Detail</th></tr></thead><tbody id="tbody-log"></tbody></table></div>
       </div></div>
     </div>
 
@@ -6059,7 +6059,7 @@ function loadLogUnitView(){
     hideBar();
     if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat log'); return; }
     document.getElementById('tbody-log-unit').innerHTML = res.data.map(function(l){
-      return '<tr><td style="white-space:nowrap;">'+esc(l.waktu)+'</td><td>'+esc(l.username)+'</td><td>'+esc(_labelAksiLog(l.aksi))+'</td><td>'+esc(l.detail||'')+'</td></tr>';
+      return '<tr><td style="white-space:nowrap;">'+esc(l.waktu)+'</td><td>'+esc(l.username)+'</td><td>'+esc(_labelAksiLog(l.aksi))+'</td><td style="word-break:break-word;">'+esc(l.detail||'')+'</td></tr>';
     }).join('') || '<tr><td colspan="4" class="text-center text-muted">Belum ada log aktivitas</td></tr>';
   }).catch(function(err){ hideBar(); toast('error','Gagal memuat log: ' + (err && err.message ? err.message : 'coba lagi')); });
 }
@@ -7411,7 +7411,7 @@ function loadLogView(){
     hideBar();
     if(!res || !res.success){ toast('error', (res && res.message) || 'Gagal memuat log (respons kosong dari server, coba lagi)'); return; }
     document.getElementById('tbody-log').innerHTML = res.data.map(function(l){
-      return '<tr><td style="white-space:nowrap;">'+_gcEsc(l.waktu)+'</td><td>'+_gcEsc(l.username)+'</td><td>'+_gcEsc(_labelAksiLog(l.aksi))+'</td><td>'+_gcEsc(l.detail||'')+'</td></tr>';
+      return '<tr><td style="white-space:nowrap;">'+_gcEsc(l.waktu)+'</td><td>'+_gcEsc(l.username)+'</td><td>'+_gcEsc(_labelAksiLog(l.aksi))+'</td><td style="word-break:break-word;">'+_gcEsc(l.detail||'')+'</td></tr>';
     }).join('') || '<tr><td colspan="4" class="text-center text-muted">Belum ada log aktivitas</td></tr>';
   }).catch(function(err){ hideBar(); console.error('getLogAktivitas error:', err); toast('error','Gagal memuat log: ' + (err && err.message ? err.message : 'coba lagi')); });
 }
