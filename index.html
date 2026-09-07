@@ -824,6 +824,7 @@
       <div class="card"><div class="card-body">
         <div class="section-title mb-2"><i class="fas fa-arrows-split-up-and-left"></i>Pos yang Selalu Dipisah Otomatis di Jurnal Memorial</div>
         <p class="text-muted small mb-2">Pos yang DICENTANG di bawah: SEMUA transaksinya (berapa pun nominal, Debet maupun Kredit) otomatis dicentang jadi memo sendiri-sendiri di Jurnal Memorial, tidak digabung dan tidak menunggu Ambang Rp — cocok untuk Pos semacam "Bunga Deposito", atau kalau Anda mau satu Unit tertentu (mis. LPPM) selalu terpisah, tinggal centang semua Pos di unit itu. Di luar ini, transaksi Kredit tetap ikut aturan Ambang Rp di halaman Jurnal Memorial, dan transaksi Debet selalu otomatis terpisah apa pun nominalnya.</p>
+        <p class="text-muted small mb-0"><i class="fas fa-circle-info me-1"></i>Pengaturan ini hanya berlaku sebagai <b>default awal</b>: begitu sebuah bulan di Jurnal Memorial pertama kali dibuka/diproses, hasil pilihan pisah/gabungnya langsung "ditetapkan" jadi milik bulan itu sendiri. Mengubah pengaturan ini di kemudian hari <b>tidak</b> akan mengubah bulan-bulan yang sudah pernah dibuka sebelumnya (baik yang sudah dikunci maupun belum) — hanya berlaku untuk bulan yang benar-benar baru dibuka pertama kalinya setelah perubahan ini. Jadi tiap bulan bisa punya hasil yang berbeda-beda sesuai kebutuhannya masing-masing.</p>
         <div id="daftar-selalu-pisah-memorial"></div>
       </div></div>
     </div>
@@ -6335,7 +6336,7 @@ function submitSetup(e){
 //    memorial fisik (No., Tanggal, Keterangan, Jumlah+terbilang, kotak
 //    Debet/Kredit rekening, kolom tanda tangan), kop sama seperti cetakan lain.
 // ============================================================
-var MEMORIAL_STATE = { rawRows:[], pisahIds:{}, nomorMap:{}, nomorMapTersimpan:{}, editModeNomor:false, rekeningByPos:{}, rekeningByKategori:{}, rekeningKasBank:'', locked:false, lockInfo:null, frozenMemo:[] };
+var MEMORIAL_STATE = { rawRows:[], pisahIds:{}, pisahDraft:null, nomorMap:{}, nomorMapTersimpan:{}, editModeNomor:false, rekeningByPos:{}, rekeningByKategori:{}, rekeningKasBank:'', locked:false, lockInfo:null, frozenMemo:[] };
 var MEMORIAL_TAMBAHAN_STATE = { list:[], locked:false };
 
 function initMemorialView(){
@@ -6416,6 +6417,13 @@ function _terapkanDataMemorial(hasil){
   MEMORIAL_STATE.nomorMap = Object.assign({}, statusRes.nomorDraft || {});
   MEMORIAL_STATE.nomorMapTersimpan = Object.assign({}, statusRes.nomorDraft || {});
   MEMORIAL_STATE.editModeNomor = false;
+  // FITUR: snapshot pilihan "Pisah/Gabung" milik bulan ini sendiri (lihat
+  // catatan panjang di _prosesDataMentahMemorial & simpanPisahMemorialDraft
+  // di Code.gs) -- null berarti bulan ini BELUM pernah punya snapshot
+  // (baru akan dihitung dari default & langsung disimpan begitu diproses
+  // di bawah); kalau sudah ada (walau isinya kosong), snapshot itu yang
+  // dihormati, bukan dihitung ulang dari pengaturan global saat ini.
+  MEMORIAL_STATE.pisahDraft = statusRes.pisahDraft || null;
   if(statusRes.locked){
     MEMORIAL_STATE.frozenMemo = statusRes.memoData || [];
     renderMemorialLockBanner();
@@ -6506,7 +6514,6 @@ function _prosesDataMentahMemorial(rekap, tb, kategoriList, daftarUnitTerbaru, d
     // transaksinya (apa pun sisi & nominalnya) otomatis dipisah, melewati
     // aturan Debet/Ambang di bawah.
     var selaluPisahPos = {}; posList.forEach(function(p){ if(p.selaluPisahMemorial) selaluPisahPos[p.kodePos] = true; });
-    MEMORIAL_STATE.pisahIds = {};
     // PERBAIKAN (atas permintaan): pemisahan OTOMATIS (Debet & Ambang Kredit)
     // HANYA berlaku untuk transaksi Unit (sumber==='pos') -- Item Non-Unit
     // (Kategori, mis. Biaya Admin/Jasa Giro/Pajak Jasa Giro) SENGAJA SELALU
@@ -6519,16 +6526,87 @@ function _prosesDataMentahMemorial(rekap, tb, kategoriList, daftarUnitTerbaru, d
     // Unit: (1) Debet Unit -- selalu pisah apa pun nominalnya, (2) Kredit
     // Unit yang lewat Ambang Rp. "Selalu Pisah Otomatis" (per-Pos, diatur
     // di Pengaturan) tetap seperti semula -- itu juga sudah khusus Unit saja.
-    rows.forEach(function(r){
-      if(r.sumber !== 'pos'){ return; } // Item Non-Unit: tidak pernah diusulkan pisah otomatis, tetap akumulasi
-      var wajibPisah = selaluPisahPos[r.kode];
-      var debetOtomatis = r.debet > 0;
-      var lewatAmbangKredit = ambang > 0 && r.kredit >= ambang;
-      if(wajibPisah || debetOtomatis || lewatAmbangKredit) MEMORIAL_STATE.pisahIds[r.id] = true;
-    });
+    var _hitungPisahDariDefault = function(){
+      var hasil = {};
+      rows.forEach(function(r){
+        if(r.sumber !== 'pos'){ return; } // Item Non-Unit: tidak pernah diusulkan pisah otomatis, tetap akumulasi
+        var wajibPisah = selaluPisahPos[r.kode];
+        var debetOtomatis = r.debet > 0;
+        var lewatAmbangKredit = ambang > 0 && r.kredit >= ambang;
+        if(wajibPisah || debetOtomatis || lewatAmbangKredit) hasil[r.id] = true;
+      });
+      return hasil;
+    };
+    // FITUR (atas permintaan): "Pos yang Selalu Dipisah Otomatis" (di
+    // Pengaturan) berikut aturan Debet/Ambang di atas itu cuma DIPAKAI
+    // SEKALI, sebagai DEFAULT AWAL, SAAT BULAN INI PERTAMA KALI dibuka
+    // (belum pernah punya snapshot tersimpan -- MEMORIAL_STATE.pisahDraft
+    // null). Begitu dihitung, hasilnya langsung disimpan jadi milik bulan
+    // itu sendiri (lihat _simpanPisahMemorialDraftDiamDiam di bawah).
+    // Lain kali bulan ini dibuka lagi -- SEBELUM dikunci sekalipun, dan
+    // walau pengaturan default sudah diubah lagi utk keperluan bulan lain
+    // -- checklist dibaca dari snapshot bulan ITU, bukan dihitung ulang
+    // dari pengaturan yang sudah berubah. Jadi bulan yang beda bisa punya
+    // hasil yang beda, dan bulan yang sudah "ditetapkan" tidak ikut
+    // berubah gara-gara pengaturan global disunting utk bulan lain.
+    // Transaksi BARU yang muncul SESUDAH snapshot terakhir disimpan (mis.
+    // baru diinput/diverifikasi setelah itu) belum pernah "dikenal" oleh
+    // snapshot lama, jadi tetap dihitung dari default/aturan SAAT INI --
+    // supaya tidak ada transaksi yang diam-diam tanpa status apa pun.
+    if(MEMORIAL_STATE.pisahDraft){
+      var _draftLama = MEMORIAL_STATE.pisahDraft;
+      var _pisahLama = _draftLama.pisah || {};
+      var _dikenalLama = {}; (_draftLama.dikenal || []).forEach(function(id){ _dikenalLama[id] = true; });
+      var _defaultBaru = _hitungPisahDariDefault();
+      var _gabungan = {};
+      rows.forEach(function(r){
+        if(r.sumber !== 'pos'){ return; }
+        if(_dikenalLama[r.id]){
+          if(_pisahLama[r.id]) _gabungan[r.id] = true; // sudah pernah ditetapkan (dicentang/tidak) -- dihormati apa adanya, tidak dihitung ulang
+        } else if(_defaultBaru[r.id]){
+          _gabungan[r.id] = true; // transaksi baru, belum pernah "dikenal" snapshot -- pakai default/aturan saat ini
+        }
+      });
+      MEMORIAL_STATE.pisahIds = _gabungan;
+    } else {
+      MEMORIAL_STATE.pisahIds = _hitungPisahDariDefault();
+      // Snapshot PERTAMA kali bulan ini dibuka -- simpan sbg baseline milik
+      // bulan ini sendiri (diam-diam, hanya kalau ADMIN -- lihat
+      // _simpanPisahMemorialDraftDiamDiam; KETUA murni lihat, tidak berhak
+      // menulis, dan tidak perlu ditampilkan error apa pun kalau dilewati).
+      _simpanPisahMemorialDraftDiamDiam();
+    }
 
     renderMemorialChecklist();
     renderMemorialList();
+}
+// Simpan snapshot pilihan "Pisah/Gabung" checklist bulan ini ke server
+// (kolom PisahDraftJSON, lihat simpanPisahMemorialDraft di Code.gs) --
+// dipakai supaya pilihan bulan ini TIDAK ikut berubah kalau pengaturan
+// "Pos Selalu Dipisah Otomatis" diubah nanti utk keperluan bulan lain
+// (lihat catatan panjang di _prosesDataMentahMemorial). Disimpan sbg
+// { pisah:{...id yg dicentang}, dikenal:[...SEMUA id transaksi Unit yang
+// sudah dipertimbangkan saat ini} } -- "dikenal" penting supaya transaksi
+// yang sudah pernah ditetapkan TIDAK DICENTANG bisa dibedakan dari
+// transaksi yang genuinely baru/belum pernah dilihat sama sekali.
+var _pisahDraftSaveTimer = null;
+function _simpanPisahMemorialDraftSekarang(){
+  if(STATE.role !== 'ADMIN' || MEMORIAL_STATE.locked) return; // KETUA read-only, jangan pernah menulis; terkunci juga jangan (backend akan tolak)
+  var bulan = document.getElementById('sel-bulan-memorial').value;
+  if(!bulan) return;
+  var payload = {
+    pisah: Object.assign({}, MEMORIAL_STATE.pisahIds || {}),
+    dikenal: (MEMORIAL_STATE.rawRows || []).filter(function(r){ return r.sumber === 'pos'; }).map(function(r){ return r.id; })
+  };
+  gasCall('simpanPisahMemorialDraft', STATE.tahunAktif, bulan, payload, STATE.token).then(function(res){
+    if(res && res.success) MEMORIAL_STATE.pisahDraft = payload; // sinkronkan salinan lokal supaya konsisten kalau dibaca lagi tanpa reload
+  }).catch(function(){ /* gagal simpan draft BUKAN error fatal -- state tetap benar di memori browser, "Kunci" nanti tetap memakainya, dan toggle berikutnya akan mencoba menyimpan lagi */ });
+}
+function _simpanPisahMemorialDraftDiamDiam(){
+  // debounce ringan -- kalau beberapa toggle terjadi beruntun (atau baru
+  // saja menghitung default awal), cukup 1x panggilan ke server.
+  if(_pisahDraftSaveTimer) clearTimeout(_pisahDraftSaveTimer);
+  _pisahDraftSaveTimer = setTimeout(_simpanPisahMemorialDraftSekarang, 500);
 }
 
 function renderMemorialLockBanner(){
@@ -6578,6 +6656,13 @@ function kunciMemorial(){
     var ambang = angkaKeAngka(document.getElementById('mem-ambang').value) || 0;
     var btn = document.getElementById('btn-kunci-memorial');
     btnBusy(btn, true);
+    // PENTING (zero-mistake): batalkan debounce yg mungkin masih menunggu,
+    // lalu simpan snapshot pilihan pemisahan SEKARANG JUGA (bukan menunggu
+    // debounce 500ms) SEBELUM benar2 mengunci -- supaya kolom PisahDraftJSON
+    // dijamin persis sinkron dgn memoFinal yg dikunci, tidak ada jendela
+    // race condition sekecil apa pun antara toggle terakhir & klik Kunci.
+    if(_pisahDraftSaveTimer){ clearTimeout(_pisahDraftSaveTimer); _pisahDraftSaveTimer = null; }
+    _simpanPisahMemorialDraftSekarang();
     gasCall('kunciJurnalMemorial', STATE.tahunAktif, bulan, memoFinal, ambang, STATE.token).then(function(res){
       btnBusy(btn, false);
       if(!res.success){ toast('error', res.message); return; }
@@ -6612,6 +6697,12 @@ function toggleMemoSplit(id){
   if(MEMORIAL_STATE.pisahIds[id]) delete MEMORIAL_STATE.pisahIds[id]; else MEMORIAL_STATE.pisahIds[id] = true;
   renderMemorialChecklist();
   renderMemorialList();
+  // FITUR: setiap sunting manual langsung disimpan sbg bagian dari
+  // snapshot bulan ini (debounced) -- supaya keputusan ini permanen milik
+  // bulan ini sendiri, tidak akan tertimpa lagi oleh perubahan pengaturan
+  // "Pos Selalu Dipisah Otomatis" di kemudian hari (lihat
+  // _simpanPisahMemorialDraftDiamDiam).
+  _simpanPisahMemorialDraftDiamDiam();
 }
 function setNoMemorial(id, val){ MEMORIAL_STATE.nomorMap[id] = val; }
 
@@ -6659,8 +6750,18 @@ function _bangunDaftarMemo(){
   MEMORIAL_STATE.rawRows.forEach(function(r){
     var rekPos = rekeningDari(r);
     if(MEMORIAL_STATE.pisahIds[r.id]){
-      if(r.kredit > 0) memo.push({ id:r.id+'_k', tanggal:r.tanggal, keterangan:r.keterangan, jumlah:r.kredit, debetRek:rekBank, kreditRek:rekPos });
-      if(r.debet > 0) memo.push({ id:r.id+'_d', tanggal:r.tanggal, keterangan:r.keterangan, jumlah:r.debet, debetRek:rekPos, kreditRek:rekBank });
+      // PERBAIKAN (atas permintaan): Bukti Memorial itu jurnal PENYESUAIAN,
+      // bukan jurnal transaksi harian -- konvensi akuntansinya, TANGGAL yang
+      // dicatat/dicetak SELALU tanggal akhir periode (akhir bulan), BUKAN
+      // tanggal transaksi asli yang mendasarinya (itu tanggal transaksi asli
+      // tetap tercatat & terlihat apa adanya di Rekap/Rekening Koran/
+      // Verifikasi -- di sini murni soal tanggal yang tercetak di Bukti
+      // Memorial). Sebelumnya baris "pisah" (dipisah jadi memo sendiri)
+      // masih pakai r.tanggal (tanggal transaksi asli) -- TIDAK KONSISTEN
+      // dgn baris agregat di bawah yg sudah benar pakai akhirBln. Sekarang
+      // KEDUANYA (pisah maupun agregat) SAMA, selalu akhirBln.
+      if(r.kredit > 0) memo.push({ id:r.id+'_k', tanggal:akhirBln, keterangan:r.keterangan, jumlah:r.kredit, debetRek:rekBank, kreditRek:rekPos });
+      if(r.debet > 0) memo.push({ id:r.id+'_d', tanggal:akhirBln, keterangan:r.keterangan, jumlah:r.debet, debetRek:rekPos, kreditRek:rekBank });
       return;
     }
     if(r.kredit > 0){
