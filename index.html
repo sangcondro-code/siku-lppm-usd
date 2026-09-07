@@ -689,7 +689,7 @@
           <div class="col-6 col-md-2"><input class="form-control form-control-sm" id="us-nama" placeholder="Nama"></div>
           <div class="col-6 col-md-2"><input class="form-control form-control-sm" id="us-email" placeholder="Email" type="email"></div>
           <div class="col-6 col-md-2"><input class="form-control form-control-sm" id="us-password" placeholder="Password (kosongkan jika tidak ganti)" type="password"></div>
-          <div class="col-6 col-md-2"><select class="form-select form-select-sm" id="us-role" onchange="onRoleUserChange()"><option value="UNIT">UNIT</option><option value="ADMIN">DIVISI KEUANGAN</option><option value="KETUA">KETUA LPPM</option></select></div>
+          <div class="col-6 col-md-2"><select class="form-select form-select-sm" id="us-role" onchange="onRoleUserChange()"><option value="UNIT">UNIT</option><option value="ADMIN">ADMIN</option><option value="KETUA">KETUA LPPM</option></select></div>
           <div class="col-6 col-md-2"><button class="btn btn-sm w-100" style="background:var(--maroon);color:white;">Simpan</button></div>
           <div class="col-12" id="us-unit-wrap"><label class="form-label small mb-1">Unit yang diurus (bisa lebih dari satu)</label><div id="us-unit-checks" class="d-flex flex-wrap gap-2"></div></div>
         </form>
@@ -1754,11 +1754,6 @@ function submitForgotReset(){
 // "ADMIN" sengaja diganti "DIVISI KEUANGAN" (nama resmi akun ini di
 // struktur keuangan, biar tidak ambigu/rancu dgn "admin" dlm arti umum
 // spt admin IT/admin sistem).
-function _labelPeran(role){
-  if(role === 'ADMIN') return 'DIVISI KEUANGAN';
-  if(role === 'KETUA') return 'KETUA LPPM';
-  return role;
-}
 // Label kode Aksi di tabel Log Aktivitas -- kode aksi ASLI (mis.
 // 'PESAN_KE_ADMIN', 'RESET_PASSWORD_ADMIN') TIDAK diubah sama sekali di
 // penyimpanan/backend (supaya riwayat log lama & pencarian/filter apa pun
@@ -1773,7 +1768,12 @@ function afterLogin(){
   document.getElementById('app').classList.remove('d-none');
   document.getElementById('nav-nama-user').textContent = STATE.nama;
   var badge = document.getElementById('nav-role-badge');
-  badge.textContent = _labelPeran(STATE.role);
+  // ATAS PERMINTAAN: badge peran ini SENGAJA tetap tampilkan role INTERNAL
+  // apa adanya (ADMIN/KETUA/UNIT), BUKAN nama akun (mis. "DIVISI KEUANGAN")
+  // -- supaya jelas & tidak ambigu ini akun dengan hak akses level apa,
+  // terpisah dari nama akun yang sudah ditampilkan di sebelahnya
+  // (#nav-nama-user, lihat baris di atas).
+  badge.textContent = STATE.role;
   badge.className = 'badge-role ' + (STATE.role==='ADMIN' ? 'badge-admin' : (STATE.role==='KETUA' ? 'badge-ketua' : 'badge-unit'));
   // PERBAIKAN BUG: sebelumnya pakai el.style.display='none' -- ini KALAH
   // kalau elemennya juga punya class Bootstrap seperti d-flex/d-grid, yang
@@ -5922,7 +5922,11 @@ function loadUserView(){
       document.querySelectorAll('.us-unit-chk').forEach(function(c){ c.checked = _unitTercentangSaatIni.indexOf(c.value) !== -1; });
     }
     document.getElementById('tbody-user').innerHTML = users.data.map(function(u){
-      return '<tr><td>'+u.username+'</td><td>'+u.nama+'</td><td>'+u.email+'</td><td>'+_labelPeran(u.role)+'</td><td>'+u.kodeUnit.join(', ')+'</td>'+
+      // ATAS PERMINTAAN: kolom Role di tabel ini SENGAJA tetap apa adanya
+      // (ADMIN/UNIT/KETUA, bukan nama akun) -- lebih jelas menunjukkan hak
+      // akses tiap baris user, kolom Nama di sebelah kiri sudah cukup utk
+      // menampilkan nama aslinya.
+      return '<tr><td>'+u.username+'</td><td>'+u.nama+'</td><td>'+u.email+'</td><td>'+u.role+'</td><td>'+u.kodeUnit.join(', ')+'</td>'+
         '<td>'+(u.aktif?'<span class="text-success">Aktif</span>':'<span class="text-danger">Nonaktif</span>')+'</td>'+
         '<td><button class="btn btn-sm btn-outline-secondary me-1" onclick=\'editUser('+JSON.stringify(u)+')\'><i class="fas fa-edit"></i></button>'+
         (u.username!=='admin' ? '<button class="btn btn-sm btn-outline-danger" onclick="hapusUser(\''+u.username+'\')"><i class="fas fa-trash"></i></button>' : '')+'</td></tr>';
@@ -9738,7 +9742,7 @@ function pdRenderDetailMuka(res){
   // pdBlockRingkasKetua): tahap ini MURNI Bagian Keuangan mencairkan uang
   // fisik, BUKAN keputusan yang perlu dilihat Ketua secara detail.
   if(st(3)==='active'){
-    html += pdBlockRingkasKetua('fa-sack-dollar','3. Pencairan Dana','active','Menunggu Bagian Keuangan mencairkan dana.') || pdBlock('fa-sack-dollar','3. Pencairan Dana','active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
+    html += pdBlockRingkasKetua('fa-sack-dollar','3. Pencairan Dana','active','Menunggu Bagian Keuangan mencairkan dana.') || pdBlock('fa-sack-dollar','3. Pencairan Dana','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       isAdmin ? ('<div class="row g-2 align-items-end"><div class="col-auto"><label class="form-label small mb-1">Tanggal Dicairkan</label><input type="date" class="form-control form-control-sm" id="pd-tgl-cair-'+h.idPengajuan+'" value="'+new Date().toISOString().slice(0,10)+'"></div>'
         + '<div class="col-auto"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-cair-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="width:160px;"></div>'
         + '<div class="col-auto"><button class="btn btn-sm" id="btn-cairkan-'+h.idPengajuan+'" onclick="pdAksiCairkan(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-sack-dollar me-1"></i>Tandai Sudah Dicairkan</button></div></div>')
@@ -9835,7 +9839,7 @@ function pdRenderDetailMuka(res){
   // SENGAJA TIDAK ada input No. Bukti Kas Masuk/Keluar di sini sama sekali
   // -- itu tugas Kasir di tahap 6 terpisah (lihat di bawah), SETELAH LPJ ini disetujui.
   if(st(5)==='active'){
-    html += pdBlock('fa-flag-checkered','5. Verifikasi LPJ','active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
+    html += pdBlock('fa-flag-checkered','5. Verifikasi LPJ','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       isAdmin ? ('<p class="small text-muted mb-2">Periksa realisasi & bukti LPJ di atas, lalu putuskan. Pencatatan No. Bukti Kas Masuk/Keluar dilakukan Kasir di tahap berikutnya, setelah LPJ ini disetujui.</p>'
         + '<textarea class="form-control form-control-sm mb-2" id="pd-catatan-verif-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi)"></textarea>'
         + '<button class="btn btn-sm" id="btn-verif-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLpj(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui LPJ</button> '
@@ -9983,7 +9987,7 @@ function pdRenderDetailMuka(res){
       bagianPenutup = '';
     }
 
-    html += pdBlockRingkasKetua('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active','Menunggu Bagian Keuangan mencatat bukti kas.') || pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
+    html += pdBlockRingkasKetua('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active','Menunggu Bagian Keuangan mencatat bukti kas.') || pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       infoDefisitSelesai + bagianPenyetor + (bagianPenutup ? ('<hr class="my-3">' + bagianPenutup) : ''));
     }
   } else if(st(6)==='done'){
@@ -10176,14 +10180,14 @@ function pdRenderDetailSingkat(res){
   }
   if(st(2)==='active'){
     if(h.jenis==='TAGIHAN'){
-      html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
+      html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
         isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-tagihan-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi/Tolak)"></textarea>'
           + '<button class="btn btn-sm" id="btn-tagihan-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenTagihan(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
           + '<button class="btn btn-sm btn-outline-danger" id="btn-tagihan-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenTagihan(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
           + '<button class="btn btn-sm btn-outline-secondary" id="btn-tagihan-tolak-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenTagihan(\''+h.idPengajuan+'\',\'DITOLAK\', this)"><i class="fas fa-xmark me-1"></i>Tolak</button>')
           : pdCatatanTunggu('Menunggu Bagian Keuangan memverifikasi dokumen tagihan.'));
     } else {
-      html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
+      html += pdBlock('fa-gavel', judul2, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
         isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-verif-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi/Tolak)"></textarea>'
           + '<button class="btn btn-sm" id="btn-sk-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenSekaligus(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
           + '<button class="btn btn-sm btn-outline-danger" id="btn-sk-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenSekaligus(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
@@ -10244,7 +10248,7 @@ function pdRenderDetailSingkat(res){
       // seperti Penggantian Biaya). Cuma wajib kalau Transfer.
       var judulUnggahBukti = h.metodePembayaran==='TRANSFER' ? 'UNGGAH BUKTI TRANSFER (oleh Bagian Keuangan)' : 'UNGGAH BUKTI BAYAR (oleh Bagian Keuangan, opsional)';
       var placeholderUnggahBukti = h.metodePembayaran==='TRANSFER' ? 'Klik atau seret bukti transfer (PDF) ke sini' : 'Klik atau seret bukti bayar (PDF) ke sini -- boleh dilewati';
-      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
+      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
         isAdmin ? ('<p class="small text-muted mb-2">Tagihan sudah disetujui. Catat bukti pembayaran untuk menyelesaikan pengajuan ini.</p>'
           + '<div class="small fw-bold mb-1 text-muted">'+judulUnggahBukti+'</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-bukti-bayar" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-bayar\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">'+placeholderUnggahBukti+'</div><input type="file" id="pd-file-bukti-bayar" accept="application/pdf" class="d-none" data-drop-id="pd-drop-bukti-bayar" onchange="pdPilihFile(this,\'buktiBayarFile\')"></div>'
@@ -10259,7 +10263,7 @@ function pdRenderDetailSingkat(res){
         ? ('<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI TRANSFER</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-bukti-transfer" style="max-width:420px;" onclick="document.getElementById(\'pd-file-bukti-transfer\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret bukti transfer (PDF/gambar) ke sini</div><input type="file" id="pd-file-bukti-transfer" accept="application/pdf,image/*" class="d-none" data-drop-id="pd-drop-bukti-transfer" onchange="pdPilihFile(this,\'buktiTransferSekaligus\')"></div>')
         : ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar</label><input type="text" class="form-control form-control-sm" id="pd-bukti-kas-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>');
-      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
+      html += pdBlock('fa-cash-register', judul3, 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
         isAdmin ? ('<p class="small text-muted mb-2">Penggantian Biaya sudah disetujui. Catat bukti penggantian dana untuk menyelesaikan pengajuan ini.</p>'
           + inputBayarSekaligus
           + '<button class="btn btn-sm" id="btn-sk-kasir-'+h.idPengajuan+'" onclick="pdAksiCatatKasirSekaligus(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Catat & Ganti Dana</button>')
@@ -10727,7 +10731,7 @@ function pdRenderDetailLaporanUnit(res){
     document.getElementById('pd-blocks').innerHTML = html; pdRenderTombolCetak(h, false); return;
   }
   if(st(2)==='active'){
-    html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
+    html += pdBlock('fa-gavel', '2. Verifikasi Pengajuan', 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       isAdmin ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-verif-'+h.idPengajuan+'" rows="2" placeholder="Catatan (WAJIB diisi kalau Minta Revisi/Tolak)"></textarea>'
         + '<button class="btn btn-sm" id="btn-lap-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLaporanUnit(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui</button> '
         + '<button class="btn btn-sm btn-outline-danger" id="btn-lap-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDokumenLaporanUnit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Minta Revisi</button> '
@@ -10783,7 +10787,7 @@ function pdRenderDetailLaporanUnit(res){
     } else {
     var inputBuktiMasuk = h.totalDiajukan>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk (Pemasukan Rp '+fmtRp(h.totalDiajukan)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-masuk-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>') : '';
     var inputBuktiKeluar = h.totalRealisasi>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar (Pengeluaran Rp '+fmtRp(h.totalRealisasi)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-keluar-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>') : '';
-    html += pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'active', isAdmin?'<span class="badge-role badge-admin">DIVISI KEUANGAN</span>':'',
+    html += pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
       infoDefisitLap + (isAdmin ? ('<p class="small text-muted mb-2">Laporan sudah disetujui. Catat No. Bukti Kas Masuk/Keluar untuk menyelesaikan pengajuan ini.</p>'
         + inputBuktiMasuk + inputBuktiKeluar
         + '<button class="btn btn-sm" id="btn-lap-kasir-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLaporanUnit(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Catat &amp; Selesaikan</button>')
