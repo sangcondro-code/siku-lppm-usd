@@ -1125,12 +1125,11 @@
               <div class="pos-tab" data-metode="TRANSFER" onclick="pdToggleMetodeBayar('tagihan','TRANSFER')"><i class="fas fa-building-columns"></i>Transfer</div>
             </div>
             <div id="pd-rekening-tagihan" class="d-none">
-              <p class="text-muted small mb-2">Rekening tujuan pembayaran (rekening pihak ketiga yang ditagih).</p>
-              <div class="row g-2">
-                <div class="col-md-4"><label class="form-label small mb-1">No. Rekening</label><input type="text" class="form-control form-control-sm" id="pd-no-rek-tagihan" placeholder="mis. 1234567890"></div>
-                <div class="col-md-4"><label class="form-label small mb-1">Nama Pemilik Rekening</label><input type="text" class="form-control form-control-sm" id="pd-nama-rek-tagihan" placeholder="Sesuai buku tabungan"></div>
-                <div class="col-md-4"><label class="form-label small mb-1">Nama Bank</label><input type="text" class="form-control form-control-sm" id="pd-nama-bank-tagihan" placeholder="mis. BCA"></div>
-              </div>
+              <p class="text-muted small mb-2">Rekening tujuan pembayaran -- bisa lebih dari 1 (mis. tagihan dibayarkan ke beberapa klien/vendor sekaligus). Total nominal semua rekening harus sama dengan Nominal Tagihan di atas.</p>
+              <div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:28%">Nama Penerima</th><th style="width:26%">No. Rekening</th><th style="width:22%">Nama Bank</th><th class="text-end" style="width:18%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-rekening-tagihan"></tbody></table></div>
+              <button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRekening('rekeningTagihan')"><i class="fas fa-plus me-1"></i>Tambah Rekening</button>
+              <div class="mb-1"><b>Total Semua Rekening: </b><span id="pd-total-rekeningTagihan">Rp 0</span></div>
+              <div id="pd-banding-rekeningTagihan" class="small"></div>
             </div>
           </div></div>
 
@@ -7342,6 +7341,15 @@ var PD = {
   laporanEditMasuk:[], laporanEditKeluar:[], laporanEditBuktiFile:null,
   detail:null,
   realisasiEdit:[], lpjFileEdit:null, buktiBayarFile:null, buktiTransferSekaligus:null,
+  // FITUR BARU (atas permintaan "tagihan transfer bisa lebih dari 1 nomor
+  // rekening/dikirim ke beberapa klien"): daftar rekening tujuan Tagihan
+  // (0..N baris) -- SAMA pola dgn RAB/Realisasi (array of object di PD,
+  // diisi/dirender ulang tiap ada perubahan). rekeningTagihan utk form
+  // "Ajukan Baru", rekeningTagihanEdit utk form "Kirim Ulang" sesudah
+  // diminta revisi -- TERPISAH sepenuhnya (SAMA alasannya dgn
+  // realisasiSekaligus vs realisasiEdit) supaya tidak saling menimpa.
+  rekeningTagihan:[{namaPenerima:'',noRekening:'',namaBank:'',nominal:0}],
+  rekeningTagihanEdit:[{namaPenerima:'',noRekening:'',namaBank:'',nominal:0}],
   komponenList:[], // master data "Nama Komponen" (dropdown RAB & Realisasi), dimuat sekali per sesi
   komponenTerbatasRealisasi:null // kalau diisi (array nama), dropdown Realisasi HANYA boleh pilih dari sini (akuntabel thd RAB) -- null = tidak dibatasi
 };
@@ -8033,7 +8041,12 @@ function pdResetForm(){
   document.getElementById('pd-unit-admin-muka').value = ''; document.getElementById('pd-unit-admin-sekaligus').value = ''; document.getElementById('pd-unit-admin-tagihan').value = ''; document.getElementById('pd-unit-admin-laporan').value = '';
   pdToggleMetodeBayar('sekaligus','TUNAI'); pdToggleMetodeBayar('tagihan','TUNAI');
   document.getElementById('pd-no-rek-sekaligus').value = ''; document.getElementById('pd-nama-rek-sekaligus').value = ''; document.getElementById('pd-nama-bank-sekaligus').value = '';
-  document.getElementById('pd-no-rek-tagihan').value = ''; document.getElementById('pd-nama-rek-tagihan').value = ''; document.getElementById('pd-nama-bank-tagihan').value = '';
+  // PERBAIKAN BUG NYATA (dilaporkan langsung: "tagihan transfer tambahkan
+  // fitur tambah nomor rekening"): SEBELUMNYA reset form BARU ini masih
+  // mencari 3 input tunggal LAMA (pd-no-rek-tagihan dst) yang SUDAH
+  // DIGANTI jadi tabel multi-baris -- diganti reset PD.rekeningTagihan +
+  // render ulang tabelnya (SAMA pola dgn pdRenderTabelRab/pdRenderTabelRealisasiForm di bawah).
+  PD.rekeningTagihan = [{namaPenerima:'',noRekening:'',namaBank:'',nominal:0}]; pdRenderTabelRekening('rekeningTagihan');
   pdRenderTabelRab(); pdRenderTabelRealisasiForm(); pdRenderTabelLaporan('laporanPemasukan'); pdRenderTabelLaporan('laporanPengeluaran');
   pdRenderDropzone('pd-drop-surat', null); pdRenderDropzone('pd-drop-lpj-sekaligus', null); pdRenderDropzone('pd-drop-memo-tagihan', null); pdRenderDropzone('pd-drop-laporan', null);
 }
@@ -8083,7 +8096,10 @@ function pdKumpulkanDraftBaru(jenis){
   }
   return { jenis:'tagihan', judul:document.getElementById('pd-judul-tagihan').value, kepada:document.getElementById('pd-kepada-tagihan').value, nominal:document.getElementById('pd-nominal-tagihan').value,
     metode:document.querySelector('#pd-metode-tagihan-toggle .pos-tab.active').dataset.metode,
-    noRekening:document.getElementById('pd-no-rek-tagihan').value, namaRekening:document.getElementById('pd-nama-rek-tagihan').value, namaBank:document.getElementById('pd-nama-bank-tagihan').value };
+    // PERBAIKAN BUG NYATA -- SAMA persis dgn reset form (lihat catatan
+    // lengkap di sana): draft Tagihan sekarang menyimpan PD.rekeningTagihan
+    // (array, bisa 0..N baris), BUKAN 3 field tunggal lama.
+    rekening:PD.rekeningTagihan };
 }
 function pdTerapkanDraftBaru(data){
   if(!data) return;
@@ -8112,9 +8128,16 @@ function pdTerapkanDraftBaru(data){
     document.getElementById('pd-kepada-tagihan').value = data.kepada || '';
     document.getElementById('pd-nominal-tagihan').value = data.nominal || '';
     if(data.metode) pdToggleMetodeBayar('tagihan', data.metode);
-    document.getElementById('pd-no-rek-tagihan').value = data.noRekening || '';
-    document.getElementById('pd-nama-rek-tagihan').value = data.namaRekening || '';
-    document.getElementById('pd-nama-bank-tagihan').value = data.namaBank || '';
+    // PERBAIKAN BUG NYATA -- SAMA persis dgn kumpulkan draft (lihat
+    // catatan lengkap di pdKumpulkanDraftBaru): draft LAMA (dari sebelum
+    // fitur multi-rekening ini ada) mungkin masih menyimpan field tunggal
+    // noRekening/namaRekening/namaBank -- dijaga BACKWARD COMPATIBLE:
+    // kalau data.rekening (array baru) ADA, pakai itu; kalau TIDAK ADA
+    // tapi field tunggal lama ADA, konversi jadi 1 baris supaya draft
+    // lama tetap bisa dilanjutkan tanpa data hilang.
+    if(data.rekening && data.rekening.length) PD.rekeningTagihan = data.rekening;
+    else if(data.noRekening) PD.rekeningTagihan = [{namaPenerima:data.namaRekening||'', noRekening:data.noRekening||'', namaBank:data.namaBank||'', nominal:Number(data.nominal)||0}];
+    pdRenderTabelRekening('rekeningTagihan');
   }
 }
 function pdSimpanDraftBaru(jenis, btn){
@@ -8330,6 +8353,62 @@ function pdRenderTabelRealisasi(target){
   if(!body) return;
   body.innerHTML = PD[target].map(function(r,i){ return pdBarisRealisasiHtml(target, r, i); }).join('');
   pdRenderTotalRealisasi(target);
+}
+// ============================================================
+// FITUR BARU (atas permintaan "tagihan transfer bisa lebih dari 1 nomor
+// rekening/dikirim ke beberapa klien"): daftar rekening tujuan Tagihan --
+// pola SAMA PERSIS dgn baris RAB/Realisasi di atas (array of object di
+// PD, dirender ulang tiap ada perubahan). target: 'rekeningTagihan' (form
+// Ajukan Baru) atau 'rekeningTagihanEdit' (form Kirim Ulang revisi).
+// ============================================================
+function pdTambahBarisRekening(target){
+  PD[target].push({namaPenerima:'',noRekening:'',namaBank:'',nominal:0});
+  pdRenderTabelRekening(target);
+}
+function pdHapusBarisRekening(target, i){
+  PD[target].splice(i,1);
+  if(!PD[target].length) PD[target].push({namaPenerima:'',noRekening:'',namaBank:'',nominal:0});
+  pdRenderTabelRekening(target);
+}
+function pdUbahRekening(target, i, field, val){
+  PD[target][i][field] = (field==='nominal') ? angkaKeAngka(val) : val;
+  pdRenderTotalRekening(target);
+}
+// Total nominal SEMUA baris rekening ditampilkan real-time, DIBANDINGKAN
+// dgn Nominal Tagihan keseluruhan (harus SAMA PERSIS -- lihat validasi
+// backend _validasiDaftarRekeningTagihan) -- supaya Unit langsung sadar
+// kalau totalnya belum pas SEBELUM submit, bukan baru tahu dari pesan
+// error sesudah klik Ajukan.
+function pdRenderTotalRekening(target){
+  var el = document.getElementById('pd-total-'+target);
+  if(!el) return;
+  var rows = PD[target];
+  var total = rows.reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
+  el.textContent = 'Rp ' + fmtRp(total);
+  var elBanding = document.getElementById('pd-banding-'+target);
+  if(elBanding){
+    var nominalTagihan = angkaKeAngka(document.getElementById(target==='rekeningTagihan' ? 'pd-nominal-tagihan' : 'pd-nominal-tagihan-revisi') ? (document.getElementById(target==='rekeningTagihan' ? 'pd-nominal-tagihan' : 'pd-nominal-tagihan-revisi').value) : 0);
+    var beda = Math.abs(total - nominalTagihan);
+    if(beda <= 1){
+      elBanding.textContent = 'Sesuai dengan Nominal Tagihan.'; elBanding.className = 'small text-success';
+    } else {
+      elBanding.textContent = 'Belum sama dengan Nominal Tagihan (Rp '+fmtRp(nominalTagihan)+') -- selisih Rp '+fmtRp(beda)+'.'; elBanding.className = 'small text-danger fw-bold';
+    }
+  }
+}
+function pdBarisRekeningHtml(target, r, i){
+  return '<tr><td><input class="form-control form-control-sm" value="'+esc(r.namaPenerima)+'" placeholder="Nama penerima/klien" oninput="pdUbahRekening(\''+target+'\','+i+',\'namaPenerima\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm" value="'+esc(r.noRekening)+'" placeholder="mis. 1234567890" oninput="pdUbahRekening(\''+target+'\','+i+',\'noRekening\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm" value="'+esc(r.namaBank)+'" placeholder="mis. BCA" oninput="pdUbahRekening(\''+target+'\','+i+',\'namaBank\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRekening(\''+target+'\','+i+',\'nominal\',this.value)"></td>'
+    + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisRekening(\''+target+'\','+i+')"><i class="fas fa-trash"></i></button></td></tr>';
+}
+function pdRenderTabelRekening(target){
+  var idMap = { rekeningTagihan:'pd-tbody-rekening-tagihan', rekeningTagihanEdit:'pd-tbody-rekening-tagihan-revisi' };
+  var body = document.getElementById(idMap[target]);
+  if(!body) return;
+  body.innerHTML = PD[target].map(function(r,i){ return pdBarisRekeningHtml(target, r, i); }).join('');
+  pdRenderTotalRekening(target);
 }
 // ============================================================
 // BARIS PEMASUKAN/PENGELUARAN -- Laporan Usaha Unit (LAPORAN_UNIT). Pola
@@ -8846,6 +8925,13 @@ function pdSubmitPermohonanDana(btn){
 function pdToggleMetodeBayar(prefix, metode){
   document.querySelectorAll('#pd-metode-'+prefix+'-toggle .pos-tab').forEach(function(t){ t.classList.toggle('active', t.dataset.metode===metode); });
   document.getElementById('pd-rekening-'+prefix).classList.toggle('d-none', metode!=='TRANSFER');
+  // FITUR BARU (atas permintaan "tagihan transfer bisa lebih dari 1 nomor
+  // rekening"): KHUSUS Tagihan, begitu ditoggle ke TRANSFER, tabel
+  // rekening (yg tadinya tersembunyi & belum sempat dirender) langsung
+  // dirender supaya minimal 1 baris kosong SUDAH muncul (tidak perlu klik
+  // "Tambah Rekening" dulu utk baris PERTAMA).
+  if(metode==='TRANSFER' && prefix==='tagihan') pdRenderTabelRekening('rekeningTagihan');
+  if(metode==='TRANSFER' && prefix==='tagihan-revisi') pdRenderTabelRekening('rekeningTagihanEdit');
 }
 function pdSubmitPenggantianBiaya(btn){
   var judul = document.getElementById('pd-judul-sekaligus').value.trim();
@@ -8879,14 +8965,20 @@ function pdSubmitTagihan(btn){
   if(!nominal){ toast('error','Nominal tagihan wajib diisi'); return; }
   if(!PD.memoFileTagihan){ toast('error','Memo & invoice (PDF) wajib diunggah'); return; }
   var metode = document.querySelector('#pd-metode-tagihan-toggle .pos-tab.active').dataset.metode;
-  var noRekening = document.getElementById('pd-no-rek-tagihan').value.trim();
-  var namaRekening = document.getElementById('pd-nama-rek-tagihan').value.trim();
-  var namaBank = document.getElementById('pd-nama-bank-tagihan').value.trim();
-  if(metode==='TRANSFER' && (!noRekening || !namaRekening || !namaBank)){ toast('error','No. Rekening, Nama Pemilik Rekening, dan Nama Bank wajib diisi kalau metode Transfer'); return; }
+  // PERBAIKAN BUG NYATA (dilaporkan langsung: "tagihan transfer tambahkan
+  // fitur tambah nomor rekening karena bisa lebih dari 1 nomor rekening
+  // atau dikirim ke beberapa klien"): SEBELUMNYA cuma 1 rekening tunggal
+  // (3 input terpisah) -- sekarang dikumpulkan dari tabel PD.rekeningTagihan
+  // (bisa 0..N baris), SAMA pola dgn Realisasi/RAB. Baris kosong (belum
+  // diisi sama sekali) disaring dulu -- backend (_validasiDaftarRekeningTagihan)
+  // yang akan menolak kalau ternyata TIDAK ADA baris valid sama sekali
+  // padahal metodenya TRANSFER, atau kalau totalnya belum sama dgn Nominal
+  // Tagihan.
+  var daftarRekening = metode==='TRANSFER' ? PD.rekeningTagihan.filter(function(r){ return r.namaPenerima && r.noRekening && r.namaBank && Number(r.nominal)>0; }) : [];
   var kodeUnitAdminTg = pdKodeUnitAdminTerpilih('tagihan');
   pdCekSerupaLaluLanjut(judul, 'TAGIHAN', function(){
     var idKey = _idemKey('ajukan_tagihan', {judul:judul,kepada:kepada,nominal:nominal,kodeUnit:kodeUnitAdminTg,nonce:PD.formNonce});
-    pdJalankanAksi('ajukanTagihan', [{judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank, kodeUnit:kodeUnitAdminTg}, STATE.token, idKey], btn, null).then(function(res){
+    pdJalankanAksi('ajukanTagihan', [{judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihan, metodePembayaran:metode, daftarRekening:daftarRekening, kodeUnit:kodeUnitAdminTg}, STATE.token, idKey], btn, null).then(function(res){
       if(!res) return;
       toast('success','Tagihan '+res.idPengajuan+' berhasil diajukan');
       if(PD.draftKeyAktif.tagihan) gasCall('hapusDraftPengajuan', PD.draftKeyAktif.tagihan, STATE.token).then(function(){ _pdMuatDraftSajaDiamDiam(); }).catch(function(){});
@@ -9656,6 +9748,15 @@ function pdRenderDetailMuka(res){
   // Selisih di tahap 4 & dgn selisihDana dari backend: dana dicairkan
   // dikurangi Total Realisasi apa adanya, TANPA PPh diotak-atik lagi.
   var selisihB = h.totalDiajukan - h.totalRealisasi;
+  // PERBAIKAN BUG NYATA (dilaporkan langsung: "akun unit belum dapat info
+  // persetujuan defisitnya, ga konsisten"): dipindah ke SINI (scope lebih
+  // luas, sebelum percabangan tahap 6) supaya bisa dipakai di KEDUA
+  // percabangan (active MAUPUN done) -- lihat catatan lengkap di titik
+  // pemakaiannya masing2.
+  var riwayatDefisitSelesai = pdCariRiwayat(res.riwayat, ['Defisit Disetujui']);
+  var infoDefisitSelesai = riwayatDefisitSelesai
+    ? ('<div class="pd-total-box ok mb-3"><div class="small text-muted"><i class="fas fa-scale-balanced me-1"></i>Kekurangan dana (defisit) sudah disetujui utk dibayar</div><div class="fw-bold small">oleh '+esc(riwayatDefisitSelesai.namaOleh)+' &middot; '+pdFmtWaktu(riwayatDefisitSelesai.waktu)+(riwayatDefisitSelesai.catatan?('<div class="fw-normal text-muted mt-1">'+esc(riwayatDefisitSelesai.catatan)+'</div>'):'')+'</div></div>')
+    : '';
   if(st(6)==='active'){
     // FITUR BARU -- Ketua LPPM (Approval Defisit): status
     // MENUNGGU_APPROVAL_DEFISIT berbagi SLOT tahap yang SAMA (t:6) dengan
@@ -9676,6 +9777,19 @@ function pdRenderDetailMuka(res){
             + '<button class="btn btn-sm btn-outline-warning" id="btn-defisit-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</button>')
           : pdCatatanTunggu('Menunggu persetujuan Ketua LPPM/Admin atas kekurangan dana (defisit) ini.')));
     } else {
+    // PERBAIKAN BUG NYATA (dilaporkan langsung: "akun unit belum dapat
+    // info persetujuan defisitnya, ga konsisten"): SEBELUMNYA begitu
+    // Approval Defisit selesai (disetujui) & status pindah ke
+    // PERBAIKAN BUG NYATA (dilaporkan langsung: "akun unit belum dapat
+    // info persetujuan defisitnya, ga konsisten"): SEBELUMNYA begitu
+    // Approval Defisit selesai (disetujui) & status pindah ke
+    // MENUNGGU_PENCATATAN, kartu "6. Approval Defisit" di atas otomatis
+    // GANTI TOTAL jadi kartu Data Penyetor biasa (SATU slot yg SAMA, lihat
+    // catatan mapDasar) -- info "siapa & kapan defisit ini disetujui"
+    // JADI HILANG SAMA SEKALI dari tampilan (variabel infoDefisitSelesai
+    // SEKARANG dideklarasikan di scope lebih luas SEBELUM percabangan
+    // tahap 6, lihat di atas, supaya bisa dipakai di sini MAUPUN di
+    // percabangan "done" -- BUKAN dihitung ulang di sini).
     // PERBAIKAN ALUR (atas permintaan TERBARU): Data Penyetor SEKARANG
     // selalu tersedia utk Unit isi SECEPATNYA begitu LPJ disetujui (TIDAK
     // menunggu apa pun) -- supaya Nama Penyetor sudah termuat di Cetak
@@ -9739,7 +9853,7 @@ function pdRenderDetailMuka(res){
     }
 
     html += pdBlockRingkasKetua('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active','Menunggu Bagian Keuangan mencatat bukti kas.') || pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
-      bagianPenyetor + (bagianPenutup ? ('<hr class="my-3">' + bagianPenutup) : ''));
+      infoDefisitSelesai + bagianPenyetor + (bagianPenutup ? ('<hr class="my-3">' + bagianPenutup) : ''));
     }
   } else if(st(6)==='done'){
     // PERBAIKAN (atas permintaan "tanggal & jumlahnya belum jelas &
@@ -9762,6 +9876,7 @@ function pdRenderDetailMuka(res){
     // lihat catatan lengkap di pdCariRiwayat).
     html += pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','done','<span class="badge-pd badge-pd-selesai">Selesai</span>',
       '<div class="fw-bold small mb-2" style="color:#166534;">'+ringkasanSelesai+'</div>'
+      + infoDefisitSelesai
       + infoPenyetorDone
       + pdBaristNoBuktiEdit('noBuktiKasMasuk','No. Bukti Kas Masuk (surplus dikembalikan)', h.noBuktiKasMasuk)
       + pdBaristNoBuktiEdit('noBuktiKasKeluarTambahan','No. Bukti Kas Keluar (kekurangan dibayar)', h.noBuktiKasKeluarTambahan)
@@ -9838,6 +9953,13 @@ function pdRenderDetailSingkat(res){
     // fungsinya -- generik berdasarkan prefix).
     var catatanRevisiTg = res.komentar.length ? res.komentar[res.komentar.length-1] : null;
     PD.memoFileTagihanRevisi = null;
+    // FITUR BARU (atas permintaan "tagihan transfer bisa lebih dari 1
+    // nomor rekening"): inisialisasi PD.rekeningTagihanEdit dari data
+    // rekening LAMA yang sudah tersimpan (res.rekening, lihat perbaikan
+    // di _lampiranDetailPengajuan Code.gs) -- SAMA pola dgn PD.realisasiEdit
+    // di atas. Kalau metode TUNAI atau belum pernah ada rekening sama
+    // sekali, mulai dari 1 baris kosong.
+    PD.rekeningTagihanEdit = (res.rekening && res.rekening.length) ? res.rekening.map(function(r){ return {namaPenerima:r.namaPenerima,noRekening:r.noRekening,namaBank:r.namaBank,nominal:r.nominal}; }) : [{namaPenerima:'',noRekening:'',namaBank:'',nominal:0}];
     html += pdBlock('fa-file-invoice-dollar', judul1, 'revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
       (catatanRevisiTg ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Admin · '+pdFmtWaktu(catatanRevisiTg.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTg.teks)+'</span></div></div>' : '')
       // PERBAIKAN BUG NYATA (Ketua LPPM): form kirim-ulang Tagihan milik
@@ -9854,16 +9976,17 @@ function pdRenderDetailSingkat(res){
             + '<div class="pos-tab'+(h.metodePembayaran==='TRANSFER'?' active':'')+'" data-metode="TRANSFER" onclick="pdToggleMetodeBayar(\'tagihan-revisi\',\'TRANSFER\')"><i class="fas fa-building-columns"></i>Transfer</div>'
           + '</div>'
           + '<div id="pd-rekening-tagihan-revisi" class="'+(h.metodePembayaran==='TRANSFER'?'':'d-none')+'">'
-            + '<div class="row g-2 mb-3">'
-              + '<div class="col-md-4"><label class="form-label small mb-1">No. Rekening</label><input type="text" class="form-control form-control-sm" id="pd-no-rek-tagihan-revisi" value="'+esc(h.noRekening||'')+'"></div>'
-              + '<div class="col-md-4"><label class="form-label small mb-1">Nama Pemilik Rekening</label><input type="text" class="form-control form-control-sm" id="pd-nama-rek-tagihan-revisi" value="'+esc(h.namaRekening||'')+'"></div>'
-              + '<div class="col-md-4"><label class="form-label small mb-1">Nama Bank</label><input type="text" class="form-control form-control-sm" id="pd-nama-bank-tagihan-revisi" value="'+esc(h.namaBank||'')+'"></div>'
-            + '</div>'
+            + '<p class="text-muted small mb-2">Bisa lebih dari 1 rekening tujuan. Total nominal semua rekening harus sama dengan Nominal Tagihan di atas.</p>'
+            + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:28%">Nama Penerima</th><th style="width:26%">No. Rekening</th><th style="width:22%">Nama Bank</th><th class="text-end" style="width:18%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-rekening-tagihan-revisi"></tbody></table></div>'
+            + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRekening(\'rekeningTagihanEdit\')"><i class="fas fa-plus me-1"></i>Tambah Rekening</button>'
+            + '<div class="mb-1"><b>Total Semua Rekening: </b><span id="pd-total-rekeningTagihanEdit">Rp 0</span></div>'
+            + '<div id="pd-banding-rekeningTagihanEdit" class="small mb-2"></div>'
           + '</div>'
           + '<div class="small fw-bold mb-1 text-muted">MEMO & INVOICE</div>'
           + (fileUtama ? ('<div class="mb-2">'+pdFileChip(fileUtama)+'<div class="small text-muted mt-1">File di atas ini yang tersimpan sekarang -- unggah baru di bawah HANYA kalau mau diganti.</div></div>') : '')
           + '<div class="pd-drop mb-2" id="pd-drop-memo-tagihan-revisi" style="max-width:420px;" onclick="document.getElementById(\'pd-file-memo-tagihan-revisi\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret memo/invoice '+(fileUtama?'pengganti':'baru')+' (PDF) ke sini</div><input type="file" id="pd-file-memo-tagihan-revisi" accept="application/pdf" class="d-none" data-drop-id="pd-drop-memo-tagihan-revisi" onchange="pdPilihFile(this,\'memoFileTagihanRevisi\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-revisi-'+h.idPengajuan+'" onclick="pdAksiKirimRevisiTagihan(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang</button>')));
+    if(!isAdmin && !isKetua && h.metodePembayaran==='TRANSFER') setTimeout(function(){ pdRenderTabelRekening('rekeningTagihanEdit'); }, 0);
   } else if(h.status==='PERLU_REVISI'){
     var catatanRevisi = res.komentar.length ? res.komentar[res.komentar.length-1] : null;
     PD.realisasiEdit = res.realisasi.length ? res.realisasi.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
@@ -9885,7 +10008,19 @@ function pdRenderDetailSingkat(res){
     var bodyTahap1;
     var infoMetode = '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">METODE PEMBAYARAN</div>'
       + '<span class="badge-pd" style="background:'+(h.metodePembayaran==='TRANSFER'?'#e0e7ff;color:#3730a3':'#dcfce7;color:#166534')+';"><i class="fas '+(h.metodePembayaran==='TRANSFER'?'fa-building-columns':'fa-money-bill-wave')+' me-1"></i>'+(h.metodePembayaran==='TRANSFER'?'Transfer':'Tunai')+'</span>'
-      + (h.metodePembayaran==='TRANSFER' ? ('<div class="small text-muted mt-2">'+esc(h.namaRekening)+' &mdash; '+esc(h.namaBank)+' &mdash; No. Rek. '+esc(h.noRekening)+'</div>') : '')
+      // PERBAIKAN BUG NYATA (dilaporkan langsung: "tagihan transfer
+      // tambahkan fitur tambah nomor rekening"): KHUSUS Tagihan (bisa
+      // multi-rekening), tampilkan TABEL SEMUA rekening dari res.rekening
+      // (sumber kebenaran utama -- lihat catatan lengkap di deklarasi
+      // SHEET_PENGAJUAN_REKENING) -- BUKAN cuma 1 baris h.namaRekening/
+      // h.noRekening/h.namaBank (itu skrg cuma fallback rekening PERTAMA).
+      // Penggantian Biaya (SEKALIGUS) TETAP 1 rekening spt biasa (rekening
+      // Unit sendiri, tidak butuh multi).
+      + (h.metodePembayaran==='TRANSFER' ? (h.jenis==='TAGIHAN'
+          ? ('<div class="table-responsive mt-2 mb-0"><table class="table tbl mb-0"><thead><tr><th>Nama Penerima</th><th>No. Rekening</th><th>Nama Bank</th><th class="text-end">Nominal</th></tr></thead><tbody>'
+              + (res.rekening||[]).map(function(rk){ return '<tr><td>'+esc(rk.namaPenerima)+'</td><td>'+esc(rk.noRekening)+'</td><td>'+esc(rk.namaBank)+'</td><td class="text-end">Rp '+fmtRp(rk.nominal)+'</td></tr>'; }).join('')
+              + '</tbody></table></div>')
+          : ('<div class="small text-muted mt-2">'+esc(h.namaRekening)+' &mdash; '+esc(h.namaBank)+' &mdash; No. Rek. '+esc(h.noRekening)+'</div>')) : '')
       + '</div>';
     if(h.jenis==='TAGIHAN'){
       var blokEditTagihan = (isAdmin && h.status !== 'DITOLAK') ? pdBlokEditTagihanAdmin(h.idPengajuan, h) : '';
@@ -10281,11 +10416,11 @@ function pdAksiKirimRevisiTagihan(id, btn){
   if(!kepada){ toast('error','Dibayarkan kepada wajib diisi'); return; }
   if(!nominal){ toast('error','Nominal tagihan wajib diisi'); return; }
   var metode = document.querySelector('#pd-metode-tagihan-revisi-toggle .pos-tab.active').dataset.metode;
-  var noRekening = document.getElementById('pd-no-rek-tagihan-revisi').value.trim();
-  var namaRekening = document.getElementById('pd-nama-rek-tagihan-revisi').value.trim();
-  var namaBank = document.getElementById('pd-nama-bank-tagihan-revisi').value.trim();
-  if(metode==='TRANSFER' && (!noRekening || !namaRekening || !namaBank)){ toast('error','No. Rekening, Nama Pemilik Rekening, dan Nama Bank wajib diisi kalau metode Transfer'); return; }
-  pdJalankanAksi('kirimTagihanRevisi', [id, {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihanRevisi, metodePembayaran:metode, noRekening:noRekening, namaRekening:namaRekening, namaBank:namaBank}, STATE.token], btn, 'Tagihan dikirim ulang');
+  // PERBAIKAN BUG NYATA -- SAMA persis dgn pdSubmitTagihan (lihat catatan
+  // lengkap di sana): dikumpulkan dari tabel PD.rekeningTagihanEdit,
+  // BUKAN 3 input tunggal lama.
+  var daftarRekening = metode==='TRANSFER' ? PD.rekeningTagihanEdit.filter(function(r){ return r.namaPenerima && r.noRekening && r.namaBank && Number(r.nominal)>0; }) : [];
+  pdJalankanAksi('kirimTagihanRevisi', [id, {judul:judul, dibayarkanKepada:kepada, nominalTagihan:nominal, memoFile:PD.memoFileTagihanRevisi, metodePembayaran:metode, daftarRekening:daftarRekening}, STATE.token], btn, 'Tagihan dikirim ulang');
 }
 // TAHAP 2/2 (KASIR): mencatat bukti bayar/BKK setelah Tagihan DISETUJUI di
 // tahap 1. Bukti Bayar (PDF) cuma wajib kalau metode Transfer -- kalau
@@ -10339,6 +10474,19 @@ function pdTawarkanDraftLaporanEdit(idPengajuan){
 }
 function pdRenderDetailLaporanUnit(res){
   var h = res.header; var isAdmin = STATE.role==='ADMIN';
+  // PERBAIKAN BUG NYATA (dilaporkan langsung: "kok ini di Selesai saya
+  // buka tidak bisa ya?" -- muncul error "labelBulan is not defined"):
+  // dipakai di judul tahap 1 ("1. Laporan [labelBulan]") beberapa baris
+  // di bawah, TAPI variabel ini TIDAK PERNAH didefinisikan di fungsi ini
+  // sama sekali -- SEBELUMNYA cuma ADA di fungsi cetak yang TERPISAH
+  // (cetakTandaTerimaLaporanUnit), scope BEDA, TIDAK ikut ke sini.
+  // Akibatnya SETIAP KALI halaman Detail Laporan Unit dibuka, JS langsung
+  // crash (ReferenceError) SEBELUM sempat merender apa pun -- SELURUH
+  // konten tahap 1-3 gagal tampil, persis gejala "diselesai tidak bisa
+  // dibuka" yang dilaporkan (bukan cuma status SELESAI -- status APA PUN
+  // utk jenis LAPORAN_UNIT pasti crash sama, krn baris ini SELALU
+  // dieksekusi di awal, apa pun statusnya).
+  var labelBulan = (BULAN_NAMA[Number(h.bulanLaporan)-1] || h.bulanLaporan) + ' ' + h.tahunAnggaran;
   // FITUR BARU -- Ketua LPPM (DIPERLUAS atas permintaan "semua pengajuan
   // bisa di approve ketua LPPM, semuanya"): Laporan Unit SEKARANG JUGA bisa
   // diverifikasi Ketua LPPM (Setuju/Revisi/Tolak), Admin TETAP bisa juga
@@ -10355,6 +10503,19 @@ function pdRenderDetailLaporanUnit(res){
   // Ditambahkan di slot SAMA dgn MENUNGGU_PENCATATAN (t:3) -- SAMA PERSIS
   // pola dgn MUKA (lihat mapDasar di pdRenderDetailMuka).
   var map = { MENUNGGU_VERIFIKASI:{t:2}, PERLU_REVISI:{t:1, revisi:2}, MENUNGGU_APPROVAL_DEFISIT:{t:3}, MENUNGGU_PENCATATAN:{t:3}, SELESAI:{t:5}, DITOLAK:{ditolak:2} }[h.status] || {t:1};
+  // PERBAIKAN BUG NYATA (dilaporkan langsung: "kok ini di Selesai saya
+  // buka tidak bisa ya?" -- muncul error "labelBulan is not defined",
+  // yang setelah diperbaiki TERNYATA masih ada 2 lagi: "st is not
+  // defined" & "fileUtama is not defined"): KETIGA variabel ini dipakai
+  // di seluruh badan fungsi ini (tahap 1-4, file bukti pendukung), TAPI
+  // TIDAK SATUPUN pernah didefinisikan di sini -- SEBELUMNYA cuma ADA di
+  // fungsi LAIN (pdRenderDetailMuka/pdRenderDetailSingkat) dgn pola SAMA,
+  // tapi scope BEDA, TIDAK ikut ke fungsi ini. Akibatnya fungsi ini
+  // SELALU crash (ReferenceError) SEBELUM sempat merender apa pun, APA
+  // PUN statusnya -- bukan cuma SELESAI, SEMUA pengajuan Laporan Unit
+  // (baru/proses/selesai) pasti gagal dibuka.
+  var st = function(tahap){ if(map.ditolak) return tahap<map.ditolak?'done':(tahap===map.ditolak?'ditolak':'locked'); return tahap<map.t?'done':(tahap===map.t?'active':'locked'); };
+  var fileUtama = pdFileVersiTerakhir(res.file, 'LAPORAN');
   var html = '';
 
   // Tahap 1 -- Laporan Bulanan
@@ -10478,21 +10639,33 @@ function pdRenderDetailLaporanUnit(res){
               + '<button class="btn btn-sm btn-outline-warning" id="btn-defisit-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</button>')
             : pdCatatanTunggu('Menunggu persetujuan Ketua LPPM/Admin atas kekurangan dana (defisit) ini.')));
     } else {
+    // PERBAIKAN BUG NYATA -- SAMA persis dgn MUKA (lihat catatan lengkap
+    // di pdRenderDetailMuka tahap 6): info "siapa & kapan defisit ini
+    // disetujui" SEBELUMNYA hilang total begitu status pindah dari
+    // MENUNGGU_APPROVAL_DEFISIT ke MENUNGGU_PENCATATAN (SATU slot yg SAMA).
+    var riwayatDefisitLap = pdCariRiwayat(res.riwayat, ['Defisit Disetujui']);
+    var infoDefisitLap = riwayatDefisitLap
+      ? ('<div class="pd-total-box ok mb-3"><div class="small text-muted"><i class="fas fa-scale-balanced me-1"></i>Kekurangan dana (defisit) sudah disetujui utk dibayar</div><div class="fw-bold small">oleh '+esc(riwayatDefisitLap.namaOleh)+' &middot; '+pdFmtWaktu(riwayatDefisitLap.waktu)+(riwayatDefisitLap.catatan?('<div class="fw-normal text-muted mt-1">'+esc(riwayatDefisitLap.catatan)+'</div>'):'')+'</div></div>')
+      : '';
     if(STATE.role==='KETUA'){
       html += pdBlockRingkasKetua('fa-cash-register', '3. Pencatatan BKK/BKM', 'active', 'Menunggu Bagian Keuangan mencatat BKM/BKK.');
     } else {
     var inputBuktiMasuk = h.totalDiajukan>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Masuk (Pemasukan Rp '+fmtRp(h.totalDiajukan)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-masuk-'+h.idPengajuan+'" placeholder="mis. BKM-001" style="max-width:260px;"></div>') : '';
     var inputBuktiKeluar = h.totalRealisasi>0 ? ('<div class="mb-2"><label class="form-label small mb-1">No. Bukti Kas Keluar (Pengeluaran Rp '+fmtRp(h.totalRealisasi)+')</label><input type="text" class="form-control form-control-sm" id="pd-bukti-keluar-'+h.idPengajuan+'" placeholder="mis. BKK-001" style="max-width:260px;"></div>') : '';
     html += pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
-      isAdmin ? ('<p class="small text-muted mb-2">Laporan sudah disetujui. Catat No. Bukti Kas Masuk/Keluar untuk menyelesaikan pengajuan ini.</p>'
+      infoDefisitLap + (isAdmin ? ('<p class="small text-muted mb-2">Laporan sudah disetujui. Catat No. Bukti Kas Masuk/Keluar untuk menyelesaikan pengajuan ini.</p>'
         + inputBuktiMasuk + inputBuktiKeluar
         + '<button class="btn btn-sm" id="btn-lap-kasir-'+h.idPengajuan+'" onclick="pdAksiCatatKasirLaporanUnit(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check-double me-1"></i>Catat &amp; Selesaikan</button>')
-        : pdCatatanTunggu('Laporan sudah disetujui, menunggu Admin mencatat BKM/BKK.'));
+        : pdCatatanTunggu('Laporan sudah disetujui, menunggu Admin mencatat BKM/BKK.')));
     }
     }
   } else if(st(3)==='done'){
+    var riwayatDefisitLapDone = pdCariRiwayat(res.riwayat, ['Defisit Disetujui']);
+    var infoDefisitLapDone = riwayatDefisitLapDone
+      ? ('<div class="pd-total-box ok mb-2"><div class="small text-muted"><i class="fas fa-scale-balanced me-1"></i>Kekurangan dana (defisit) sudah disetujui utk dibayar</div><div class="fw-bold small">oleh '+esc(riwayatDefisitLapDone.namaOleh)+' &middot; '+pdFmtWaktu(riwayatDefisitLapDone.waktu)+(riwayatDefisitLapDone.catatan?('<div class="fw-normal text-muted mt-1">'+esc(riwayatDefisitLapDone.catatan)+'</div>'):'')+'</div></div>')
+      : '';
     html += pdBlockRingkasKetua('fa-cash-register', '3. Pencatatan BKK/BKM', 'done', 'Bukti kas sudah dicatat oleh Admin.') || pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'done', '<span class="badge-pd badge-pd-selesai">Dicatat</span>',
-      '<div class="fw-bold small" style="color:#166534;">Bukti kas sudah dicatat oleh Admin.</div>');
+      infoDefisitLapDone + '<div class="fw-bold small" style="color:#166534;">Bukti kas sudah dicatat oleh Admin.</div>');
   } else {
     html += pdBlockRingkasKetua('fa-cash-register', '3. Pencatatan BKK/BKM', 'locked', 'Menunggu dokumen disetujui.') || pdBlock('fa-cash-register', '3. Pencatatan BKK/BKM', 'locked', '', pdLockedBody('Menunggu dokumen disetujui Admin.'));
   }
@@ -10637,13 +10810,24 @@ function cetakLampiranLpj(){
     // sudah lunas dibayar malah tercetak seolah ada sisa "dikembalikan ke
     // Kas", padahal memang sudah pas dibayar sesuai nominal tagihan).
     var buktiBayar = pdFileVersiTerakhir(res.file,'BUKTI_BAYAR');
+    // PERBAIKAN BUG NYATA (dilaporkan langsung: "tagihan transfer
+    // tambahkan fitur tambah nomor rekening"): SEBELUMNYA baris "Rekening
+    // Tujuan" di tabel info cuma 1 baris (h.namaRekening/noRekening/
+    // namaBank -- SEKARANG cuma fallback rekening PERTAMA) -- diganti jadi
+    // SECTION TABEL TERPISAH yang menampilkan SEMUA rekening dari
+    // res.rekening (sumber kebenaran utama), supaya tercetak lengkap kalau
+    // memang ada lebih dari 1 rekening tujuan/klien.
+    var sectionRekeningCetak = (h.metodePembayaran==='TRANSFER') ? ('<div class="pt-sec">Rekening Tujuan</div>'
+      + '<table class="pt-tbl"><thead><tr><th>Nama Penerima</th><th>No. Rekening</th><th>Nama Bank</th><th class="r">Nominal</th></tr></thead><tbody>'
+      + (res.rekening||[]).map(function(rk){ return '<tr><td>'+esc(rk.namaPenerima)+'</td><td class="nb">'+esc(rk.noRekening)+'</td><td>'+esc(rk.namaBank)+'</td><td class="r">Rp '+fmtRp(rk.nominal)+'</td></tr>'; }).join('')
+      + '</tbody></table>') : '';
     body += '<div class="pt-title">BUKTI PEMBAYARAN TAGIHAN</div>'
       + '<table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr>'
       + '<tr><td>Nama Tagihan</td><td>: '+esc(h.judul)+'</td></tr>'
       + '<tr><td>Dibayarkan Kepada</td><td>: '+esc(h.dibayarkanKepada)+'</td></tr>'
       + '<tr><td>Metode Pembayaran</td><td>: '+(h.metodePembayaran==='TRANSFER'?'Transfer':'Tunai')+'</td></tr>'
-      + (h.metodePembayaran==='TRANSFER' ? ('<tr><td>Rekening Tujuan</td><td>: '+esc(h.namaRekening)+' &mdash; '+esc(h.namaBank)+' &mdash; '+esc(h.noRekening)+'</td></tr>') : '')
       + '<tr><td>Tanggal Dibayar</td><td>: '+(h.tglDicairkan?new Date(h.tglDicairkan).toLocaleDateString('id-ID'):'-')+'</td></tr></table>'
+      + sectionRekeningCetak
       + '<div class="pt-sec">Ringkasan</div>'
       + '<table class="pt-summary"><tr><td>Nominal Tagihan</td><td class="r">Rp '+fmtRp(h.totalDiajukan)+'</td></tr>'
       + '<tr class="total"><td>Status</td><td class="r">LUNAS DIBAYAR</td></tr></table>'
