@@ -9269,11 +9269,19 @@ function pdRenderDetailKetua(res){
   var html = '';
   // Info dasar -- SELALU ditampilkan apa pun statusnya, supaya Ketua tetap
   // punya konteks (Unit mana, nominal berapa) tanpa perlu buka tahap lain.
+  // PERBAIKAN (atas permintaan "ga konsisten, cek 4 pengajuan"): label
+  // "Total Diajukan"/"Total Realisasi" SEBELUMNYA generik utk SEMUA jenis
+  // -- padahal utk Laporan Unit istilah yang KONSISTEN dgn yg Admin/Unit
+  // lihat di tempat lain adalah "Total Pemasukan"/"Total Pengeluaran"
+  // (bukan "Diajukan"/"Realisasi" -- Laporan Unit tidak "mengajukan" dana
+  // dari LPPM, itu laporan kas milik Unit sendiri).
+  var labelTotal1 = h.jenis==='LAPORAN_UNIT' ? 'Total Pemasukan' : 'Total Diajukan';
+  var labelTotal2 = h.jenis==='LAPORAN_UNIT' ? 'Total Pengeluaran' : 'Total Realisasi';
   html += '<div class="card mb-3"><div class="card-body">'
     + '<div class="row g-2">'
     + '<div class="col-6 col-md-3"><div class="small text-muted">Jenis</div><div class="fw-bold">'+(PD_BADGE_JENIS[h.jenis]||['','',h.jenis])[2]+'</div></div>'
-    + '<div class="col-6 col-md-3"><div class="small text-muted">Total Diajukan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div>'
-    + (h.totalRealisasi ? ('<div class="col-6 col-md-3"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div>') : '')
+    + '<div class="col-6 col-md-3"><div class="small text-muted">'+labelTotal1+'</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div>'
+    + (h.totalRealisasi ? ('<div class="col-6 col-md-3"><div class="small text-muted">'+labelTotal2+'</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div>') : '')
     + '</div></div></div>';
 
   if(h.jenis==='MUKA' && h.status==='DIAJUKAN'){
@@ -9320,8 +9328,26 @@ function pdRenderDetailKetua(res){
       html += '<div class="pd-total-box ok mb-3"><div class="small text-muted"><i class="fas fa-circle-check me-1"></i>'+labelVerifJenis+' sudah diverifikasi lengkap</div><div class="fw-bold small">oleh '+esc(riwayatVerif.namaOleh)+' &middot; '+pdFmtWaktu(riwayatVerif.waktu)+'</div></div>';
     }
     html += '<div class="card mb-3"><div class="card-body">'
-      + '<div class="section-title mb-2"><i class="fas fa-receipt"></i>RINCIAN REALISASI</div>'
-      + pdTabelRealisasiReadonly(res.realisasi);
+      + '<div class="section-title mb-2"><i class="fas fa-receipt"></i>RINCIAN REALISASI</div>';
+    // PERBAIKAN BUG NYATA (dilaporkan langsung: "PPh dan defisit gada
+    // cuman tabel saja, ga konsisten, cek 4 pengajuan"): SEBELUMNYA di
+    // sini SELALU pakai pdTabelRealisasiReadonly(res.realisasi) TANPA
+    // memandang jenis -- padahal utk LAPORAN_UNIT, res.realisasi berisi
+    // CAMPURAN baris Pemasukan & Pengeluaran (dibedakan field tipe) -- yg
+    // BENAR (SAMA seperti yg Admin/Unit lihat, lihat pdRenderDetailLaporanUnit
+    // tahap 1) adalah 2 TABEL TERPISAH (pdTabelLaporanReadonly per tipe) +
+    // kotak Selisih, BUKAN 1 tabel gabungan yg mencampur keduanya tanpa
+    // pembeda (sangat membingungkan). PPh JUGA HANYA dihitung dari baris
+    // Pengeluaran (Pemasukan tidak pernah kena PPh).
+    if(h.jenis==='LAPORAN_UNIT'){
+      var selisihKetuaLap = (Number(h.totalDiajukan)||0) - (Number(h.totalRealisasi)||0);
+      html += pdTabelLaporanReadonly(res.realisasi, 'MASUK') + pdTabelLaporanReadonly(res.realisasi, 'KELUAR')
+        + '<div class="pd-total-box '+(selisihKetuaLap>=0?'ok':'warn')+' mb-3"><div class="small text-muted">Selisih (Pemasukan &minus; Pengeluaran)</div><div class="fw-bold">'+(selisihKetuaLap<0?'-':'')+'Rp '+fmtRp(Math.abs(selisihKetuaLap))+'</div></div>'
+        + pdInfoPphHtml(res.realisasi.filter(function(r){return r.tipe==='KELUAR';}), h.judul);
+    } else {
+      html += pdTabelRealisasiReadonly(res.realisasi)
+        + pdInfoPphHtml(res.realisasi, h.judul);
+    }
     var fileLpjKetua = pdFileVersiTerakhir(res.file, h.jenis==='LAPORAN_UNIT' ? 'LAPORAN' : 'LPJ');
     if(fileLpjKetua) html += '<div class="mt-2">'+pdFileChip(fileLpjKetua)+'</div>';
     html += '</div></div>';
