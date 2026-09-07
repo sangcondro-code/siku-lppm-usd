@@ -9329,23 +9329,28 @@ function pdRenderDetailKetua(res){
     }
     html += '<div class="card mb-3"><div class="card-body">'
       + '<div class="section-title mb-2"><i class="fas fa-receipt"></i>RINCIAN REALISASI</div>';
-    // PERBAIKAN BUG NYATA (dilaporkan langsung: "PPh dan defisit gada
-    // cuman tabel saja, ga konsisten, cek 4 pengajuan"): SEBELUMNYA di
-    // sini SELALU pakai pdTabelRealisasiReadonly(res.realisasi) TANPA
-    // memandang jenis -- padahal utk LAPORAN_UNIT, res.realisasi berisi
-    // CAMPURAN baris Pemasukan & Pengeluaran (dibedakan field tipe) -- yg
-    // BENAR (SAMA seperti yg Admin/Unit lihat, lihat pdRenderDetailLaporanUnit
-    // tahap 1) adalah 2 TABEL TERPISAH (pdTabelLaporanReadonly per tipe) +
-    // kotak Selisih, BUKAN 1 tabel gabungan yg mencampur keduanya tanpa
-    // pembeda (sangat membingungkan). PPh JUGA HANYA dihitung dari baris
-    // Pengeluaran (Pemasukan tidak pernah kena PPh).
+    // PERBAIKAN BUG NYATA (dilaporkan langsung: "Dana Dicairkan/Total
+    // Realisasi/Selisih belum ada di Ketua LPPM"): SEBELUMNYA kotak 3
+    // ringkasan berdampingan ini (SAMA PERSIS yang Admin/Unit lihat di
+    // Tahap 4/4 "done") TIDAK ikut disalin ke tampilan Ketua -- padahal
+    // itu justru INFO PALING PENTING utk menilai defisit (bukan cuma lihat
+    // tabel rincian per baris). Disalin PERSIS (termasuk kelas, pewarnaan
+    // ok/warn, & URUTAN: tabel -> 3-box -> PPh) dari pdRenderDetailMuka/
+    // pdRenderDetailLaporanUnit tahap 4 supaya BENAR-BENAR konsisten sama
+    // persis, bukan versi ringkasan/urutan buatan sendiri.
     if(h.jenis==='LAPORAN_UNIT'){
       var selisihKetuaLap = (Number(h.totalDiajukan)||0) - (Number(h.totalRealisasi)||0);
       html += pdTabelLaporanReadonly(res.realisasi, 'MASUK') + pdTabelLaporanReadonly(res.realisasi, 'KELUAR')
-        + '<div class="pd-total-box '+(selisihKetuaLap>=0?'ok':'warn')+' mb-3"><div class="small text-muted">Selisih (Pemasukan &minus; Pengeluaran)</div><div class="fw-bold">'+(selisihKetuaLap<0?'-':'')+'Rp '+fmtRp(Math.abs(selisihKetuaLap))+'</div></div>'
+        + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Pemasukan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
+        + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Pengeluaran</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
+        + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisihKetuaLap>=0?'ok':'warn')+'"><div class="small text-muted">Selisih (Laba/Rugi)</div><div class="fw-bold">Rp '+fmtRp(Math.abs(selisihKetuaLap))+'</div></div></div></div>'
         + pdInfoPphHtml(res.realisasi.filter(function(r){return r.tipe==='KELUAR';}), h.judul);
     } else {
+      var selisihKetuaMuka = (Number(h.totalDiajukan)||0) - (Number(h.totalRealisasi)||0);
       html += pdTabelRealisasiReadonly(res.realisasi)
+        + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
+        + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
+        + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisihKetuaMuka===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisihKetuaMuka===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisihKetuaMuka))+(selisihKetuaMuka>0?' (surplus, dikembalikan)':(selisihKetuaMuka<0?' (defisit, kurang)':' (sesuai)'))+'</div></div></div></div>'
         + pdInfoPphHtml(res.realisasi, h.judul);
     }
     var fileLpjKetua = pdFileVersiTerakhir(res.file, h.jenis==='LAPORAN_UNIT' ? 'LAPORAN' : 'LPJ');
