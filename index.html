@@ -2654,7 +2654,7 @@ function _muatInputGabungan(){
     if(perluTambahan){
       var tb = idxTambahan >= 0 ? hasil[idxTambahan] : null;
       var katRes = idxKategori >= 0 ? hasil[idxKategori] : {success:true, data:CACHE.kategoriTambahan};
-      CACHE.tambahan[key] = (tb && tb.success) ? tb.data : (CACHE.tambahan[key] || []);
+      CACHE.tambahan[key] = (tb && tb.success) ? _gabungTambahanServer(key, tb.data) : (CACHE.tambahan[key] || []);
       CACHE.kategoriTambahan = (katRes && katRes.success) ? katRes.data : (CACHE.kategoriTambahan || []);
       if((!tb || !tb.success) && !CACHE.tambahan[key].length) toast('error', (tb && tb.message) || 'Gagal memuat Item Non-Unit');
       else if(katRes && !katRes.success && !CACHE.kategoriTambahan.length) toast('error', katRes.message || 'Gagal memuat daftar Kategori');
@@ -4866,7 +4866,7 @@ function _renderKonsolidasi(bulan, hasil){
     // Simpan mentah ke CACHE (dipakai ulang oleh submit/edit/hapus item
     // non-unit secara optimistic, TANPA perlu reload ini semua lagi).
     CACHE.unitTotal[key] = { d:gtD, k:gtK };
-    CACHE.tambahan[key] = (tb && tb.success) ? tb.data : (CACHE.tambahan[key] || []);
+    CACHE.tambahan[key] = (tb && tb.success) ? _gabungTambahanServer(key, tb.data) : (CACHE.tambahan[key] || []);
     CACHE.kategoriTambahan = (katRes && katRes.success) ? katRes.data : (CACHE.kategoriTambahan || []);
 
     // PERBAIKAN BUG: halaman ini disegarkan diam-diam tiap 10 detik lewat
@@ -5136,6 +5136,35 @@ function _refreshTambahanEverywhere(key){
   renderTambahanInputPanel();
   renderKategoriBagian(key);
 }
+// PERBAIKAN BUG (Item Non-Unit "tersimpan lalu hilang"): kalau data dari
+// server tiba SEMENTARA ada baris yang baru saja disimpan & masih menunggu
+// konfirmasi (_optimistic), JANGAN timpa habis -- baris itu ikut dipertahankan
+// sampai penyimpanannya benar-benar terkonfirmasi.
+function _gabungTambahanServer(key, dataServer){
+  var dataSrv = dataServer || [];
+  var idServer = {}; dataSrv.forEach(function(d){ idServer[d.id] = true; });
+  var pending = (CACHE.tambahan[key] || []).filter(function(d){ return d._optimistic && !idServer[d.id]; });
+  return dataSrv.concat(pending);
+}
+// Setelah server mengaku "Tersimpan", cocokkan LANGSUNG dengan isi server yang
+// sebenarnya. Kalau barisnya tidak ada di sana, jangan biarkan tampil seolah
+// tersimpan -- beri tahu saat itu juga, bukan baru ketahuan waktu pindah menu.
+function _verifikasiTambahanTersimpan(key, bulan, id){
+  gasCall('getTambahanBulan', STATE.tahunAktif, bulan, STATE.token).then(function(r){
+    if(!r || !r.success) return;
+    var ada = (r.data||[]).some(function(d){ return String(d.id)===String(id); });
+    if(!ada){
+      var arr = CACHE.tambahan[key] || [];
+      var i = arr.findIndex(function(d){ return String(d.id)===String(id); });
+      if(i>-1) arr.splice(i,1);
+      _refreshTambahanEverywhere(key);
+      toast('error','Item Non-Unit tadi ternyata TIDAK tersimpan di server. Mohon input ulang.');
+      return;
+    }
+    CACHE.tambahan[key] = _gabungTambahanServer(key, r.data);
+    _refreshTambahanEverywhere(key);
+  }).catch(function(){ /* gagal cek -- diam saja, tampilan tetap dipakai apa adanya */ });
+}
 function submitTambahan(e){
   e.preventDefault();
   var bulan = document.getElementById('sel-bulan-input').value;
@@ -5172,12 +5201,16 @@ function submitTambahan(e){
     var optimisticRow = Object.assign({ id:tempId, _optimistic:true }, data);
     arr.push(optimisticRow);
     _refreshTambahanEverywhere(key);
-    var idKeyTb = _idemKey('tambahan_'+bulan+'_'+STATE.tahunAktif, data);
+    // nonce unik PER KLIK Simpan: percobaan-ulang otomatis (jaringan putus) tetap memakai
+    // kunci yang sama sehingga aman, tapi item dengan isi IDENTIK yang memang diinput
+    // lagi secara sengaja tidak lagi dianggap 'pengulangan' dan dibuang diam-diam.
+    var idKeyTb = _idemKey('tambahan_'+bulan+'_'+STATE.tahunAktif, { d:data, nonce:Date.now()+'_'+Math.random().toString(36).slice(2) });
     gasCall('saveTambahan', STATE.tahunAktif, bulan, data, STATE.token, idKeyTb).then(function(res){
       if(!res.success){ var i2=arr.findIndex(function(d){return d.id===tempId;}); if(i2>-1) arr.splice(i2,1); _refreshTambahanEverywhere(key); toast('error', res.message); return; }
       optimisticRow.id = res.id; delete optimisticRow._optimistic;
       _refreshTambahanEverywhere(key);
       toast('success','Tersimpan');
+      _verifikasiTambahanTersimpan(key, bulan, res.id);
     }).catch(function(){ var i2=arr.findIndex(function(d){return d.id===tempId;}); if(i2>-1) arr.splice(i2,1); _refreshTambahanEverywhere(key); toast('error','Gagal menyimpan (dibatalkan)'); });
   }
 }
@@ -5230,7 +5263,7 @@ function loadTambahanForInput(){
   ]).then(function(hasil){
     hideBar();
     var tb = hasil[0], katRes = hasil[1];
-    CACHE.tambahan[key] = (tb && tb.success) ? tb.data : (CACHE.tambahan[key] || []);
+    CACHE.tambahan[key] = (tb && tb.success) ? _gabungTambahanServer(key, tb.data) : (CACHE.tambahan[key] || []);
     CACHE.kategoriTambahan = (katRes && katRes.success) ? katRes.data : (CACHE.kategoriTambahan || []);
     // PERBAIKAN BUG: sebelumnya kalau salah satu dari 2 request gagal
     // (mis. jaringan putus sesaat), tidak ada pemberitahuan SAMA SEKALI ke
