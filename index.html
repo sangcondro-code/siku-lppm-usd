@@ -7497,7 +7497,7 @@ var PD = {
   jenisForm:'MUKA', formNonce:'',
   rab:[{namaKomponen:'',keterangan:'',nominal:0}],
   suratFile:null,
-  pemasukanLpj:[], realisasiSekaligus:[{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}],
+  kontribusiLpj:[], lpjNonce:'', realisasiSekaligus:[{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}],
   lpjFileSekaligus:null,
   tagihanJudul:'', tagihanKepada:'', tagihanNominal:0, memoFileTagihan:null,
   laporanBulan:_bulanLaporanDefault(), laporanPemasukan:[{tanggal:'',keterangan:'',nominal:0}], laporanPengeluaran:[{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}], laporanBuktiFile:null,
@@ -8186,7 +8186,7 @@ function pdResetForm(){
   // tombol "Lanjutkan" di tab Draft, bukan dengan membuka form ini).
   PD.draftKeyAktif = { muka:null, sekaligus:null, tagihan:null, laporan:null };
   PD.rab = [{namaKomponen:'',keterangan:'',nominal:0}]; PD.suratFile = null;
-  PD.realisasiSekaligus = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.lpjFileSekaligus = null; PD.pemasukanLpj = [];
+  PD.realisasiSekaligus = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.lpjFileSekaligus = null; PD.kontribusiLpj = [];
   PD.tagihanJudul=''; PD.tagihanKepada=''; PD.tagihanNominal=0; PD.memoFileTagihan = null;
   PD.laporanBulan = _bulanLaporanDefault(); PD.laporanPemasukan = [{tanggal:'',keterangan:'',nominal:0}]; PD.laporanPengeluaran = [{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.laporanBuktiFile = null;
   document.querySelectorAll('#pd-jenis-toggle .pos-tab').forEach(function(el){ el.classList.toggle('active', el.dataset.jenis==='muka'); });
@@ -8360,7 +8360,7 @@ function pdCekDraftBaru(jenis){
 // -- Draft utk tahap Realisasi & LPJ (pengajuan yang SUDAH punya idPengajuan) --
 function pdSimpanDraftLpj(idPengajuan, btn){
   var draftKey = 'lpj_' + idPengajuan;
-  var data = { realisasi:PD.realisasiEdit, pemasukan:PD.pemasukanLpj };
+  var data = { realisasi:PD.realisasiEdit, kontribusi:PD.kontribusiLpj };
   btnBusy(btn, true);
   gasCall('simpanDraftPengajuan', draftKey, data, STATE.token).then(function(res){
     btnBusy(btn, false);
@@ -8378,7 +8378,7 @@ function pdTawarkanDraftLpj(idPengajuan){
       title:'Draft Realisasi/LPJ ditemukan', text:'Ada draft isian Realisasi & LPJ yang belum dikirim (tersimpan '+new Date(res.waktuUpdate).toLocaleString('id-ID')+'). Lanjutkan mengedit draft ini?',
       icon:'question', showCancelButton:true, confirmButtonText:'Lanjutkan Draft', cancelButtonText:'Mulai Baru', confirmButtonColor:'#800000'
     }).then(function(r){
-      if(r.isConfirmed){ PD.realisasiEdit = res.data.realisasi; PD.pemasukanLpj = res.data.pemasukan || []; pdRenderTabelRealisasi('realisasiEdit'); }
+      if(r.isConfirmed){ PD.realisasiEdit = res.data.realisasi; PD.kontribusiLpj = res.data.kontribusi || []; pdRenderTabelRealisasi('realisasiEdit'); }
       else gasCall('hapusDraftPengajuan', draftKey, STATE.token).catch(function(){});
     });
   });
@@ -8489,8 +8489,8 @@ function pdRenderTotalRealisasi(target){
   var boxSelisih = document.getElementById('pd-selisih-realisasi-'+target+'-box');
   if(boxSelisih){
     var dicairkan = Number(boxSelisih.dataset.dicairkan) || 0;
-    var masukSponsor = (target==='realisasiEdit') ? (PD.pemasukanLpj||[]).reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0) : 0;
-    var selisih = dicairkan + masukSponsor - total;
+    var masukKontribusi = (target==='realisasiEdit') ? (PD.kontribusiLpj||[]).reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0) : 0;
+    var selisih = dicairkan + masukKontribusi - total;
     var elSelisih = document.getElementById('pd-selisih-realisasi-'+target);
     if(elSelisih) elSelisih.textContent = (selisih>=0 ? 'Surplus ' : 'Defisit ') + 'Rp ' + fmtRp(Math.abs(selisih));
     boxSelisih.classList.remove('ok','warn');
@@ -8521,7 +8521,7 @@ function pdRenderTabelRealisasi(target){
   var body = document.getElementById(idMap[target]);
   if(!body) return;
   body.innerHTML = PD[target].map(function(r,i){ return pdBarisRealisasiHtml(target, r, i); }).join('');
-  if(target==='realisasiEdit') pdRenderTabelPemasukan();
+  if(target==='realisasiEdit') pdRenderTabelKontribusi();
   pdRenderTotalRealisasi(target);
 }
 // ============================================================
@@ -8719,7 +8719,7 @@ function pdTabelLaporanReadonly(rows, tipe){
     + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(total)+'</td><td class="text-end">Rp '+fmtRp(totalPph21)+'</td><td class="text-end">Rp '+fmtRp(totalPph23)+'</td><td></td></tr></tfoot></table></div>';
 }
 function pdTabelRealisasiReadonly(rows){
-  rows = pdRealisasiKeluar(rows); // pemasukan sponsor (MASUK) ditampilkan terpisah, lihat pdTabelPemasukanReadonly
+  rows = pdRealisasiKeluar(rows); // kontribusi pihak lain (MASUK) ditampilkan terpisah: pdTabelKontribusiReadonly
   var totalNominal=0, totalPph21=0, totalPph23=0;
   rows.forEach(function(r){ totalNominal+=Number(r.nominal)||0; totalPph21+=Number(r.pph21)||0; totalPph23+=Number(r.pph23)||0; });
   return '<div class="table-responsive mb-2"><table class="table tbl mb-0">'
@@ -8754,63 +8754,116 @@ function pdInfoPphHtml(realisasi, namaKegiatan){
     + '<div class="small" style="color:#78350f;line-height:1.8;">' + baris.join('') + '</div></div>';
 }
 // ============================================================
-// FITUR BARU -- PEMASUKAN SPONSOR / PIHAK LAIN pada LPJ Dana Kegiatan (MUKA).
-// Dana dari sponsor/mitra kerja sama dipegang Unit & dicatat saat LPJ sebagai
-// baris Realisasi bertipe 'MASUK' (kolom Tipe SUDAH ada, dipakai Laporan Unit
-// juga). Ringkasannya ditampilkan SEPERTI Rincian PPh (pdInfoPphHtml): total
-// gabungan, hanya informasi -- tapi BERBEDA dgn PPh, pemasukan ini IKUT
-// menambah dana tersedia:  Selisih = Dana Dicairkan + Pemasukan Sponsor -
-// Total Realisasi. Surplus (termasuk sisa dana sponsor) disetor ke kas LPPM.
-// Baris lama tanpa Tipe dianggap KELUAR (tidak perlu migrasi data).
+// FITUR BARU -- KONTRIBUSI PIHAK LAIN pada LPJ Dana Kegiatan (MUKA).
+// Dana tambahan dari pihak lain (istilah sengaja umum; bentuk & dasarnya
+// dijelaskan di Keterangan) dipegang Unit & dicatat saat LPJ sebagai baris
+// Realisasi bertipe 'MASUK' (kolom Tipe SUDAH ada -> tanpa kolom/sheet baru).
+// Selisih = Dana Dicairkan + Kontribusi - Total Realisasi. Surplus (termasuk
+// sisa kontribusi) disetor ke kas LPPM (BKM). Semua dihitung dari res.realisasi
+// yang SUDAH dimuat -- tidak ada panggilan server tambahan.
 // ============================================================
 function pdRealisasiKeluar(rows){ return (rows||[]).filter(function(r){ return r.tipe!=='MASUK'; }); }
 function pdRealisasiMasuk(rows){ return (rows||[]).filter(function(r){ return r.tipe==='MASUK'; }); }
-function pdTotalPemasukan(rows){ return pdRealisasiMasuk(rows).reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0); }
-// Surplus(+)/Defisit(-) LPJ MUKA. h.totalPemasukan diisi backend (hanya MUKA); jenis lain = 0.
-function pdSelisihMuka(h){ return (Number(h.totalDiajukan)||0) + (Number(h.totalPemasukan)||0) - (Number(h.totalRealisasi)||0); }
-function pdInfoSponsorHtml(realisasi, namaKegiatan){
-  var total = pdTotalPemasukan(realisasi);
+function pdTotalKontribusi(rows){ return pdRealisasiMasuk(rows).reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0); }
+// Surplus(+)/Defisit(-) LPJ MUKA. h.totalKontribusi diisi backend (hanya MUKA); jenis lain = 0.
+function pdSelisihMuka(h){ return (Number(h.totalDiajukan)||0) + (Number(h.totalKontribusi)||0) - (Number(h.totalRealisasi)||0); }
+function pdEscAttr(s){ return esc(s).replace(/"/g,'&quot;'); }
+function pdSalinTeks(btn){
+  var t = btn.getAttribute('data-teks') || '';
+  var ok = function(){ toast('success','Keterangan disalin'); };
+  var fallback = function(){
+    var ta = document.createElement('textarea'); ta.value = t; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); ok(); }catch(e){ toast('error','Gagal menyalin, salin manual'); }
+    document.body.removeChild(ta);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(ok).catch(fallback); } else { fallback(); }
+}
+// Ringkasan RINGKAS (gaya sama dgn Rincian PPh): total gabungan saja.
+function pdInfoKontribusiHtml(realisasi, namaKegiatan){
+  var total = pdTotalKontribusi(realisasi);
   if(!total) return '';
   return '<div class="mb-3" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;">'
-    + '<div class="small fw-bold mb-1" style="color:#166534;"><i class="fas fa-hand-holding-dollar me-1"></i>Rincian Pemasukan Sponsor / Pihak Lain (menambah dana tersedia; sisa yang tidak terpakai disetor ke kas LPPM)</div>'
-    + '<div class="small" style="color:#14532d;line-height:1.8;"><div class="d-flex justify-content-between gap-2"><span>Pemasukan Sponsor &mdash; '+esc(namaKegiatan)+'</span><span class="fw-bold text-nowrap">Rp '+fmtRp(total)+'</span></div></div></div>';
+    + '<div class="small fw-bold mb-1" style="color:#166534;"><i class="fas fa-hand-holding-dollar me-1"></i>Rincian Kontribusi Pihak Lain (menambah dana tersedia; sisa yang tidak terpakai disetor ke kas LPPM)</div>'
+    + '<div class="small" style="color:#14532d;line-height:1.8;"><div class="d-flex justify-content-between gap-2"><span>Kontribusi Pihak Lain &mdash; '+esc(namaKegiatan)+'</span><span class="fw-bold text-nowrap">Rp '+fmtRp(total)+'</span></div></div></div>';
 }
-function pdTabelPemasukanReadonly(realisasi){
+// Ringkasan LENGKAP utk ADMIN saat mencatat BKM/BKK: perhitungan + daftar pihak
+// + saran teks keterangan yang bisa disalin.
+function pdRingkasanKasKontribusiHtml(realisasi, h){
+  var rows = pdRealisasiMasuk(realisasi);
+  if(!rows.length) return '';
+  var dana = Number(h.totalDiajukan)||0, real = Number(h.totalRealisasi)||0;
+  var totalK = pdTotalKontribusi(realisasi);
+  var selisih = dana + totalK - real;
+  var baris = function(label, nilai, tebal){ return '<div class="d-flex justify-content-between gap-2'+(tebal?' fw-bold':'')+'"><span>'+label+'</span><span class="text-nowrap">'+nilai+'</span></div>'; };
+  var daftar = rows.map(function(r){
+    return '<div class="d-flex justify-content-between gap-2 ps-3 text-muted"><span>&bull; '+esc(r.namaKomponen)+(r.keterangan?(' &mdash; '+esc(r.keterangan)):'')+(r.noBukti?(' ('+esc(r.noBukti)+')'):'')+'</span><span class="text-nowrap">Rp '+fmtRp(r.nominal)+'</span></div>';
+  }).join('');
+  var hasil = selisih>0 ? 'Surplus &mdash; disetor ke kas LPPM (catat sebagai BKM)'
+            : (selisih<0 ? 'Defisit &mdash; kekurangan dibayar LPPM (catat sebagai BKK tambahan)' : 'Pas &mdash; tidak ada pergerakan kas');
+  var pihak = rows.map(function(r){ return r.namaKomponen; }).join(', ');
+  var teks = (selisih>0 ? 'Setoran surplus' : (selisih<0 ? 'Pembayaran kekurangan' : 'Penyelesaian'))
+    + ' dana kegiatan "'+(h.judul||'')+'" ('+h.idPengajuan+'). Dana dicairkan Rp '+fmtRp(dana)
+    + ' + kontribusi pihak lain Rp '+fmtRp(totalK)+' ('+pihak+') - realisasi Rp '+fmtRp(real)
+    + ' = '+(selisih>0?'surplus':(selisih<0?'defisit':'pas'))+(selisih!==0?(' Rp '+fmtRp(Math.abs(selisih))):'')+'.';
+  return '<div class="mb-3" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 12px;">'
+    + '<div class="small fw-bold mb-2" style="color:#075985;"><i class="fas fa-receipt me-1"></i>Dasar Pencatatan Kas &mdash; memuat Kontribusi Pihak Lain</div>'
+    + '<div class="small" style="line-height:1.8;">'
+    + baris('Dana Dicairkan', 'Rp '+fmtRp(dana))
+    + baris('+ Kontribusi Pihak Lain', 'Rp '+fmtRp(totalK))
+    + daftar
+    + baris('&minus; Total Realisasi', 'Rp '+fmtRp(real))
+    + '<div style="border-top:1px solid #bae6fd;margin:4px 0;"></div>'
+    + baris(hasil, selisih===0 ? 'Rp 0,00' : 'Rp '+fmtRp(Math.abs(selisih)), true)
+    + '</div>'
+    + '<div class="small text-muted mt-2 mb-1">Saran keterangan untuk '+(selisih>0?'BKM':(selisih<0?'BKK':'catatan kas'))+':</div>'
+    + '<div class="small p-2 mb-2" style="background:#fff;border:1px dashed #7dd3fc;border-radius:6px;">'+esc(teks)+'</div>'
+    + '<button type="button" class="btn btn-sm btn-outline-secondary" data-teks="'+pdEscAttr(teks)+'" onclick="pdSalinTeks(this)"><i class="fas fa-copy me-1"></i>Salin keterangan</button>'
+    + '</div>';
+}
+function pdTabelKontribusiReadonly(realisasi){
   var rows = pdRealisasiMasuk(realisasi);
   if(!rows.length) return '';
   var total = rows.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
-  return '<div class="small fw-bold mb-1 mt-3 text-muted">PEMASUKAN SPONSOR / PIHAK LAIN</div>'
-    + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th>Sponsor / Pihak</th><th>Keterangan</th><th class="text-end">Nominal</th><th>No. Bukti</th></tr></thead><tbody>'
+  return '<div class="small fw-bold mb-1 mt-3 text-muted">KONTRIBUSI PIHAK LAIN</div>'
+    + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th>Nama Pihak</th><th>Keterangan</th><th class="text-end">Nominal</th><th>No. Bukti</th></tr></thead><tbody>'
     + rows.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td class="text-muted" style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td><td>'+esc(r.noBukti)+'</td></tr>'; }).join('')
     + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(total)+'</td><td></td></tr></tfoot></table></div>';
 }
-// ---- form isian (Unit, saat LPJ) ----
-function pdBarisPemasukanHtml(r, i){
-  return '<tr><td><input class="form-control form-control-sm" value="'+esc(r.namaKomponen)+'" placeholder="mis. PT Maju Jaya" oninput="pdUbahPemasukan('+i+',\'namaKomponen\',this.value)"></td>'
-    + '<td><textarea class="form-control form-control-sm" rows="1" placeholder="Keterangan" oninput="pdUbahPemasukan('+i+',\'keterangan\',this.value)">'+esc(r.keterangan)+'</textarea></td>'
-    + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahPemasukan('+i+',\'nominal\',this.value)"></td>'
-    + '<td><input class="form-control form-control-sm" value="'+esc(r.noBukti)+'" placeholder="mis. S.1" oninput="pdUbahPemasukan('+i+',\'noBukti\',this.value)"></td>'
-    + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisPemasukan('+i+')"><i class="fas fa-trash"></i></button></td></tr>';
+// ---- form isian (Unit, saat LPJ) -- tabel BARU MUNCUL setelah tombol "Kontribusi Pihak Lain" diklik ----
+function pdBarisKontribusiHtml(r, i){
+  return '<tr><td><input class="form-control form-control-sm" value="'+pdEscAttr(r.namaKomponen)+'" placeholder="mis. PT Maju Jaya" oninput="pdUbahKontribusi('+i+',\'namaKomponen\',this.value)"></td>'
+    + '<td><textarea class="form-control form-control-sm" rows="2" placeholder="Jelaskan kontribusi ini (dari siapa, untuk apa, dasar kerja samanya)" oninput="pdUbahKontribusi('+i+',\'keterangan\',this.value)">'+esc(r.keterangan)+'</textarea></td>'
+    + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahKontribusi('+i+',\'nominal\',this.value)"></td>'
+    + '<td><input class="form-control form-control-sm" value="'+pdEscAttr(r.noBukti)+'" placeholder="mis. K.1" oninput="pdUbahKontribusi('+i+',\'noBukti\',this.value)"></td>'
+    + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisKontribusi('+i+')"><i class="fas fa-trash"></i></button></td></tr>';
 }
-function pdRenderTotalPemasukan(){
-  var el = document.getElementById('pd-total-pemasukan-edit');
-  if(el) el.textContent = 'Rp ' + fmtRp((PD.pemasukanLpj||[]).reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0));
+function pdRenderTotalKontribusi(){
+  var el = document.getElementById('pd-total-kontribusi-edit');
+  if(el) el.textContent = 'Rp ' + fmtRp((PD.kontribusiLpj||[]).reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0));
 }
-function pdRenderTabelPemasukan(){
-  var body = document.getElementById('pd-tbody-pemasukan-edit');
-  if(!body) return;
-  var rows = PD.pemasukanLpj || [];
-  body.innerHTML = rows.length
-    ? rows.map(function(r,i){ return pdBarisPemasukanHtml(r, i); }).join('')
-    : '<tr><td colspan="5" class="text-center text-muted small">Belum ada pemasukan dari sponsor / pihak lain.</td></tr>';
-  pdRenderTotalPemasukan();
+function pdRenderTabelKontribusi(){
+  var rows = PD.kontribusiLpj || [];
+  var wrap = document.getElementById('pd-kontribusi-wrap');
+  var body = document.getElementById('pd-tbody-kontribusi-edit');
+  if(wrap) wrap.classList.toggle('d-none', !rows.length); // kosong = disembunyikan, Unit lain tidak bingung
+  var lb = document.getElementById('pd-selisih-label-realisasiEdit');
+  if(lb) lb.innerHTML = rows.length ? 'Surplus / Defisit (Dana Dicairkan + Kontribusi Pihak Lain &minus; Realisasi)' : 'Surplus / Defisit (Dana Dicairkan &minus; Realisasi)';
+  if(body) body.innerHTML = rows.map(function(r,i){ return pdBarisKontribusiHtml(r, i); }).join('');
+  pdRenderTotalKontribusi();
   pdRenderTotalRealisasi('realisasiEdit');
 }
-function pdTambahBarisPemasukan(){ if(!PD.pemasukanLpj) PD.pemasukanLpj = []; PD.pemasukanLpj.push({namaKomponen:'',keterangan:'',nominal:0,noBukti:'',tanggal:''}); pdRenderTabelPemasukan(); }
-function pdHapusBarisPemasukan(i){ PD.pemasukanLpj.splice(i,1); pdRenderTabelPemasukan(); }
-function pdUbahPemasukan(i, field, val){
-  PD.pemasukanLpj[i][field] = (field==='nominal') ? angkaKeAngka(val) : val;
-  pdRenderTotalPemasukan();
+function pdTambahBarisKontribusi(){
+  if(!PD.kontribusiLpj) PD.kontribusiLpj = [];
+  PD.kontribusiLpj.push({namaKomponen:'',keterangan:'',nominal:0,noBukti:'',tanggal:''});
+  pdRenderTabelKontribusi();
+  var inp = document.querySelector('#pd-tbody-kontribusi-edit tr:last-child input');
+  if(inp) inp.focus();
+}
+function pdHapusBarisKontribusi(i){ PD.kontribusiLpj.splice(i,1); pdRenderTabelKontribusi(); }
+function pdUbahKontribusi(i, field, val){
+  PD.kontribusiLpj[i][field] = (field==='nominal') ? angkaKeAngka(val) : val;
+  pdRenderTotalKontribusi();
   pdRenderTotalRealisasi('realisasiEdit'); // Surplus/Defisit ikut hitung ulang real-time
 }
 function pdTabelRabReadonly(rows){
@@ -8903,7 +8956,7 @@ function pdToggleEditRealisasi(idPengajuan){
   var akanDibuka = box.classList.contains('d-none');
   box.classList.toggle('d-none');
   if(akanDibuka){
-    var rowsAsli = pdRealisasiKeluar(PD.realisasiAdminAsli || []); // pemasukan sponsor tidak diedit di sini (dipertahankan backend)
+    var rowsAsli = pdRealisasiKeluar(PD.realisasiAdminAsli || []); // kontribusi pihak lain tidak diedit di sini (dipertahankan backend)
     PD.realisasiAdminEdit = rowsAsli.length ? rowsAsli.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.komponenTerbatasRealisasiAdmin = null;
     pdPastikanKomponenList(function(){ pdRenderTabelRealisasiAdmin(); });
@@ -9674,19 +9727,19 @@ function pdRenderDetailKetua(res){
         + pdInfoPphHtml(res.realisasi.filter(function(r){return r.tipe==='KELUAR';}), h.judul);
     } else {
       var selisihKetuaMuka = pdSelisihMuka(h);
-      html += pdTabelRealisasiReadonly(res.realisasi) + pdTabelPemasukanReadonly(res.realisasi)
+      html += pdTabelRealisasiReadonly(res.realisasi) + pdTabelKontribusiReadonly(res.realisasi)
         + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
-        + (h.totalPemasukan ? '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Pemasukan Sponsor</div><div class="fw-bold">Rp '+fmtRp(h.totalPemasukan)+'</div></div></div>' : '')
+        + (h.totalKontribusi ? '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Kontribusi Pihak Lain</div><div class="fw-bold">Rp '+fmtRp(h.totalKontribusi)+'</div></div></div>' : '')
         + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
         + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisihKetuaMuka===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisihKetuaMuka===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisihKetuaMuka))+(selisihKetuaMuka>0?' (surplus, dikembalikan)':(selisihKetuaMuka<0?' (defisit, kurang)':' (sesuai)'))+'</div></div></div></div>'
-        + pdInfoPphHtml(pdRealisasiKeluar(res.realisasi), h.judul) + pdInfoSponsorHtml(res.realisasi, h.judul);
+        + pdInfoPphHtml(pdRealisasiKeluar(res.realisasi), h.judul) + pdInfoKontribusiHtml(res.realisasi, h.judul);
     }
     var fileLpjKetua = pdFileVersiTerakhir(res.file, h.jenis==='LAPORAN_UNIT' ? 'LAPORAN' : 'LPJ');
     if(fileLpjKetua) html += '<div class="mt-2">'+pdFileChip(fileLpjKetua)+'</div>';
     html += '</div></div>';
     html += '<div class="card mb-3"><div class="card-body">'
       + '<div class="section-title mb-2"><i class="fas fa-scale-balanced"></i>APPROVAL DEFISIT</div>'
-      + '<p class="small text-muted mb-2">Realisasi '+(h.jenis==='LAPORAN_UNIT'?'Pengeluaran melebihi Pemasukan':'melebihi dana yang dicairkan')+' sebesar <b>Rp '+fmtRp(kekuranganKetua)+'</b>. Pembayaran kekurangan ini perlu disetujui dulu.</p>'
+      + '<p class="small text-muted mb-2">Realisasi '+(h.jenis==='LAPORAN_UNIT'?'Pengeluaran melebihi Pemasukan':'melebihi dana yang dicairkan'+(h.totalKontribusi?' dan kontribusi pihak lain':''))+' sebesar <b>Rp '+fmtRp(kekuranganKetua)+'</b>. Pembayaran kekurangan ini perlu disetujui dulu.</p>'
       + '<textarea class="form-control form-control-sm mb-2" id="pd-catatan-defisit-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau dikembalikan untuk revisi)"></textarea>'
       + '<button class="btn btn-sm" id="btn-defisit-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui Defisit</button> '
       + '<button class="btn btn-sm btn-outline-warning" id="btn-defisit-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</button>'
@@ -9855,7 +9908,8 @@ function pdRenderDetailMuka(res){
   // Tahap 4 -- Realisasi & LPJ. Kalau PERLU_REVISI & SUDAH dicairkan = blok
   // ini yang dibuka lagi (data lama DITIMPA begitu Unit kirim ulang).
   if(h.status==='PERLU_REVISI' && h.tglDicairkan){
-    PD.pemasukanLpj = pdRealisasiMasuk(res.realisasi).map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,noBukti:r.noBukti,tanggal:r.tanggal}; });
+    PD.lpjNonce = String(Date.now()) + '_' + Math.random().toString(36).slice(2);
+    PD.kontribusiLpj = pdRealisasiMasuk(res.realisasi).map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,noBukti:r.noBukti,tanggal:r.tanggal}; });
     PD.realisasiEdit = pdRealisasiKeluar(res.realisasi).length ? pdRealisasiKeluar(res.realisasi).map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.lpjFileEdit = null;
     PD.komponenTerbatasRealisasi = res.detail.map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
@@ -9866,20 +9920,22 @@ function pdRenderDetailMuka(res){
       + ((isAdmin||isKetua) ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki realisasi &amp; bukti LPJ, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisKontribusi()"><i class="fas fa-plus me-1"></i>Kontribusi Pihak Lain</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span> &nbsp;<span class="text-muted small">| Total PPh 21+23: </span><span id="pd-total-pph-realisasiEdit" class="small">Rp 0</span></div>'
-          + '<div class="small fw-bold mb-1 mt-3 text-muted">PEMASUKAN DARI SPONSOR / PIHAK LAIN <span class="fw-normal">(opsional &mdash; isi jika kegiatan ini mendapat dana tambahan dari sponsor atau mitra kerja sama)</span></div>'
-          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:26%">Sponsor / Pihak</th><th style="width:30%">Keterangan</th><th class="text-end" style="width:18%">Nominal</th><th style="width:20%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-pemasukan-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisPemasukan()"><i class="fas fa-plus me-1"></i>Tambah Pemasukan Sponsor</button>'
-          + '<div class="mb-2"><b>Total Pemasukan Sponsor: </b><span id="pd-total-pemasukan-edit" class="small">Rp 0</span> &nbsp;<span class="text-muted small">| Bukti pemasukan dimasukkan ke PDF LPJ. Dana sponsor yang tidak terpakai disetor ke kas LPPM.</span></div>'
-          + '<div class="pd-total-box ok mb-2" id="pd-selisih-realisasiEdit-box" data-dicairkan="'+(h.totalDiajukan||0)+'"><div class="small text-muted">Surplus / Defisit (Dana Dicairkan + Pemasukan Sponsor &minus; Realisasi)</div><div class="fw-bold" id="pd-selisih-realisasiEdit">Rp 0</div></div>'
+          + '<div id="pd-kontribusi-wrap" class="d-none">'
+          + '<div class="small fw-bold mb-1 mt-1 text-muted">KONTRIBUSI PIHAK LAIN <span class="fw-normal">(dana tambahan dari pihak lain untuk kegiatan ini &mdash; jelaskan bentuk &amp; dasarnya di Keterangan)</span></div>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:24%">Nama Pihak</th><th style="width:34%">Keterangan</th><th class="text-end" style="width:18%">Nominal</th><th style="width:18%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-kontribusi-edit"></tbody></table></div>'
+          + '<div class="mb-2"><b>Total Kontribusi Pihak Lain: </b><span id="pd-total-kontribusi-edit" class="small">Rp 0</span> &nbsp;<span class="text-muted small">| Bukti dimasukkan ke PDF LPJ. Dana yang tidak terpakai disetor ke kas LPPM.</span></div>'
+          + '</div>'
+          + '<div class="pd-total-box ok mb-2" id="pd-selisih-realisasiEdit-box" data-dicairkan="'+(h.totalDiajukan||0)+'"><div class="small text-muted" id="pd-selisih-label-realisasiEdit">Surplus / Defisit (Dana Dicairkan &minus; Realisasi)</div><div class="fw-bold" id="pd-selisih-realisasiEdit">Rp 0</div></div>'
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH ULANG BUKTI LPJ</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ revisi (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-lpj-'+h.idPengajuan+'" onclick="pdAksiKirimLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim Ulang LPJ</button>')));
     if(!isAdmin && !isKetua) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
   } else if(st(4)==='active'){
     PD.realisasiEdit = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
-    PD.pemasukanLpj = [];
+    PD.kontribusiLpj = [];
+    PD.lpjNonce = String(Date.now()) + '_' + Math.random().toString(36).slice(2);
     PD.lpjFileEdit = null;
     PD.komponenTerbatasRealisasi = res.detail.map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','active', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
@@ -9894,13 +9950,14 @@ function pdRenderDetailMuka(res){
       (isAdmin||isKetua) ? pdCatatanTunggu('Dana sudah dicairkan. Menunggu Unit mengisi realisasi & mengunggah LPJ.')
         : ('<p class="text-muted small mb-2">Pilihan komponen dibatasi hanya yang sudah dianggarkan di RAB (akuntabel) -- isi keterangan &amp; nominal sesuai bukti riil di lapangan.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisKontribusi()"><i class="fas fa-plus me-1"></i>Kontribusi Pihak Lain</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span> &nbsp;<span class="text-muted small">| Total PPh 21+23: </span><span id="pd-total-pph-realisasiEdit" class="small">Rp 0</span></div>'
-          + '<div class="small fw-bold mb-1 mt-3 text-muted">PEMASUKAN DARI SPONSOR / PIHAK LAIN <span class="fw-normal">(opsional &mdash; isi jika kegiatan ini mendapat dana tambahan dari sponsor atau mitra kerja sama)</span></div>'
-          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:26%">Sponsor / Pihak</th><th style="width:30%">Keterangan</th><th class="text-end" style="width:18%">Nominal</th><th style="width:20%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-pemasukan-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisPemasukan()"><i class="fas fa-plus me-1"></i>Tambah Pemasukan Sponsor</button>'
-          + '<div class="mb-2"><b>Total Pemasukan Sponsor: </b><span id="pd-total-pemasukan-edit" class="small">Rp 0</span> &nbsp;<span class="text-muted small">| Bukti pemasukan dimasukkan ke PDF LPJ. Dana sponsor yang tidak terpakai disetor ke kas LPPM.</span></div>'
-          + '<div class="pd-total-box ok mb-2" id="pd-selisih-realisasiEdit-box" data-dicairkan="'+(h.totalDiajukan||0)+'"><div class="small text-muted">Surplus / Defisit (Dana Dicairkan + Pemasukan Sponsor &minus; Realisasi)</div><div class="fw-bold" id="pd-selisih-realisasiEdit">Rp 0</div></div>'
+          + '<div id="pd-kontribusi-wrap" class="d-none">'
+          + '<div class="small fw-bold mb-1 mt-1 text-muted">KONTRIBUSI PIHAK LAIN <span class="fw-normal">(dana tambahan dari pihak lain untuk kegiatan ini &mdash; jelaskan bentuk &amp; dasarnya di Keterangan)</span></div>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:24%">Nama Pihak</th><th style="width:34%">Keterangan</th><th class="text-end" style="width:18%">Nominal</th><th style="width:18%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-kontribusi-edit"></tbody></table></div>'
+          + '<div class="mb-2"><b>Total Kontribusi Pihak Lain: </b><span id="pd-total-kontribusi-edit" class="small">Rp 0</span> &nbsp;<span class="text-muted small">| Bukti dimasukkan ke PDF LPJ. Dana yang tidak terpakai disetor ke kas LPPM.</span></div>'
+          + '</div>'
+          + '<div class="pd-total-box ok mb-2" id="pd-selisih-realisasiEdit-box" data-dicairkan="'+(h.totalDiajukan||0)+'"><div class="small text-muted" id="pd-selisih-label-realisasiEdit">Surplus / Defisit (Dana Dicairkan &minus; Realisasi)</div><div class="fw-bold" id="pd-selisih-realisasiEdit">Rp 0</div></div>'
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI LPJ (1 PDF gabungan)</div>'
           + '<div class="pd-drop mb-2" id="pd-drop-lpj-edit" style="max-width:420px;" onclick="document.getElementById(\'pd-file-lpj-edit\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret file LPJ (PDF) ke sini</div><input type="file" id="pd-file-lpj-edit" accept="application/pdf" class="d-none" data-drop-id="pd-drop-lpj-edit" onchange="pdPilihFile(this,\'lpjFileEdit\')"></div>'
           + '<button class="btn btn-sm" id="btn-kirim-lpj-'+h.idPengajuan+'" onclick="pdAksiKirimLpj(\''+h.idPengajuan+'\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-upload me-1"></i>Kirim LPJ</button>'));
@@ -9918,15 +9975,15 @@ function pdRenderDetailMuka(res){
     // dipakai APA ADANYA (SAMA dgn h.selisihDana dari backend kalau
     // dihitung ulang) -- PPh 21/23 cuma ditampilkan sbg RINCIAN INFORMATIF
     // di bawah (pdInfoPphHtml), bukan pengurang Total Realisasi.
-    var selisih = pdSelisihMuka(h); // PURE: dana dicairkan + pemasukan sponsor - realisasi apa adanya
+    var selisih = pdSelisihMuka(h); // PURE: dana dicairkan + kontribusi pihak lain - realisasi apa adanya
     PD.realisasiAdminAsli = res.realisasi;
     var blokEditRealisasi4 = (isAdmin && h.status !== 'DITOLAK') ? pdBlokEditRealisasiAdmin(h.idPengajuan, h.status) : '';
-    html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','done','', pdTabelRealisasiReadonly(res.realisasi) + pdTabelPemasukanReadonly(res.realisasi)
+    html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','done','', pdTabelRealisasiReadonly(res.realisasi) + pdTabelKontribusiReadonly(res.realisasi)
       + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
-      + (h.totalPemasukan ? '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Pemasukan Sponsor</div><div class="fw-bold">Rp '+fmtRp(h.totalPemasukan)+'</div></div></div>' : '')
+      + (h.totalKontribusi ? '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Kontribusi Pihak Lain</div><div class="fw-bold">Rp '+fmtRp(h.totalKontribusi)+'</div></div></div>' : '')
         + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
       + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisih===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisih))+(selisih>0?' (surplus, dikembalikan)':(selisih<0?' (defisit, kurang)':' (sesuai)'))+'</div></div></div></div>'
-      + pdInfoPphHtml(pdRealisasiKeluar(res.realisasi), h.judul) + pdInfoSponsorHtml(res.realisasi, h.judul)
+      + pdInfoPphHtml(pdRealisasiKeluar(res.realisasi), h.judul) + pdInfoKontribusiHtml(res.realisasi, h.judul)
       + '<div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(lpjFile)
       + blokEditRealisasi4);
       // No. Bukti Kas Masuk/Keluar TIDAK lagi ditampilkan di sini -- sekarang
@@ -10014,7 +10071,7 @@ function pdRenderDetailMuka(res){
     if(h.status==='MENUNGGU_APPROVAL_DEFISIT'){
       var kekuranganDefisit = Math.abs(selisihB);
       html += pdBlock('fa-scale-balanced','6. Approval Defisit','active', canApproveRab?('<span class="badge-role '+(isKetua?'badge-ketua':'badge-admin')+'">'+(isKetua?'KETUA LPPM':'ADMIN')+'</span>'):'',
-        '<p class="small text-muted mb-2">LPJ ini sudah diverifikasi kelengkapan dokumennya, tapi realisasinya <b>melebihi dana yang dicairkan'+(h.totalPemasukan?' dan pemasukan sponsor':'')+'</b> sebesar <b>Rp '+fmtRp(kekuranganDefisit)+'</b>. Pembayaran kekurangan ini perlu disetujui dulu sebelum bisa dicatat Bagian Keuangan.</p>'
+        '<p class="small text-muted mb-2">LPJ ini sudah diverifikasi kelengkapan dokumennya, tapi realisasinya <b>melebihi dana yang dicairkan'+(h.totalKontribusi?' dan kontribusi pihak lain':'')+'</b> sebesar <b>Rp '+fmtRp(kekuranganDefisit)+'</b>. Pembayaran kekurangan ini perlu disetujui dulu sebelum bisa dicatat Bagian Keuangan.</p>'
         + (canApproveRab ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-defisit-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau dikembalikan untuk revisi)"></textarea>'
             + '<button class="btn btn-sm" id="btn-defisit-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui Defisit</button> '
             + '<button class="btn btn-sm btn-outline-warning" id="btn-defisit-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</button>')
@@ -10053,7 +10110,9 @@ function pdRenderDetailMuka(res){
       + 'Silakan cetak <b>"Lampiran LPJ"</b> di atas (tombol Cetak, pojok kanan atas halaman ini), lalu lampirkan &amp; serahkan ke Bagian Keuangan bersama:'
       + '<ol class="mb-0 mt-1"><li><b>Hasil cetak Lampiran LPJ</b> ini</li>'
       + '<li><b>BKK Pengajuan Dana</b> (bukti kas keluar saat dana ini pertama kali dicairkan)</li>'
-      + '<li><b>Bukti-bukti realisasi belanja</b> (nota/kuitansi/struk asli sesuai rincian Realisasi di atas)</li></ol></div>';
+      + '<li><b>Bukti-bukti realisasi belanja</b> (nota/kuitansi/struk asli sesuai rincian Realisasi di atas)</li>'
+      + (h.totalKontribusi ? '<li><b>Bukti Kontribusi Pihak Lain</b> (bukti transfer/surat kerja sama sesuai rincian Kontribusi Pihak Lain di atas)</li>' : '')
+      + '</ol></div>';
 
     // BAGIAN 1: Data Penyetor -- selalu tersedia begitu LPJ disetujui.
     var bagianPenyetor;
@@ -10096,7 +10155,7 @@ function pdRenderDetailMuka(res){
     }
 
     html += pdBlockRingkasKetua('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active','Menunggu Bagian Keuangan mencatat bukti kas.') || pdBlock('fa-cash-register','6. Penyerahan LPJ & Pencatatan Kas','active', isAdmin?'<span class="badge-role badge-admin">ADMIN</span>':'',
-      infoDefisitSelesai + bagianPenyetor + (bagianPenutup ? ('<hr class="my-3">' + bagianPenutup) : ''));
+      infoDefisitSelesai + (isAdmin ? pdRingkasanKasKontribusiHtml(res.realisasi, h) : '') + bagianPenyetor + (bagianPenutup ? ('<hr class="my-3">' + bagianPenutup) : ''));
     }
   } else if(st(6)==='done'){
     // PERBAIKAN (atas permintaan "tanggal & jumlahnya belum jelas &
@@ -10232,7 +10291,8 @@ function pdRenderDetailSingkat(res){
     if(!isAdmin && !isKetua && h.metodePembayaran==='TRANSFER') setTimeout(function(){ pdRenderTabelRekening('rekeningTagihanEdit'); }, 0);
   } else if(h.status==='PERLU_REVISI'){
     var catatanRevisi = res.komentar.length ? res.komentar[res.komentar.length-1] : null;
-    PD.pemasukanLpj = pdRealisasiMasuk(res.realisasi).map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,noBukti:r.noBukti,tanggal:r.tanggal}; });
+    PD.lpjNonce = String(Date.now()) + '_' + Math.random().toString(36).slice(2);
+    PD.kontribusiLpj = pdRealisasiMasuk(res.realisasi).map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,noBukti:r.noBukti,tanggal:r.tanggal}; });
     PD.realisasiEdit = pdRealisasiKeluar(res.realisasi).length ? pdRealisasiKeluar(res.realisasi).map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.lpjFileEdit = null;
     PD.komponenTerbatasRealisasi = null; // Penggantian Biaya tidak punya RAB -- tetap pakai daftar komponen lengkap
@@ -10274,7 +10334,7 @@ function pdRenderDetailSingkat(res){
     } else {
       PD.realisasiAdminAsli = res.realisasi;
       var blokEditRealisasiSk = (isAdmin && h.status !== 'DITOLAK') ? pdBlokEditRealisasiAdmin(h.idPengajuan, h.status) : '';
-      bodyTahap1 = pdTabelRealisasiReadonly(res.realisasi) + pdTabelPemasukanReadonly(res.realisasi) + blokEditRealisasiSk + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(fileUtama)+'</div>' + infoMetode + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
+      bodyTahap1 = pdTabelRealisasiReadonly(res.realisasi) + pdTabelKontribusiReadonly(res.realisasi) + blokEditRealisasiSk + '<div class="mt-3"><div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(fileUtama)+'</div>' + infoMetode + pdKomentarThreadHtml(h.idPengajuan, res.komentar);
     }
     html += pdBlock(h.jenis==='TAGIHAN'?'fa-file-invoice-dollar':'fa-receipt', judul1, 'done', '', bodyTahap1);
   }
@@ -10553,14 +10613,17 @@ function pdAksiCairkan(id, btn){
 function pdAksiKirimLpj(id, btn){
   var realisasi = PD.realisasiEdit.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
   if(!realisasi.length){ toast('error','Realisasi minimal 1 komponen dengan nominal > 0'); return; }
-  // Pemasukan sponsor/pihak lain (opsional): baris yang terisi sebagian ditolak, baris kosong dibuang.
-  var pemasukanLpj = (PD.pemasukanLpj||[]).filter(function(r){ return Number(r.nominal)>0 || String(r.namaKomponen||'').trim(); });
-  for(var pi=0; pi<pemasukanLpj.length; pi++){
-    if(!String(pemasukanLpj[pi].namaKomponen||'').trim() || !(Number(pemasukanLpj[pi].nominal)>0)){ toast('error','Pemasukan sponsor baris ke-'+(pi+1)+': nama sponsor/pihak dan nominal wajib diisi (atau hapus barisnya)'); return; }
+  // Kontribusi Pihak Lain (opsional): baris terisi sebagian ditolak, baris kosong dibuang.
+  var kontribusiLpj = (PD.kontribusiLpj||[]).filter(function(r){ return Number(r.nominal)>0 || String(r.namaKomponen||'').trim(); });
+  for(var pi=0; pi<kontribusiLpj.length; pi++){
+    if(!String(kontribusiLpj[pi].namaKomponen||'').trim() || !(Number(kontribusiLpj[pi].nominal)>0)){ toast('error','Kontribusi Pihak Lain baris ke-'+(pi+1)+': nama pihak dan nominal wajib diisi (atau hapus barisnya)'); return; }
   }
-  pemasukanLpj = pemasukanLpj.map(function(r){ return {namaKomponen:String(r.namaKomponen).trim(), keterangan:r.keterangan||'', nominal:r.nominal, pph21:0, pph23:0, noBukti:r.noBukti||'', tipe:'MASUK', tanggal:r.tanggal||''}; });
+  kontribusiLpj = kontribusiLpj.map(function(r){ return {namaKomponen:String(r.namaKomponen).trim(), keterangan:r.keterangan||'', nominal:r.nominal, pph21:0, pph23:0, noBukti:r.noBukti||'', tipe:'MASUK', tanggal:r.tanggal||''}; });
   if(!PD.lpjFileEdit){ toast('error','Bukti LPJ (PDF) wajib diunggah'); return; }
-  pdJalankanAksi('kirimLpjPengajuan', [id, realisasi.concat(pemasukanLpj), PD.lpjFileEdit, '', STATE.token], btn, 'LPJ terkirim').then(function(res){
+  var semuaRealisasi = realisasi.concat(kontribusiLpj);
+  // idempotency key (pola sama dgn aksi lain): file TIDAK ikut di-hash (base64 besar), cukup penanda ada/tidak; nonce per-form agar kirim ulang pasca-revisi tetap sah.
+  var idKeyLpj = _idemKey('kirim_lpj', {id:id, realisasi:semuaRealisasi, punyaFile:!!PD.lpjFileEdit, nonce:PD.lpjNonce});
+  pdJalankanAksi('kirimLpjPengajuan', [id, semuaRealisasi, PD.lpjFileEdit, '', STATE.token, idKeyLpj], btn, 'LPJ terkirim').then(function(res){
     if(res) gasCall('hapusDraftPengajuan', 'lpj_'+id, STATE.token).catch(function(){});
   });
 }
@@ -11093,8 +11156,8 @@ function cetakLampiranLpj(){
 
   var realisasiSemua = res.realisasi.filter(function(r){ return r.versiKe===h.versiKe; });
   var realisasi = realisasiSemua.filter(function(r){ return r.tipe!=='MASUK'; });
-  var pemasukanSponsor = realisasiSemua.filter(function(r){ return r.tipe==='MASUK'; });
-  var totalPemasukanSponsor = pemasukanSponsor.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
+  var kontribusiCetak = realisasiSemua.filter(function(r){ return r.tipe==='MASUK'; });
+  var totalKontribusiCetak = kontribusiCetak.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
   var totalRealisasi = realisasi.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
   var totalPph21 = realisasi.reduce(function(s,r){ return s+(Number(r.pph21)||0); }, 0);
   var totalPph23 = realisasi.reduce(function(s,r){ return s+(Number(r.pph23)||0); }, 0);
@@ -11104,7 +11167,7 @@ function cetakLampiranLpj(){
   // nominal yang dibelanjakan (bukan pengurang tambahan). Sekarang PERSIS
   // sama dgn perhitungan di halaman Detail & backend (selisihDana): dana
   // dicairkan dikurangi Total Realisasi apa adanya.
-  var selisih = h.totalDiajukan + totalPemasukanSponsor - totalRealisasi;
+  var selisih = h.totalDiajukan + totalKontribusiCetak - totalRealisasi;
 
   body += '<div class="pt-title">LAMPIRAN LAPORAN PERTANGGUNGJAWABAN (LPJ)</div>'
     + '<table class="pt-info"><tr><td>No. Pengajuan</td><td>: '+esc(h.idPengajuan)+'</td></tr><tr><td>Unit</td><td>: '+esc(h.kodeUnit)+'</td></tr>'
@@ -11146,19 +11209,20 @@ function cetakLampiranLpj(){
     + '<table class="pt-tbl"><colgroup><col style="width:85px"><col><col style="width:145px"><col style="width:95px"><col style="width:95px"><col style="width:68px"></colgroup><thead><tr><th>Komponen</th><th>Keterangan</th><th class="r">Nominal</th><th class="r">PPh 21</th><th class="r">PPh 23</th><th class="nb">No. Bukti</th></tr></thead><tbody>'
     + realisasi.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="r">Rp '+fmtRp(r.nominal)+'</td><td class="r">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="r">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td class="nb">'+esc(r.noBukti)+'</td></tr>'; }).join('')
     + '</tbody><tfoot><tr><td colspan="2"><b>Total Realisasi</b></td><td class="r"><b>Rp '+fmtRp(totalRealisasi)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph21)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph23)+'</b></td><td></td></tr></tfoot></table>';
-  if(pemasukanSponsor.length){
-    body += '<div style="margin:10px 0 3px;font-size:9.5pt;"><b>Pemasukan Sponsor / Pihak Lain</b></div>'
-      + '<table class="pt-tbl"><colgroup><col style="width:85px"><col><col style="width:145px"><col style="width:258px"></colgroup><thead><tr><th>Sponsor / Pihak</th><th>Keterangan</th><th class="r">Nominal</th><th>No. Bukti</th></tr></thead><tbody>'
-      + pemasukanSponsor.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="r">Rp '+fmtRp(r.nominal)+'</td><td>'+esc(r.noBukti)+'</td></tr>'; }).join('')
-      + '</tbody><tfoot><tr><td colspan="2"><b>Total Pemasukan Sponsor / Pihak Lain</b></td><td class="r"><b>Rp '+fmtRp(totalPemasukanSponsor)+'</b></td><td></td></tr></tfoot></table>';
+  if(kontribusiCetak.length){
+    body += '<div style="margin:10px 0 3px;font-size:9.5pt;"><b>Kontribusi Pihak Lain</b></div>'
+      + '<table class="pt-tbl"><colgroup><col style="width:85px"><col><col style="width:145px"><col style="width:258px"></colgroup><thead><tr><th>Nama Pihak</th><th>Keterangan</th><th class="r">Nominal</th><th>No. Bukti</th></tr></thead><tbody>'
+      + kontribusiCetak.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="r">Rp '+fmtRp(r.nominal)+'</td><td>'+esc(r.noBukti)+'</td></tr>'; }).join('')
+      + '</tbody><tfoot><tr><td colspan="2"><b>Total Kontribusi Pihak Lain</b></td><td class="r"><b>Rp '+fmtRp(totalKontribusiCetak)+'</b></td><td></td></tr></tfoot></table>';
   }
   body += '<div class="pt-sec">'+(res.detail&&res.detail.length?'C':'B')+'. Ringkasan</div>'
     + '<table class="pt-summary"><tr><td>Dana Dicairkan / Diajukan</td><td class="r">Rp '+fmtRp(h.totalDiajukan)+'</td></tr>'
-    + (totalPemasukanSponsor ? ('<tr><td>Pemasukan Sponsor / Pihak Lain</td><td class="r">Rp '+fmtRp(totalPemasukanSponsor)+'</td></tr>') : '')
+    + (totalKontribusiCetak ? ('<tr><td>Kontribusi Pihak Lain</td><td class="r">Rp '+fmtRp(totalKontribusiCetak)+'</td></tr>') : '')
     + '<tr><td>Total Realisasi</td><td class="r">Rp '+fmtRp(totalRealisasi)+'</td></tr>'
     + (totalPph21 ? ('<tr><td style="padding-left:14px;">PPh 21</td><td class="r">Rp '+fmtRp(totalPph21)+'</td></tr>') : '')
     + (totalPph23 ? ('<tr><td style="padding-left:14px;">PPh 23</td><td class="r">Rp '+fmtRp(totalPph23)+'</td></tr>') : '')
     + '<tr class="total"><td>'+(selisih>0?'Surplus (dikembalikan ke Kas)':(selisih<0?'Defisit (kekurangan)':'Selisih (sesuai, tidak ada surplus/defisit)'))+'</td><td class="r">Rp '+fmtRp(Math.abs(selisih))+'</td></tr></table>';
+  if(totalKontribusiCetak) body += '<div style="margin-top:4px;font-size:8.5pt;">* Surplus/defisit sudah memperhitungkan Kontribusi Pihak Lain; dana kontribusi yang tidak terpakai disetor ke Kas LPPM.</div>';
   var buktiKasHtml = '';
   if(h.jenis==='MUKA' && h.noBuktiKasKeluar) buktiKasHtml += '<div>No. Bukti Kas Keluar (Pencairan Dana): <b>'+esc(h.noBuktiKasKeluar)+'</b></div>';
   if(h.jenis==='SEKALIGUS'){
@@ -11300,11 +11364,11 @@ function cetakTandaTerimaLpj(){
     // tahap "dicairkan duluan" -- Unit mengajukan PERSIS sebesar yg sudah
     // dibelanjakan sendiri, jadi tidak ada selisih yg perlu ditampilkan.
     if(isMuka) kolomKiri += _pdBarisInfo('Dana Dicairkan', 'Rp '+fmtRp(h.totalDiajukan));
-    if(isMuka && h.totalPemasukan) kolomKiri += _pdBarisInfo('Pemasukan Sponsor/Pihak Lain', 'Rp '+fmtRp(h.totalPemasukan));
+    if(isMuka && h.totalKontribusi) kolomKiri += _pdBarisInfo('Kontribusi Pihak Lain', 'Rp '+fmtRp(h.totalKontribusi));
     kolomKiri += _pdBarisInfo('Total Realisasi', 'Rp '+fmtRp(h.totalRealisasi));
     kolomKanan = (isMuka ? _pdBarisInfo('Surplus/Defisit', _pdFormatSelisih(pdSelisihMuka(h))) : '')
       + _pdBarisInfo('Tanggal LPJ Diterima', new Date().toLocaleDateString('id-ID'));
-    paragraf = 'Dokumen LPJ ('+(isMuka?'RAB, Realisasi,':'Realisasi,')+' dan bukti pendukung) untuk kegiatan di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.';
+    paragraf = 'Dokumen LPJ ('+(isMuka?('RAB, Realisasi,'+(h.totalKontribusi?' Kontribusi Pihak Lain,':'')):'Realisasi,')+' dan bukti pendukung) untuk kegiatan di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.';
   }
   var body = _pdTandaTerimaBody(judul, h.idPengajuan, h.judul, kolomKiri, kolomKanan, paragraf);
   _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima '+h.idPengajuan+'</title><style>'+_pdTandaTerimaCss()+'</style></head><body>'+body+'</body></html>');
