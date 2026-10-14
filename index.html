@@ -9812,10 +9812,10 @@ function pdRenderDetailKetua(res){
     } else {
       var selisihKetuaMuka = pdSelisihMuka(h);
       html += pdTabelRealisasiReadonly(res.realisasi) + pdTabelKontribusiReadonly(res.realisasi)
-        + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
-        + (h.totalKontribusi ? '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Pemasukan Sumber Lain</div><div class="fw-bold">Rp '+fmtRp(h.totalKontribusi)+'</div></div></div>' : '')
-        + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
-        + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisihKetuaMuka===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisihKetuaMuka===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisihKetuaMuka))+(selisihKetuaMuka>0?' (surplus, dikembalikan)':(selisihKetuaMuka<0?' (defisit, kurang)':' (sesuai)'))+'</div></div></div></div>'
+        + '<div class="row g-2 mb-3"><div class="'+(h.totalKontribusi?'col-6 col-md-3':'col-6 col-md-4')+'"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
+        + (h.totalKontribusi ? '<div class="col-6 col-md-3"><div class="pd-total-box"><div class="small text-muted">Pemasukan Sumber Lain</div><div class="fw-bold">Rp '+fmtRp(h.totalKontribusi)+'</div></div></div>' : '')
+        + '<div class="'+(h.totalKontribusi?'col-6 col-md-3':'col-6 col-md-4')+'"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
+        + '<div class="'+(h.totalKontribusi?'col-6 col-md-3':'col-12 col-md-4')+'"><div class="pd-total-box '+(selisihKetuaMuka===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisihKetuaMuka===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisihKetuaMuka))+(selisihKetuaMuka>0?' (surplus, dikembalikan)':(selisihKetuaMuka<0?' (defisit, kurang)':' (sesuai)'))+'</div></div></div></div>'
         + pdInfoPphHtml(pdRealisasiKeluar(res.realisasi), h.judul) + pdInfoKontribusiHtml(res.realisasi, h.judul);
     }
     var fileLpjKetua = pdFileVersiTerakhir(res.file, h.jenis==='LAPORAN_UNIT' ? 'LAPORAN' : 'LPJ');
@@ -10069,10 +10069,10 @@ function pdRenderDetailMuka(res){
     PD.realisasiAdminAsli = res.realisasi;
     var blokEditRealisasi4 = (isAdmin && h.status !== 'DITOLAK') ? pdBlokEditRealisasiAdmin(h.idPengajuan, h.status) : '';
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','done','', pdTabelRealisasiReadonly(res.realisasi) + pdTabelKontribusiReadonly(res.realisasi)
-      + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
-      + (h.totalKontribusi ? '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Pemasukan Sumber Lain</div><div class="fw-bold">Rp '+fmtRp(h.totalKontribusi)+'</div></div></div>' : '')
-        + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
-      + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisih===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisih))+(selisih>0?' (surplus, dikembalikan)':(selisih<0?' (defisit, kurang)':' (sesuai)'))+'</div></div></div></div>'
+      + '<div class="row g-2 mb-3"><div class="'+(h.totalKontribusi?'col-6 col-md-3':'col-6 col-md-4')+'"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
+      + (h.totalKontribusi ? '<div class="col-6 col-md-3"><div class="pd-total-box"><div class="small text-muted">Pemasukan Sumber Lain</div><div class="fw-bold">Rp '+fmtRp(h.totalKontribusi)+'</div></div></div>' : '')
+        + '<div class="'+(h.totalKontribusi?'col-6 col-md-3':'col-6 col-md-4')+'"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
+      + '<div class="'+(h.totalKontribusi?'col-6 col-md-3':'col-12 col-md-4')+'"><div class="pd-total-box '+(selisih===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisih===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisih))+(selisih>0?' (surplus, dikembalikan)':(selisih<0?' (defisit, kurang)':' (sesuai)'))+'</div></div></div></div>'
       + pdInfoPphHtml(pdRealisasiKeluar(res.realisasi), h.judul) + pdInfoKontribusiHtml(res.realisasi, h.judul)
       + '<div class="small fw-bold mb-1 text-muted">BUKTI LPJ</div>'+pdFileChip(lpjFile)
       + blokEditRealisasi4);
