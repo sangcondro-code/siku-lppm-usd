@@ -1014,13 +1014,21 @@
           <div class="card mb-3"><div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <div class="section-title mb-0"><i class="fas fa-table"></i>Rencana Anggaran Biaya (RAB)</div>
-              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="pdTambahBarisRab()"><i class="fas fa-plus me-1"></i>Baris</button>
+              <div><button type="button" class="btn btn-sm btn-outline-secondary" onclick="pdTambahBarisRab()"><i class="fas fa-plus me-1"></i>Baris</button> <button type="button" class="btn btn-sm btn-outline-secondary" onclick="pdTambahBarisSumberLainRab()"><i class="fas fa-plus me-1"></i>Pemasukan Sumber Lain</button></div>
             </div>
             <div class="table-responsive"><table class="table tbl mb-0">
               <thead><tr><th style="width:32%">Nama Komponen</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead>
               <tbody id="pd-tbody-rab"></tbody>
             </table></div>
             <div class="text-end mt-2"><b>Total: </b><span id="pd-total-rab">Rp 0</span></div>
+            <div id="pd-sumber-lain-rab-wrap" class="d-none mt-3">
+              <div class="small fw-bold mb-1 text-muted">PEMASUKAN SUMBER LAIN <span class="fw-normal">(dana dari sumber lain untuk kegiatan ini &mdash; jelaskan sumber &amp; dasarnya di Keterangan. Tidak menambah dana yang diajukan, hanya memperjelas berapa yang diajukan ke LPPM)</span></div>
+              <div class="table-responsive"><table class="table tbl mb-0">
+                <thead><tr><th style="width:32%">Nama Sumber</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead>
+                <tbody id="pd-tbody-sumber-lain-rab"></tbody>
+              </table></div>
+            </div>
+            <div id="pd-ringkas-rab" class="mt-2"></div>
           </div></div>
 
           <div class="card mb-3"><div class="card-body">
@@ -7497,7 +7505,7 @@ var PD = {
   jenisForm:'MUKA', formNonce:'',
   rab:[{namaKomponen:'',keterangan:'',nominal:0}],
   suratFile:null,
-  kontribusiLpj:[], lpjNonce:'', realisasiSekaligus:[{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}],
+  sumberLainRab:[], kontribusiLpj:[], lpjNonce:'', realisasiSekaligus:[{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}],
   lpjFileSekaligus:null,
   tagihanJudul:'', tagihanKepada:'', tagihanNominal:0, memoFileTagihan:null,
   laporanBulan:_bulanLaporanDefault(), laporanPemasukan:[{tanggal:'',keterangan:'',nominal:0}], laporanPengeluaran:[{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}], laporanBuktiFile:null,
@@ -8185,7 +8193,7 @@ function pdResetForm(){
   // kebetulan masih ada (kalau memang mau lanjutkan draft lama, itu lewat
   // tombol "Lanjutkan" di tab Draft, bukan dengan membuka form ini).
   PD.draftKeyAktif = { muka:null, sekaligus:null, tagihan:null, laporan:null };
-  PD.rab = [{namaKomponen:'',keterangan:'',nominal:0}]; PD.suratFile = null;
+  PD.rab = [{namaKomponen:'',keterangan:'',nominal:0}]; PD.sumberLainRab = []; PD.suratFile = null;
   PD.realisasiSekaligus = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.lpjFileSekaligus = null; PD.kontribusiLpj = [];
   PD.tagihanJudul=''; PD.tagihanKepada=''; PD.tagihanNominal=0; PD.memoFileTagihan = null;
   PD.laporanBulan = _bulanLaporanDefault(); PD.laporanPemasukan = [{tanggal:'',keterangan:'',nominal:0}]; PD.laporanPengeluaran = [{tanggal:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}]; PD.laporanBuktiFile = null;
@@ -8252,7 +8260,7 @@ function pdJenisPengajuan(v){
 var PD_DRAFT_DICEK = {}; // supaya tawaran "lanjutkan draft?" cuma muncul SEKALI per kunci per sesi/kunjungan, tidak berulang tiap render
 function pdKumpulkanDraftBaru(jenis){
   if(jenis==='muka'){
-    return { jenis:'muka', judul:document.getElementById('pd-judul-muka').value, tgl:document.getElementById('pd-tgl-muka').value, rab:PD.rab };
+    return { jenis:'muka', judul:document.getElementById('pd-judul-muka').value, tgl:document.getElementById('pd-tgl-muka').value, rab:PD.rab, sumberLain:PD.sumberLainRab };
   }
   if(jenis==='sekaligus'){
     return { jenis:'sekaligus', judul:document.getElementById('pd-judul-sekaligus').value, tgl:document.getElementById('pd-tgl-sekaligus').value, realisasi:PD.realisasiSekaligus,
@@ -8275,6 +8283,7 @@ function pdTerapkanDraftBaru(data){
     document.getElementById('pd-judul-muka').value = data.judul || '';
     if(data.tgl) document.getElementById('pd-tgl-muka').value = data.tgl;
     if(data.rab && data.rab.length) PD.rab = data.rab;
+    PD.sumberLainRab = data.sumberLain || [];
     pdRenderTabelRab();
   } else if(data.jenis==='sekaligus'){
     document.getElementById('pd-judul-sekaligus').value = data.judul || '';
@@ -8414,9 +8423,61 @@ function pdHapusBarisRab(i){ PD.rab.splice(i,1); if(!PD.rab.length) PD.rab.push(
 function pdUbahRab(i, field, val){ PD.rab[i][field] = (field==='nominal') ? angkaKeAngka(val) : val; pdRenderTotalRab(); }
 function pdRenderTotalRab(){
   var total = PD.rab.reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
+  var sumberRows = PD.sumberLainRab || [];
+  var sumber = sumberRows.reduce(function(s,r){ return s + (Number(r.nominal)||0); }, 0);
   var diDetail = !document.getElementById('pd-sub-detail').classList.contains('d-none');
-  var el = document.getElementById(diDetail ? 'pd-total-rab-revisi' : 'pd-total-rab');
+  var ctx = diDetail ? '-revisi' : '';
+  var el = document.getElementById('pd-total-rab'+ctx);
   if(el) el.textContent = 'Rp ' + fmtRp(total);
+  // Ringkasan: Total RAB / Pemasukan Sumber Lain / Diajukan ke LPPM -- hanya muncul kalau ada baris sumber lain.
+  var box = document.getElementById('pd-ringkas-rab'+ctx);
+  if(!box) return;
+  if(!sumberRows.length){ box.innerHTML = ''; return; }
+  var diajukan = total - sumber;
+  box.innerHTML = '<div class="small p-2" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;line-height:1.8;">'
+    + '<div class="d-flex justify-content-between"><span>Total RAB (kebutuhan kegiatan)</span><span>Rp '+fmtRp(total)+'</span></div>'
+    + '<div class="d-flex justify-content-between"><span>&minus; Pemasukan Sumber Lain</span><span>Rp '+fmtRp(sumber)+'</span></div>'
+    + '<div class="d-flex justify-content-between fw-bold" style="border-top:1px solid #bae6fd;"><span>Diajukan ke LPPM</span><span style="color:'+(diajukan>0?'#075985':'#b91c1c')+';">Rp '+fmtRp(diajukan)+'</span></div>'
+    + (diajukan>0 ? '' : '<div class="text-danger">Pemasukan Sumber Lain tidak boleh sama dengan / melebihi Total RAB.</div>')
+    + '</div>';
+}
+// ---- PEMASUKAN SUMBER LAIN pada RAB (saat pengajuan): tabel baru muncul setelah tombolnya diklik ----
+// Baris disimpan di detail RAB dgn tipe 'MASUK'. BUKAN penambah dana: Diajukan ke LPPM = Total RAB - Pemasukan Sumber Lain.
+function pdBarisSumberLainRabHtml(r, i){
+  return '<tr><td><input class="form-control form-control-sm" value="'+pdEscAttr(r.namaKomponen)+'" placeholder="mis. PT Maju Jaya" oninput="pdUbahSumberLainRab('+i+',\'namaKomponen\',this.value)"></td>'
+    + '<td><textarea class="form-control form-control-sm" rows="1" placeholder="Keterangan" oninput="pdUbahSumberLainRab('+i+',\'keterangan\',this.value)">'+esc(r.keterangan)+'</textarea></td>'
+    + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahSumberLainRab('+i+',\'nominal\',this.value)"></td>'
+    + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisSumberLainRab('+i+')"><i class="fas fa-trash"></i></button></td></tr>';
+}
+function pdRenderTabelSumberLainRab(){
+  var diDetail = !document.getElementById('pd-sub-detail').classList.contains('d-none');
+  var ctx = diDetail ? '-revisi' : '';
+  var rows = PD.sumberLainRab || [];
+  var wrap = document.getElementById('pd-sumber-lain-rab-wrap'+ctx);
+  var body = document.getElementById('pd-tbody-sumber-lain-rab'+ctx);
+  if(wrap) wrap.classList.toggle('d-none', !rows.length);
+  if(body) body.innerHTML = rows.map(function(r,i){ return pdBarisSumberLainRabHtml(r, i); }).join('');
+  pdRenderTotalRab();
+}
+function pdTambahBarisSumberLainRab(){
+  if(!PD.sumberLainRab) PD.sumberLainRab = [];
+  PD.sumberLainRab.push({namaKomponen:'',keterangan:'',nominal:0});
+  pdRenderTabelSumberLainRab();
+  var diDetail = !document.getElementById('pd-sub-detail').classList.contains('d-none');
+  var inp = document.querySelector('#pd-tbody-sumber-lain-rab'+(diDetail?'-revisi':'')+' tr:last-child input');
+  if(inp) inp.focus();
+}
+function pdHapusBarisSumberLainRab(i){ PD.sumberLainRab.splice(i,1); pdRenderTabelSumberLainRab(); }
+function pdUbahSumberLainRab(i, field, val){ PD.sumberLainRab[i][field] = (field==='nominal') ? angkaKeAngka(val) : val; pdRenderTotalRab(); }
+// Kumpulkan & validasi baris Pemasukan Sumber Lain utk dikirim bersama RAB. Mengembalikan null kalau tidak valid (toast sudah tampil).
+function pdKumpulkanSumberLainRab(totalRab){
+  var rows = (PD.sumberLainRab||[]).filter(function(r){ return Number(r.nominal)>0 || String(r.namaKomponen||'').trim(); });
+  for(var i=0; i<rows.length; i++){
+    if(!String(rows[i].namaKomponen||'').trim() || !(Number(rows[i].nominal)>0)){ toast('error','Pemasukan Sumber Lain baris ke-'+(i+1)+': nama sumber dan nominal wajib diisi (atau hapus barisnya)'); return null; }
+  }
+  var total = rows.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
+  if(rows.length && total >= totalRab){ toast('error','Pemasukan Sumber Lain tidak boleh sama dengan / melebihi Total RAB (tidak ada dana yang diajukan ke LPPM)'); return null; }
+  return rows.map(function(r){ return {namaKomponen:String(r.namaKomponen).trim(), keterangan:r.keterangan||'', nominal:r.nominal, tipe:'MASUK'}; });
 }
 function pdRenderTabelRab(){
   // ID tbody-nya BEDA tergantung konteks: form "Ajukan Baru" (pd-tbody-rab)
@@ -8435,7 +8496,7 @@ function pdRenderTabelRab(){
       + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahRab('+i+',\'nominal\',this.value)"></td>'
       + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisRab('+i+')"><i class="fas fa-trash"></i></button></td></tr>';
   }).join('');
-  pdRenderTotalRab();
+  pdRenderTabelSumberLainRab(); // sekaligus memanggil pdRenderTotalRab()
 }
 
 function pdTambahBarisRealisasi(target){
@@ -8719,7 +8780,7 @@ function pdTabelLaporanReadonly(rows, tipe){
     + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(total)+'</td><td class="text-end">Rp '+fmtRp(totalPph21)+'</td><td class="text-end">Rp '+fmtRp(totalPph23)+'</td><td></td></tr></tfoot></table></div>';
 }
 function pdTabelRealisasiReadonly(rows){
-  rows = pdRealisasiKeluar(rows); // kontribusi pihak lain (MASUK) ditampilkan terpisah: pdTabelKontribusiReadonly
+  rows = pdRealisasiKeluar(rows); // pemasukan sumber lain (MASUK) ditampilkan terpisah: pdTabelKontribusiReadonly
   var totalNominal=0, totalPph21=0, totalPph23=0;
   rows.forEach(function(r){ totalNominal+=Number(r.nominal)||0; totalPph21+=Number(r.pph21)||0; totalPph23+=Number(r.pph23)||0; });
   return '<div class="table-responsive mb-2"><table class="table tbl mb-0">'
@@ -8754,7 +8815,7 @@ function pdInfoPphHtml(realisasi, namaKegiatan){
     + '<div class="small" style="color:#78350f;line-height:1.8;">' + baris.join('') + '</div></div>';
 }
 // ============================================================
-// FITUR BARU -- KONTRIBUSI PIHAK LAIN pada LPJ Dana Kegiatan (MUKA).
+// FITUR BARU -- PEMASUKAN SUMBER LAIN pada LPJ Dana Kegiatan (MUKA).
 // Dana tambahan dari pihak lain (istilah sengaja umum; bentuk & dasarnya
 // dijelaskan di Keterangan) dipegang Unit & dicatat saat LPJ sebagai baris
 // Realisasi bertipe 'MASUK' (kolom Tipe SUDAH ada -> tanpa kolom/sheet baru).
@@ -8781,11 +8842,17 @@ function pdSalinTeks(btn){
 }
 // Ringkasan RINGKAS (gaya sama dgn Rincian PPh): total gabungan saja.
 function pdInfoKontribusiHtml(realisasi, namaKegiatan){
+  var rows = pdRealisasiMasuk(realisasi);
+  if(!rows.length) return '';
   var total = pdTotalKontribusi(realisasi);
-  if(!total) return '';
+  var daftar = rows.map(function(r){
+    return '<div class="d-flex justify-content-between gap-2"><span>&bull; '+esc(r.namaKomponen)+(r.keterangan?(' &mdash; '+esc(r.keterangan)):'')+(r.noBukti?(' <span class="text-muted">('+esc(r.noBukti)+')</span>'):'')+'</span><span class="fw-bold text-nowrap">Rp '+fmtRp(r.nominal)+'</span></div>';
+  }).join('');
   return '<div class="mb-3" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;">'
-    + '<div class="small fw-bold mb-1" style="color:#166534;"><i class="fas fa-hand-holding-dollar me-1"></i>Rincian Kontribusi Pihak Lain (menambah dana tersedia; sisa yang tidak terpakai disetor ke kas LPPM)</div>'
-    + '<div class="small" style="color:#14532d;line-height:1.8;"><div class="d-flex justify-content-between gap-2"><span>Kontribusi Pihak Lain &mdash; '+esc(namaKegiatan)+'</span><span class="fw-bold text-nowrap">Rp '+fmtRp(total)+'</span></div></div></div>';
+    + '<div class="small fw-bold mb-1" style="color:#166534;"><i class="fas fa-hand-holding-dollar me-1"></i>Rincian Pemasukan Sumber Lain</div>'
+    + '<div class="small" style="color:#14532d;line-height:1.8;">'+daftar
+    + (rows.length>1 ? '<div class="d-flex justify-content-between gap-2 fw-bold" style="border-top:1px solid #bbf7d0;margin-top:2px;"><span>Total</span><span class="text-nowrap">Rp '+fmtRp(total)+'</span></div>' : '')
+    + '</div></div>';
 }
 // Ringkasan LENGKAP utk ADMIN saat mencatat BKM/BKK: perhitungan + daftar pihak
 // + saran teks keterangan yang bisa disalin.
@@ -8804,13 +8871,13 @@ function pdRingkasanKasKontribusiHtml(realisasi, h){
   var pihak = rows.map(function(r){ return r.namaKomponen; }).join(', ');
   var teks = (selisih>0 ? 'Setoran surplus' : (selisih<0 ? 'Pembayaran kekurangan' : 'Penyelesaian'))
     + ' dana kegiatan "'+(h.judul||'')+'" ('+h.idPengajuan+'). Dana dicairkan Rp '+fmtRp(dana)
-    + ' + kontribusi pihak lain Rp '+fmtRp(totalK)+' ('+pihak+') - realisasi Rp '+fmtRp(real)
+    + ' + pemasukan sumber lain Rp '+fmtRp(totalK)+' ('+pihak+') - realisasi Rp '+fmtRp(real)
     + ' = '+(selisih>0?'surplus':(selisih<0?'defisit':'pas'))+(selisih!==0?(' Rp '+fmtRp(Math.abs(selisih))):'')+'.';
   return '<div class="mb-3" style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:10px 12px;">'
-    + '<div class="small fw-bold mb-2" style="color:#075985;"><i class="fas fa-receipt me-1"></i>Dasar Pencatatan Kas &mdash; memuat Kontribusi Pihak Lain</div>'
+    + '<div class="small fw-bold mb-2" style="color:#075985;"><i class="fas fa-receipt me-1"></i>Dasar Pencatatan Kas &mdash; memuat Pemasukan Sumber Lain</div>'
     + '<div class="small" style="line-height:1.8;">'
     + baris('Dana Dicairkan', 'Rp '+fmtRp(dana))
-    + baris('+ Kontribusi Pihak Lain', 'Rp '+fmtRp(totalK))
+    + baris('+ Pemasukan Sumber Lain', 'Rp '+fmtRp(totalK))
     + daftar
     + baris('&minus; Total Realisasi', 'Rp '+fmtRp(real))
     + '<div style="border-top:1px solid #bae6fd;margin:4px 0;"></div>'
@@ -8825,16 +8892,17 @@ function pdTabelKontribusiReadonly(realisasi){
   var rows = pdRealisasiMasuk(realisasi);
   if(!rows.length) return '';
   var total = rows.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
-  return '<div class="small fw-bold mb-1 mt-3 text-muted">KONTRIBUSI PIHAK LAIN</div>'
-    + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th>Nama Pihak</th><th>Keterangan</th><th class="text-end">Nominal</th><th>No. Bukti</th></tr></thead><tbody>'
+  return '<div class="small fw-bold mb-1 mt-3 text-muted">PEMASUKAN SUMBER LAIN</div>'
+    + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th>Nama Sumber</th><th>Keterangan</th><th class="text-end">Nominal</th><th>No. Bukti</th></tr></thead><tbody>'
     + rows.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td class="text-muted" style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td><td>'+esc(r.noBukti)+'</td></tr>'; }).join('')
     + '</tbody><tfoot><tr><td colspan="2" class="text-end">TOTAL</td><td class="text-end">Rp '+fmtRp(total)+'</td><td></td></tr></tfoot></table></div>';
 }
-// ---- form isian (Unit, saat LPJ) -- tabel BARU MUNCUL setelah tombol "Kontribusi Pihak Lain" diklik ----
+// ---- form isian (Unit, saat LPJ) -- tabel BARU MUNCUL setelah tombol "Pemasukan Sumber Lain" diklik ----
 function pdBarisKontribusiHtml(r, i){
   return '<tr><td><input class="form-control form-control-sm" value="'+pdEscAttr(r.namaKomponen)+'" placeholder="mis. PT Maju Jaya" oninput="pdUbahKontribusi('+i+',\'namaKomponen\',this.value)"></td>'
-    + '<td><textarea class="form-control form-control-sm" rows="2" placeholder="Jelaskan kontribusi ini (dari siapa, untuk apa, dasar kerja samanya)" oninput="pdUbahKontribusi('+i+',\'keterangan\',this.value)">'+esc(r.keterangan)+'</textarea></td>'
+    + '<td><textarea class="form-control form-control-sm" rows="1" placeholder="Keterangan" oninput="pdUbahKontribusi('+i+',\'keterangan\',this.value)">'+esc(r.keterangan)+'</textarea></td>'
     + '<td><input class="form-control form-control-sm text-end" value="'+(r.nominal?fmtRp(r.nominal):'')+'" placeholder="0" oninput="formatAngkaLive(this)" onblur="finalisasiAngka(this);pdUbahKontribusi('+i+',\'nominal\',this.value)"></td>'
+    + '<td colspan="2"></td>'
     + '<td><input class="form-control form-control-sm" value="'+pdEscAttr(r.noBukti)+'" placeholder="mis. K.1" oninput="pdUbahKontribusi('+i+',\'noBukti\',this.value)"></td>'
     + '<td class="text-center"><button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="pdHapusBarisKontribusi('+i+')"><i class="fas fa-trash"></i></button></td></tr>';
 }
@@ -8848,7 +8916,7 @@ function pdRenderTabelKontribusi(){
   var body = document.getElementById('pd-tbody-kontribusi-edit');
   if(wrap) wrap.classList.toggle('d-none', !rows.length); // kosong = disembunyikan, Unit lain tidak bingung
   var lb = document.getElementById('pd-selisih-label-realisasiEdit');
-  if(lb) lb.innerHTML = rows.length ? 'Surplus / Defisit (Dana Dicairkan + Kontribusi Pihak Lain &minus; Realisasi)' : 'Surplus / Defisit (Dana Dicairkan &minus; Realisasi)';
+  if(lb) lb.innerHTML = rows.length ? 'Surplus / Defisit (Dana Dicairkan + Pemasukan Sumber Lain &minus; Realisasi)' : 'Surplus / Defisit (Dana Dicairkan &minus; Realisasi)';
   if(body) body.innerHTML = rows.map(function(r,i){ return pdBarisKontribusiHtml(r, i); }).join('');
   pdRenderTotalKontribusi();
   pdRenderTotalRealisasi('realisasiEdit');
@@ -8867,11 +8935,21 @@ function pdUbahKontribusi(i, field, val){
   pdRenderTotalRealisasi('realisasiEdit'); // Surplus/Defisit ikut hitung ulang real-time
 }
 function pdTabelRabReadonly(rows){
-  var total = rows.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
-  return '<div class="table-responsive"><table class="table tbl mb-0">'
+  var keluar = pdRealisasiKeluar(rows), sumber = pdRealisasiMasuk(rows);
+  var total = keluar.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
+  var totalSumber = sumber.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0);
+  var html = '<div class="table-responsive"><table class="table tbl mb-0">'
     + '<thead><tr><th>Komponen Anggaran</th><th>Keterangan</th><th class="text-end">Nominal</th></tr></thead><tbody>'
-    + rows.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td class="text-muted" style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td></tr>'; }).join('')
-    + '</tbody><tfoot><tr><td colspan="2" class="text-end">Total Diajukan</td><td class="text-end">Rp '+fmtRp(total)+'</td></tr></tfoot></table></div>';
+    + keluar.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td class="text-muted" style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td></tr>'; }).join('')
+    + '</tbody><tfoot><tr><td colspan="2" class="text-end">'+(sumber.length?'Total RAB':'Total Diajukan')+'</td><td class="text-end">Rp '+fmtRp(total)+'</td></tr></tfoot></table></div>';
+  if(!sumber.length) return html;
+  // Pemasukan Sumber Lain yang DIRENCANAKAN saat pengajuan: info sumber dana; BUKAN penambah dana yang diajukan.
+  return html
+    + '<div class="small fw-bold mb-1 mt-3 text-muted">PEMASUKAN SUMBER LAIN</div>'
+    + '<div class="table-responsive"><table class="table tbl mb-0"><thead><tr><th>Nama Sumber</th><th>Keterangan</th><th class="text-end">Nominal</th></tr></thead><tbody>'
+    + sumber.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td class="text-muted" style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="text-end">Rp '+fmtRp(r.nominal)+'</td></tr>'; }).join('')
+    + '</tbody><tfoot><tr><td colspan="2" class="text-end">Total Pemasukan Sumber Lain</td><td class="text-end">Rp '+fmtRp(totalSumber)+'</td></tr>'
+    + '<tr><td colspan="2" class="text-end"><b>Diajukan ke LPPM</b> (Total RAB &minus; Pemasukan Sumber Lain)</td><td class="text-end"><b>Rp '+fmtRp(total-totalSumber)+'</b></td></tr></tfoot></table></div>';
 }
 
 // ============================================================
@@ -8897,6 +8975,7 @@ function pdBlokEditRabAdmin(idPengajuan){
       + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:32%">Nama Komponen</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-rab-admin"></tbody></table></div>'
       + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRabAdmin()"><i class="fas fa-plus me-1"></i>Baris</button>'
       + '<div class="text-end mb-2"><b>Total: </b><span id="pd-total-rab-admin">Rp 0</span></div>'
+      + '<div class="small text-muted mb-2 d-none" id="pd-rab-admin-note-'+idPengajuan+'">Pemasukan Sumber Lain yang sudah tercatat tidak diedit di sini (tetap dipertahankan). Dana yang diajukan ke LPPM otomatis = Total RAB &minus; Pemasukan Sumber Lain.</div>'
       + '<button class="btn btn-sm btn-outline-danger" id="btn-simpan-rab-admin-'+idPengajuan+'" onclick="pdAksiSimpanEditRab(\''+idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Perubahan RAB</button>'
     + '</div></div>';
 }
@@ -8906,7 +8985,8 @@ function pdToggleEditRab(idPengajuan){
   var akanDibuka = box.classList.contains('d-none');
   box.classList.toggle('d-none');
   if(akanDibuka){
-    var rowsAsli = PD.rabAdminAsli || [];
+    var rowsAsli = pdRealisasiKeluar(PD.rabAdminAsli || []); // Pemasukan Sumber Lain tidak diedit di sini (dipertahankan backend)
+    var _noteSL = document.getElementById('pd-rab-admin-note-'+idPengajuan); if(_noteSL) _noteSL.classList.toggle('d-none', !pdRealisasiMasuk(PD.rabAdminAsli || []).length);
     PD.rabAdminEdit = rowsAsli.length ? rowsAsli.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal}; }) : [{namaKomponen:'',keterangan:'',nominal:0}];
     pdPastikanKomponenList(function(){ pdRenderTabelRabAdmin(); });
   }
@@ -8956,7 +9036,7 @@ function pdToggleEditRealisasi(idPengajuan){
   var akanDibuka = box.classList.contains('d-none');
   box.classList.toggle('d-none');
   if(akanDibuka){
-    var rowsAsli = pdRealisasiKeluar(PD.realisasiAdminAsli || []); // kontribusi pihak lain tidak diedit di sini (dipertahankan backend)
+    var rowsAsli = pdRealisasiKeluar(PD.realisasiAdminAsli || []); // pemasukan sumber lain tidak diedit di sini (dipertahankan backend)
     PD.realisasiAdminEdit = rowsAsli.length ? rowsAsli.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.komponenTerbatasRealisasiAdmin = null;
     pdPastikanKomponenList(function(){ pdRenderTabelRealisasiAdmin(); });
@@ -9180,6 +9260,9 @@ function pdSubmitPermohonanDana(btn){
   var rab = PD.rab.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
   if(!judul){ toast('error','Nama kegiatan wajib diisi'); return; }
   if(!rab.length){ toast('error','RAB minimal 1 komponen dengan nominal > 0'); return; }
+  var sumberLain = pdKumpulkanSumberLainRab(rab.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0));
+  if(sumberLain===null) return;
+  var rabKirim = rab.concat(sumberLain); // komponen RAB + Pemasukan Sumber Lain (tipe MASUK)
   if(!PD.suratFile){ toast('error','Surat pengajuan (PDF) wajib diunggah'); return; }
   var kodeUnitAdmin = pdKodeUnitAdminTerpilih('muka');
   // PERBAIKAN PERFORMA: kirim pengajuan + refresh ringkasan/badge/daftar
@@ -9187,8 +9270,8 @@ function pdSubmitPermohonanDana(btn){
   // besar di definisinya) -- sebelumnya 2 round-trip terpisah tiap kali
   // submit (kirim pengajuan, lalu pdMuatRingkasanDanDaftar() menyusul).
   pdCekSerupaLaluLanjut(judul, 'MUKA', function(){
-    var idKey = _idemKey('ajukan_muka', {judul:judul,tgl:tgl,rab:rab,kodeUnit:kodeUnitAdmin,nonce:PD.formNonce});
-    pdJalankanAksi('ajukanPermohonanDanaKegiatan', [{judul:judul, tglPengajuan:tgl, rab:rab, suratFile:PD.suratFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey], btn, null).then(function(res){
+    var idKey = _idemKey('ajukan_muka', {judul:judul,tgl:tgl,rab:rabKirim,kodeUnit:kodeUnitAdmin,nonce:PD.formNonce});
+    pdJalankanAksi('ajukanPermohonanDanaKegiatan', [{judul:judul, tglPengajuan:tgl, rab:rabKirim, suratFile:PD.suratFile, kodeUnit:kodeUnitAdmin}, STATE.token, idKey], btn, null).then(function(res){
       if(!res) return;
       toast('success','Pengajuan '+res.idPengajuan+' berhasil dikirim');
       // PERBAIKAN BUG NYATA (atas laporan "jadi double submit" -- draft
@@ -9574,6 +9657,7 @@ function pdRenderRiwayat(riwayat){
 }
 function pdRenderDetail(res){
   var h = res.header;
+  if(h && h.jenis==='MUKA' && h.totalKontribusi===undefined) h.totalKontribusi = pdTotalKontribusi(res.realisasi); // jaga-jaga backend lama
   // PERBAIKAN BUG PENTING ("kalau Tunai jadi narik upload dari yang lain"):
   // PD.buktiBayarFile (bukti bayar Tagihan) & PD.buktiTransferSekaligus
   // (bukti transfer Penggantian Biaya) SEBELUMNYA cuma di-null-kan SEKALI
@@ -9729,7 +9813,7 @@ function pdRenderDetailKetua(res){
       var selisihKetuaMuka = pdSelisihMuka(h);
       html += pdTabelRealisasiReadonly(res.realisasi) + pdTabelKontribusiReadonly(res.realisasi)
         + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
-        + (h.totalKontribusi ? '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Kontribusi Pihak Lain</div><div class="fw-bold">Rp '+fmtRp(h.totalKontribusi)+'</div></div></div>' : '')
+        + (h.totalKontribusi ? '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Pemasukan Sumber Lain</div><div class="fw-bold">Rp '+fmtRp(h.totalKontribusi)+'</div></div></div>' : '')
         + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
         + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisihKetuaMuka===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisihKetuaMuka===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisihKetuaMuka))+(selisihKetuaMuka>0?' (surplus, dikembalikan)':(selisihKetuaMuka<0?' (defisit, kurang)':' (sesuai)'))+'</div></div></div></div>'
         + pdInfoPphHtml(pdRealisasiKeluar(res.realisasi), h.judul) + pdInfoKontribusiHtml(res.realisasi, h.judul);
@@ -9739,7 +9823,7 @@ function pdRenderDetailKetua(res){
     html += '</div></div>';
     html += '<div class="card mb-3"><div class="card-body">'
       + '<div class="section-title mb-2"><i class="fas fa-scale-balanced"></i>APPROVAL DEFISIT</div>'
-      + '<p class="small text-muted mb-2">Realisasi '+(h.jenis==='LAPORAN_UNIT'?'Pengeluaran melebihi Pemasukan':'melebihi dana yang dicairkan'+(h.totalKontribusi?' dan kontribusi pihak lain':''))+' sebesar <b>Rp '+fmtRp(kekuranganKetua)+'</b>. Pembayaran kekurangan ini perlu disetujui dulu.</p>'
+      + '<p class="small text-muted mb-2">Realisasi '+(h.jenis==='LAPORAN_UNIT'?'Pengeluaran melebihi Pemasukan':'melebihi dana yang dicairkan'+(h.totalKontribusi?' dan pemasukan sumber lain':''))+' sebesar <b>Rp '+fmtRp(kekuranganKetua)+'</b>. Pembayaran kekurangan ini perlu disetujui dulu.</p>'
       + '<textarea class="form-control form-control-sm mb-2" id="pd-catatan-defisit-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau dikembalikan untuk revisi)"></textarea>'
       + '<button class="btn btn-sm" id="btn-defisit-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui Defisit</button> '
       + '<button class="btn btn-sm btn-outline-warning" id="btn-defisit-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</button>'
@@ -9809,7 +9893,9 @@ function pdRenderDetailMuka(res){
   // blok ini DIBUKA LAGI (bukan blok baru) supaya Unit bisa perbaiki &
   // kirim ulang -- data lama akan DITIMPA (bukan disimpan sbg versi lain).
   if(h.status==='PERLU_REVISI' && !h.tglDicairkan){
-    PD.rab = res.detail.length ? res.detail.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal}; }) : [{namaKomponen:'',keterangan:'',nominal:0}];
+    var _rabKeluarRev = pdRealisasiKeluar(res.detail);
+    PD.sumberLainRab = pdRealisasiMasuk(res.detail).map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal}; });
+    PD.rab = _rabKeluarRev.length ? _rabKeluarRev.map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal}; }) : [{namaKomponen:'',keterangan:'',nominal:0}];
     PD.suratFile = null;
     html += pdBlock('fa-file-lines','1. Pengajuan Dana','revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
       (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Bagian Keuangan · '+pdFmtWaktu(catatanRevisiTerakhir.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
@@ -9823,8 +9909,11 @@ function pdRenderDetailMuka(res){
       + ((isAdmin||isKetua) ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit memperbaiki & mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki RAB &amp; surat, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:32%">Nama Komponen</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-rab-revisi"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRab()"><i class="fas fa-plus me-1"></i>Baris</button>'
-          + '<div class="text-end mb-3"><b>Total: </b><span id="pd-total-rab-revisi">Rp 0</span></div>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisRab()"><i class="fas fa-plus me-1"></i>Baris</button> <button type="button" class="btn btn-sm btn-outline-secondary mb-2" onclick="pdTambahBarisSumberLainRab()"><i class="fas fa-plus me-1"></i>Pemasukan Sumber Lain</button>'
+          + '<div class="text-end mb-2"><b>Total: </b><span id="pd-total-rab-revisi">Rp 0</span></div>'
+          + '<div id="pd-sumber-lain-rab-wrap-revisi" class="d-none mb-2"><div class="small fw-bold mb-1 text-muted">PEMASUKAN SUMBER LAIN <span class="fw-normal">(jelaskan sumber &amp; dasarnya di Keterangan. Tidak menambah dana yang diajukan)</span></div>'
+            + '<div class="table-responsive"><table class="table tbl mb-0"><thead><tr><th style="width:32%">Nama Sumber</th><th style="width:38%">Keterangan</th><th class="text-end" style="width:24%">Nominal</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-sumber-lain-rab-revisi"></tbody></table></div></div>'
+          + '<div id="pd-ringkas-rab-revisi" class="mb-3"></div>'
           + '<div class="small fw-bold mb-1 text-muted">SURAT PENGAJUAN</div>'
           + (suratFile ? ('<div class="mb-2">'+pdFileChip(suratFile)+'<div class="small text-muted mt-1">Surat di atas ini yang tersimpan sekarang -- unggah baru di bawah HANYA kalau mau diganti.</div></div>') : '')
           + '<div class="pd-drop mb-2" id="pd-drop-surat-revisi" style="max-width:420px;" onclick="document.getElementById(\'pd-file-surat-revisi\').click()"><i class="fas fa-cloud-arrow-up"></i><div class="pd-drop-text">Klik atau seret surat '+(suratFile?'pengganti':'baru')+' (PDF) ke sini</div><input type="file" id="pd-file-surat-revisi" accept="application/pdf" class="d-none" data-drop-id="pd-drop-surat-revisi" onchange="pdPilihFile(this,\'suratFile\')"></div>'
@@ -9912,7 +10001,7 @@ function pdRenderDetailMuka(res){
     PD.kontribusiLpj = pdRealisasiMasuk(res.realisasi).map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,noBukti:r.noBukti,tanggal:r.tanggal}; });
     PD.realisasiEdit = pdRealisasiKeluar(res.realisasi).length ? pdRealisasiKeluar(res.realisasi).map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,pph21:r.pph21,pph23:r.pph23,noBukti:r.noBukti}; }) : [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
     PD.lpjFileEdit = null;
-    PD.komponenTerbatasRealisasi = res.detail.map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
+    PD.komponenTerbatasRealisasi = pdRealisasiKeluar(res.detail).map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','revisi', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
       (catatanRevisiTerakhir ? '<div class="pd-locked-note" style="background:#fff7ed;border:1px solid #fdba74;color:#9a3412;margin-bottom:14px;"><i class="fas fa-rotate-left"></i><div><b>Diminta Revisi</b> oleh Bagian Keuangan · '+pdFmtWaktu(catatanRevisiTerakhir.waktu)+'<br><span style="color:#9a3412;">'+esc(catatanRevisiTerakhir.teks)+'</span></div></div>' : '')
       // PERBAIKAN BUG NYATA (Ketua LPPM) -- SAMA persis dgn Tahap 1 di atas:
@@ -9920,12 +10009,12 @@ function pdRenderDetailMuka(res){
       + ((isAdmin||isKetua) ? pdCatatanTunggu('Sudah diminta revisi. Menunggu Unit mengirim ulang.')
         : ('<p class="text-muted small mb-2">Perbaiki realisasi &amp; bukti LPJ, lalu kirim ulang. Data lama akan diganti dengan yang baru.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisKontribusi()"><i class="fas fa-plus me-1"></i>Kontribusi Pihak Lain</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisKontribusi()"><i class="fas fa-plus me-1"></i>Pemasukan Sumber Lain</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span> &nbsp;<span class="text-muted small">| Total PPh 21+23: </span><span id="pd-total-pph-realisasiEdit" class="small">Rp 0</span></div>'
           + '<div id="pd-kontribusi-wrap" class="d-none">'
-          + '<div class="small fw-bold mb-1 mt-1 text-muted">KONTRIBUSI PIHAK LAIN <span class="fw-normal">(dana tambahan dari pihak lain untuk kegiatan ini &mdash; jelaskan bentuk &amp; dasarnya di Keterangan)</span></div>'
-          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:24%">Nama Pihak</th><th style="width:34%">Keterangan</th><th class="text-end" style="width:18%">Nominal</th><th style="width:18%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-kontribusi-edit"></tbody></table></div>'
-          + '<div class="mb-2"><b>Total Kontribusi Pihak Lain: </b><span id="pd-total-kontribusi-edit" class="small">Rp 0</span> &nbsp;<span class="text-muted small">| Bukti dimasukkan ke PDF LPJ. Dana yang tidak terpakai disetor ke kas LPPM.</span></div>'
+          + '<div class="small fw-bold mb-1 mt-1 text-muted">PEMASUKAN SUMBER LAIN <span class="fw-normal">(dana tambahan dari sumber lain untuk kegiatan ini &mdash; jelaskan bentuk &amp; dasarnya di Keterangan. Kalau sudah direncanakan saat pengajuan, baris terisi otomatis &mdash; sesuaikan dengan yang benar-benar diterima)</span></div>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Nama Sumber</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th colspan="2" style="width:22%"></th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-kontribusi-edit"></tbody></table></div>'
+          + '<div class="mb-2"><b>Total Pemasukan Sumber Lain: </b><span id="pd-total-kontribusi-edit" class="small">Rp 0</span> &nbsp;<span class="text-muted small">| Bukti dimasukkan ke PDF LPJ. Dana yang tidak terpakai disetor ke kas LPPM.</span></div>'
           + '</div>'
           + '<div class="pd-total-box ok mb-2" id="pd-selisih-realisasiEdit-box" data-dicairkan="'+(h.totalDiajukan||0)+'"><div class="small text-muted" id="pd-selisih-label-realisasiEdit">Surplus / Defisit (Dana Dicairkan &minus; Realisasi)</div><div class="fw-bold" id="pd-selisih-realisasiEdit">Rp 0</div></div>'
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH ULANG BUKTI LPJ</div>'
@@ -9934,10 +10023,11 @@ function pdRenderDetailMuka(res){
     if(!isAdmin && !isKetua) setTimeout(function(){ pdPastikanKomponenList(function(){ pdRenderTabelRealisasi('realisasiEdit'); pdTawarkanDraftLpj(h.idPengajuan); }); }, 0);
   } else if(st(4)==='active'){
     PD.realisasiEdit = [{namaKomponen:'',keterangan:'',nominal:0,pph21:0,pph23:0,noBukti:''}];
-    PD.kontribusiLpj = [];
+    // Terisi otomatis dari Pemasukan Sumber Lain yang DIRENCANAKAN saat pengajuan -- Unit menyesuaikan dgn yang benar-benar diterima.
+    PD.kontribusiLpj = pdRealisasiMasuk(res.detail).map(function(r){ return {namaKomponen:r.namaKomponen,keterangan:r.keterangan,nominal:r.nominal,noBukti:'',tanggal:''}; });
     PD.lpjNonce = String(Date.now()) + '_' + Math.random().toString(36).slice(2);
     PD.lpjFileEdit = null;
-    PD.komponenTerbatasRealisasi = res.detail.map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
+    PD.komponenTerbatasRealisasi = pdRealisasiKeluar(res.detail).map(function(d){ return d.namaKomponen; }); // akuntabel: dropdown Realisasi cuma boleh komponen yg SUDAH dianggarkan di RAB
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','active', (isAdmin||isKetua)?'':'<span class="badge-role badge-unit">UNIT</span>',
       // PERBAIKAN BUG NYATA (Ketua LPPM, dilaporkan langsung dari screenshot
       // "kok ketua bisa unggah realisasi"): SEBELUMNYA cek di sini cuma
@@ -9950,12 +10040,12 @@ function pdRenderDetailMuka(res){
       (isAdmin||isKetua) ? pdCatatanTunggu('Dana sudah dicairkan. Menunggu Unit mengisi realisasi & mengunggah LPJ.')
         : ('<p class="text-muted small mb-2">Pilihan komponen dibatasi hanya yang sudah dianggarkan di RAB (akuntabel) -- isi keterangan &amp; nominal sesuai bukti riil di lapangan.</p>'
           + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Komponen</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th class="text-end" style="width:11%">PPh 21</th><th class="text-end" style="width:11%">PPh 23</th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-realisasi-edit"></tbody></table></div>'
-          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisKontribusi()"><i class="fas fa-plus me-1"></i>Kontribusi Pihak Lain</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
+          + '<button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisRealisasi(\'realisasiEdit\')"><i class="fas fa-plus me-1"></i>Tambah Komponen</button>' + ' <button type="button" class="btn btn-sm btn-outline-secondary mb-3" onclick="pdTambahBarisKontribusi()"><i class="fas fa-plus me-1"></i>Pemasukan Sumber Lain</button>' + ' <button type="button" class="btn btn-sm btn-draft mb-3" onclick="pdSimpanDraftLpj(\''+h.idPengajuan+'\', this)"><i class="fas fa-floppy-disk me-1"></i>Simpan Draft</button>'
           + '<div class="mb-2"><b>Total: </b><span id="pd-total-realisasiEdit"></span> &nbsp;<span class="text-muted small">| Total PPh 21+23: </span><span id="pd-total-pph-realisasiEdit" class="small">Rp 0</span></div>'
           + '<div id="pd-kontribusi-wrap" class="d-none">'
-          + '<div class="small fw-bold mb-1 mt-1 text-muted">KONTRIBUSI PIHAK LAIN <span class="fw-normal">(dana tambahan dari pihak lain untuk kegiatan ini &mdash; jelaskan bentuk &amp; dasarnya di Keterangan)</span></div>'
-          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:24%">Nama Pihak</th><th style="width:34%">Keterangan</th><th class="text-end" style="width:18%">Nominal</th><th style="width:18%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-kontribusi-edit"></tbody></table></div>'
-          + '<div class="mb-2"><b>Total Kontribusi Pihak Lain: </b><span id="pd-total-kontribusi-edit" class="small">Rp 0</span> &nbsp;<span class="text-muted small">| Bukti dimasukkan ke PDF LPJ. Dana yang tidak terpakai disetor ke kas LPPM.</span></div>'
+          + '<div class="small fw-bold mb-1 mt-1 text-muted">PEMASUKAN SUMBER LAIN <span class="fw-normal">(dana tambahan dari sumber lain untuk kegiatan ini &mdash; jelaskan bentuk &amp; dasarnya di Keterangan. Kalau sudah direncanakan saat pengajuan, baris terisi otomatis &mdash; sesuaikan dengan yang benar-benar diterima)</span></div>'
+          + '<div class="table-responsive mb-2"><table class="table tbl mb-0"><thead><tr><th style="width:20%">Nama Sumber</th><th style="width:24%">Keterangan</th><th class="text-end" style="width:13%">Nominal</th><th colspan="2" style="width:22%"></th><th style="width:15%">No. Bukti</th><th style="width:6%"></th></tr></thead><tbody id="pd-tbody-kontribusi-edit"></tbody></table></div>'
+          + '<div class="mb-2"><b>Total Pemasukan Sumber Lain: </b><span id="pd-total-kontribusi-edit" class="small">Rp 0</span> &nbsp;<span class="text-muted small">| Bukti dimasukkan ke PDF LPJ. Dana yang tidak terpakai disetor ke kas LPPM.</span></div>'
           + '</div>'
           + '<div class="pd-total-box ok mb-2" id="pd-selisih-realisasiEdit-box" data-dicairkan="'+(h.totalDiajukan||0)+'"><div class="small text-muted" id="pd-selisih-label-realisasiEdit">Surplus / Defisit (Dana Dicairkan &minus; Realisasi)</div><div class="fw-bold" id="pd-selisih-realisasiEdit">Rp 0</div></div>'
           + '<div class="small fw-bold mb-1 text-muted">UNGGAH BUKTI LPJ (1 PDF gabungan)</div>'
@@ -9975,12 +10065,12 @@ function pdRenderDetailMuka(res){
     // dipakai APA ADANYA (SAMA dgn h.selisihDana dari backend kalau
     // dihitung ulang) -- PPh 21/23 cuma ditampilkan sbg RINCIAN INFORMATIF
     // di bawah (pdInfoPphHtml), bukan pengurang Total Realisasi.
-    var selisih = pdSelisihMuka(h); // PURE: dana dicairkan + kontribusi pihak lain - realisasi apa adanya
+    var selisih = pdSelisihMuka(h); // PURE: dana dicairkan + pemasukan sumber lain - realisasi apa adanya
     PD.realisasiAdminAsli = res.realisasi;
     var blokEditRealisasi4 = (isAdmin && h.status !== 'DITOLAK') ? pdBlokEditRealisasiAdmin(h.idPengajuan, h.status) : '';
     html += pdBlock('fa-table','4. Realisasi & Unggah LPJ','done','', pdTabelRealisasiReadonly(res.realisasi) + pdTabelKontribusiReadonly(res.realisasi)
       + '<div class="row g-2 mb-3"><div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Dana Dicairkan</div><div class="fw-bold">Rp '+fmtRp(h.totalDiajukan)+'</div></div></div>'
-      + (h.totalKontribusi ? '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Kontribusi Pihak Lain</div><div class="fw-bold">Rp '+fmtRp(h.totalKontribusi)+'</div></div></div>' : '')
+      + (h.totalKontribusi ? '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Pemasukan Sumber Lain</div><div class="fw-bold">Rp '+fmtRp(h.totalKontribusi)+'</div></div></div>' : '')
         + '<div class="col-6 col-md-4"><div class="pd-total-box"><div class="small text-muted">Total Realisasi</div><div class="fw-bold">Rp '+fmtRp(h.totalRealisasi)+'</div></div></div>'
       + '<div class="col-12 col-md-4"><div class="pd-total-box '+(selisih===0?'ok':'warn')+'"><div class="small text-muted">Selisih</div><div class="fw-bold" style="color:'+(selisih===0?'#166534':'#9a3412')+';">Rp '+fmtRp(Math.abs(selisih))+(selisih>0?' (surplus, dikembalikan)':(selisih<0?' (defisit, kurang)':' (sesuai)'))+'</div></div></div></div>'
       + pdInfoPphHtml(pdRealisasiKeluar(res.realisasi), h.judul) + pdInfoKontribusiHtml(res.realisasi, h.judul)
@@ -10071,7 +10161,7 @@ function pdRenderDetailMuka(res){
     if(h.status==='MENUNGGU_APPROVAL_DEFISIT'){
       var kekuranganDefisit = Math.abs(selisihB);
       html += pdBlock('fa-scale-balanced','6. Approval Defisit','active', canApproveRab?('<span class="badge-role '+(isKetua?'badge-ketua':'badge-admin')+'">'+(isKetua?'KETUA LPPM':'ADMIN')+'</span>'):'',
-        '<p class="small text-muted mb-2">LPJ ini sudah diverifikasi kelengkapan dokumennya, tapi realisasinya <b>melebihi dana yang dicairkan'+(h.totalKontribusi?' dan kontribusi pihak lain':'')+'</b> sebesar <b>Rp '+fmtRp(kekuranganDefisit)+'</b>. Pembayaran kekurangan ini perlu disetujui dulu sebelum bisa dicatat Bagian Keuangan.</p>'
+        '<p class="small text-muted mb-2">LPJ ini sudah diverifikasi kelengkapan dokumennya, tapi realisasinya <b>melebihi dana yang dicairkan'+(h.totalKontribusi?' dan pemasukan sumber lain':'')+'</b> sebesar <b>Rp '+fmtRp(kekuranganDefisit)+'</b>. Pembayaran kekurangan ini perlu disetujui dulu sebelum bisa dicatat Bagian Keuangan.</p>'
         + (canApproveRab ? ('<textarea class="form-control form-control-sm mb-2" id="pd-catatan-defisit-'+h.idPengajuan+'" rows="2" placeholder="Catatan (opsional, WAJIB kalau dikembalikan untuk revisi)"></textarea>'
             + '<button class="btn btn-sm" id="btn-defisit-setuju-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'DISETUJUI\', this)" style="background:var(--maroon);color:#fff;"><i class="fas fa-check me-1"></i>Setujui Defisit</button> '
             + '<button class="btn btn-sm btn-outline-warning" id="btn-defisit-revisi-'+h.idPengajuan+'" onclick="pdAksiSetujuiDefisit(\''+h.idPengajuan+'\',\'PERLU_REVISI\', this)"><i class="fas fa-rotate-left me-1"></i>Kembalikan untuk Revisi</button>')
@@ -10111,7 +10201,7 @@ function pdRenderDetailMuka(res){
       + '<ol class="mb-0 mt-1"><li><b>Hasil cetak Lampiran LPJ</b> ini</li>'
       + '<li><b>BKK Pengajuan Dana</b> (bukti kas keluar saat dana ini pertama kali dicairkan)</li>'
       + '<li><b>Bukti-bukti realisasi belanja</b> (nota/kuitansi/struk asli sesuai rincian Realisasi di atas)</li>'
-      + (h.totalKontribusi ? '<li><b>Bukti Kontribusi Pihak Lain</b> (bukti transfer/surat kerja sama sesuai rincian Kontribusi Pihak Lain di atas)</li>' : '')
+      + (h.totalKontribusi ? '<li><b>Bukti Pemasukan Sumber Lain</b> (bukti transfer/surat kerja sama sesuai rincian Pemasukan Sumber Lain di atas)</li>' : '')
       + '</ol></div>';
 
     // BAGIAN 1: Data Penyetor -- selalu tersedia begitu LPJ disetujui.
@@ -10584,7 +10674,9 @@ function pdAksiSetujuiDefisit(id, keputusan, btn){
 function pdAksiKirimUlang(id, btn){
   var rab = PD.rab.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
   if(!rab.length){ toast('error','RAB minimal 1 komponen dengan nominal > 0'); return; }
-  pdJalankanAksi('kirimUlangPengajuan', [id, {rab:rab, suratFile:PD.suratFile}, STATE.token], btn, 'Pengajuan dikirim ulang');
+  var sumberLain = pdKumpulkanSumberLainRab(rab.reduce(function(s,r){ return s+(Number(r.nominal)||0); }, 0));
+  if(sumberLain===null) return;
+  pdJalankanAksi('kirimUlangPengajuan', [id, {rab:rab.concat(sumberLain), suratFile:PD.suratFile}, STATE.token], btn, 'Pengajuan dikirim ulang');
 }
 // Hapus pengajuan (khusus Bagian Keuangan) -- WAJIB konfirmasi dulu karena ireversibel
 // (data di sheet aktif dihapus permanen; file yg sudah terunggah ke Drive
@@ -10613,10 +10705,10 @@ function pdAksiCairkan(id, btn){
 function pdAksiKirimLpj(id, btn){
   var realisasi = PD.realisasiEdit.filter(function(r){ return r.namaKomponen && Number(r.nominal)>0; });
   if(!realisasi.length){ toast('error','Realisasi minimal 1 komponen dengan nominal > 0'); return; }
-  // Kontribusi Pihak Lain (opsional): baris terisi sebagian ditolak, baris kosong dibuang.
+  // Pemasukan Sumber Lain (opsional): baris terisi sebagian ditolak, baris kosong dibuang.
   var kontribusiLpj = (PD.kontribusiLpj||[]).filter(function(r){ return Number(r.nominal)>0 || String(r.namaKomponen||'').trim(); });
   for(var pi=0; pi<kontribusiLpj.length; pi++){
-    if(!String(kontribusiLpj[pi].namaKomponen||'').trim() || !(Number(kontribusiLpj[pi].nominal)>0)){ toast('error','Kontribusi Pihak Lain baris ke-'+(pi+1)+': nama pihak dan nominal wajib diisi (atau hapus barisnya)'); return; }
+    if(!String(kontribusiLpj[pi].namaKomponen||'').trim() || !(Number(kontribusiLpj[pi].nominal)>0)){ toast('error','Pemasukan Sumber Lain baris ke-'+(pi+1)+': nama sumber dan nominal wajib diisi (atau hapus barisnya)'); return; }
   }
   kontribusiLpj = kontribusiLpj.map(function(r){ return {namaKomponen:String(r.namaKomponen).trim(), keterangan:r.keterangan||'', nominal:r.nominal, pph21:0, pph23:0, noBukti:r.noBukti||'', tipe:'MASUK', tanggal:r.tanggal||''}; });
   if(!PD.lpjFileEdit){ toast('error','Bukti LPJ (PDF) wajib diunggah'); return; }
@@ -11175,6 +11267,9 @@ function cetakLampiranLpj(){
     + (h.tglDicairkan ? ('<tr><td>Tanggal Dicairkan</td><td>: '+new Date(h.tglDicairkan).toLocaleDateString('id-ID')+'</td></tr>') : '')
     + '</table>';
   if(res.detail && res.detail.length){
+    var rabCetak = pdRealisasiKeluar(res.detail), sumberLainCetak = pdRealisasiMasuk(res.detail);
+    var totalRabCetak = rabCetak.reduce(function(t,d){ return t+(Number(d.nominal)||0); }, 0);
+    var totalSumberLainCetak = sumberLainCetak.reduce(function(t,d){ return t+(Number(d.nominal)||0); }, 0);
     body += '<div class="pt-sec">A. Rencana Anggaran Biaya (RAB)</div>'
       // PERBAIKAN (atas permintaan "rapikan tabel"): kolom Nominal dikasih
       // lebar TETAP lewat <colgroup> supaya sejajar rapi dgn tabel
@@ -11182,8 +11277,15 @@ function cetakLampiranLpj(){
       // Keterangan yang panjangnya beda-beda tiap baris, jadi kolom
       // Nominal ikut goyang tidak sejajar).
       + '<table class="pt-tbl"><colgroup><col style="width:85px"><col><col style="width:145px"></colgroup><thead><tr><th>Komponen Anggaran</th><th>Keterangan</th><th class="r">Nominal</th></tr></thead><tbody>'
-      + res.detail.map(function(d){ return '<tr><td>'+esc(d.namaKomponen)+'</td><td style="white-space:pre-line;">'+esc(d.keterangan)+'</td><td class="r">Rp '+fmtRp(d.nominal)+'</td></tr>'; }).join('')
-      + '</tbody><tfoot><tr><td colspan="2"><b>Total RAB</b></td><td class="r"><b>Rp '+fmtRp(h.totalDiajukan)+'</b></td></tr></tfoot></table>';
+      + rabCetak.map(function(d){ return '<tr><td>'+esc(d.namaKomponen)+'</td><td style="white-space:pre-line;">'+esc(d.keterangan)+'</td><td class="r">Rp '+fmtRp(d.nominal)+'</td></tr>'; }).join('')
+      + '</tbody><tfoot><tr><td colspan="2"><b>Total RAB</b></td><td class="r"><b>Rp '+fmtRp(totalRabCetak)+'</b></td></tr></tfoot></table>';
+    if(sumberLainCetak.length){
+      body += '<div style="margin:10px 0 3px;font-size:9.5pt;"><b>Pemasukan Sumber Lain</b></div>'
+        + '<table class="pt-tbl"><colgroup><col style="width:85px"><col><col style="width:145px"></colgroup><thead><tr><th>Nama Sumber</th><th>Keterangan</th><th class="r">Nominal</th></tr></thead><tbody>'
+        + sumberLainCetak.map(function(d){ return '<tr><td>'+esc(d.namaKomponen)+'</td><td style="white-space:pre-line;">'+esc(d.keterangan)+'</td><td class="r">Rp '+fmtRp(d.nominal)+'</td></tr>'; }).join('')
+        + '</tbody><tfoot><tr><td colspan="2">Total Pemasukan Sumber Lain</td><td class="r">Rp '+fmtRp(totalSumberLainCetak)+'</td></tr>'
+        + '<tr><td colspan="2"><b>Diajukan ke LPPM</b> (Total RAB &minus; Pemasukan Sumber Lain)</td><td class="r"><b>Rp '+fmtRp(totalRabCetak-totalSumberLainCetak)+'</b></td></tr></tfoot></table>';
+    }
   }
   // PERBAIKAN (atas permintaan): kolom "No. Bukti" DIKEMBALIKAN -- ternyata
   // itu No. Bukti PENGELUARAN/NOTA per item realisasi (mis. "I.A", "I.B"),
@@ -11210,19 +11312,19 @@ function cetakLampiranLpj(){
     + realisasi.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="r">Rp '+fmtRp(r.nominal)+'</td><td class="r">'+(r.pph21?('Rp '+fmtRp(r.pph21)):'&mdash;')+'</td><td class="r">'+(r.pph23?('Rp '+fmtRp(r.pph23)):'&mdash;')+'</td><td class="nb">'+esc(r.noBukti)+'</td></tr>'; }).join('')
     + '</tbody><tfoot><tr><td colspan="2"><b>Total Realisasi</b></td><td class="r"><b>Rp '+fmtRp(totalRealisasi)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph21)+'</b></td><td class="r"><b>Rp '+fmtRp(totalPph23)+'</b></td><td></td></tr></tfoot></table>';
   if(kontribusiCetak.length){
-    body += '<div style="margin:10px 0 3px;font-size:9.5pt;"><b>Kontribusi Pihak Lain</b></div>'
-      + '<table class="pt-tbl"><colgroup><col style="width:85px"><col><col style="width:145px"><col style="width:258px"></colgroup><thead><tr><th>Nama Pihak</th><th>Keterangan</th><th class="r">Nominal</th><th>No. Bukti</th></tr></thead><tbody>'
+    body += '<div style="margin:10px 0 3px;font-size:9.5pt;"><b>Pemasukan Sumber Lain</b></div>'
+      + '<table class="pt-tbl"><colgroup><col style="width:85px"><col><col style="width:145px"><col style="width:258px"></colgroup><thead><tr><th>Nama Sumber</th><th>Keterangan</th><th class="r">Nominal</th><th>No. Bukti</th></tr></thead><tbody>'
       + kontribusiCetak.map(function(r){ return '<tr><td>'+esc(r.namaKomponen)+'</td><td style="white-space:pre-line;">'+esc(r.keterangan)+'</td><td class="r">Rp '+fmtRp(r.nominal)+'</td><td>'+esc(r.noBukti)+'</td></tr>'; }).join('')
-      + '</tbody><tfoot><tr><td colspan="2"><b>Total Kontribusi Pihak Lain</b></td><td class="r"><b>Rp '+fmtRp(totalKontribusiCetak)+'</b></td><td></td></tr></tfoot></table>';
+      + '</tbody><tfoot><tr><td colspan="2"><b>Total Pemasukan Sumber Lain</b></td><td class="r"><b>Rp '+fmtRp(totalKontribusiCetak)+'</b></td><td></td></tr></tfoot></table>';
   }
   body += '<div class="pt-sec">'+(res.detail&&res.detail.length?'C':'B')+'. Ringkasan</div>'
     + '<table class="pt-summary"><tr><td>Dana Dicairkan / Diajukan</td><td class="r">Rp '+fmtRp(h.totalDiajukan)+'</td></tr>'
-    + (totalKontribusiCetak ? ('<tr><td>Kontribusi Pihak Lain</td><td class="r">Rp '+fmtRp(totalKontribusiCetak)+'</td></tr>') : '')
+    + (totalKontribusiCetak ? ('<tr><td>Pemasukan Sumber Lain</td><td class="r">Rp '+fmtRp(totalKontribusiCetak)+'</td></tr>') : '')
     + '<tr><td>Total Realisasi</td><td class="r">Rp '+fmtRp(totalRealisasi)+'</td></tr>'
     + (totalPph21 ? ('<tr><td style="padding-left:14px;">PPh 21</td><td class="r">Rp '+fmtRp(totalPph21)+'</td></tr>') : '')
     + (totalPph23 ? ('<tr><td style="padding-left:14px;">PPh 23</td><td class="r">Rp '+fmtRp(totalPph23)+'</td></tr>') : '')
     + '<tr class="total"><td>'+(selisih>0?'Surplus (dikembalikan ke Kas)':(selisih<0?'Defisit (kekurangan)':'Selisih (sesuai, tidak ada surplus/defisit)'))+'</td><td class="r">Rp '+fmtRp(Math.abs(selisih))+'</td></tr></table>';
-  if(totalKontribusiCetak) body += '<div style="margin-top:4px;font-size:8.5pt;">* Surplus/defisit sudah memperhitungkan Kontribusi Pihak Lain; dana kontribusi yang tidak terpakai disetor ke Kas LPPM.</div>';
+  if(totalKontribusiCetak) body += '<div style="margin-top:4px;font-size:8.5pt;">* Surplus/defisit sudah memperhitungkan Pemasukan Sumber Lain; dana kontribusi yang tidak terpakai disetor ke Kas LPPM.</div>';
   var buktiKasHtml = '';
   if(h.jenis==='MUKA' && h.noBuktiKasKeluar) buktiKasHtml += '<div>No. Bukti Kas Keluar (Pencairan Dana): <b>'+esc(h.noBuktiKasKeluar)+'</b></div>';
   if(h.jenis==='SEKALIGUS'){
@@ -11364,11 +11466,11 @@ function cetakTandaTerimaLpj(){
     // tahap "dicairkan duluan" -- Unit mengajukan PERSIS sebesar yg sudah
     // dibelanjakan sendiri, jadi tidak ada selisih yg perlu ditampilkan.
     if(isMuka) kolomKiri += _pdBarisInfo('Dana Dicairkan', 'Rp '+fmtRp(h.totalDiajukan));
-    if(isMuka && h.totalKontribusi) kolomKiri += _pdBarisInfo('Kontribusi Pihak Lain', 'Rp '+fmtRp(h.totalKontribusi));
+    if(isMuka && h.totalKontribusi) kolomKiri += _pdBarisInfo('Pemasukan Sumber Lain', 'Rp '+fmtRp(h.totalKontribusi));
     kolomKiri += _pdBarisInfo('Total Realisasi', 'Rp '+fmtRp(h.totalRealisasi));
     kolomKanan = (isMuka ? _pdBarisInfo('Surplus/Defisit', _pdFormatSelisih(pdSelisihMuka(h))) : '')
       + _pdBarisInfo('Tanggal LPJ Diterima', new Date().toLocaleDateString('id-ID'));
-    paragraf = 'Dokumen LPJ ('+(isMuka?('RAB, Realisasi,'+(h.totalKontribusi?' Kontribusi Pihak Lain,':'')):'Realisasi,')+' dan bukti pendukung) untuk kegiatan di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.';
+    paragraf = 'Dokumen LPJ ('+(isMuka?('RAB, Realisasi,'+(h.totalKontribusi?' Pemasukan Sumber Lain,':'')):'Realisasi,')+' dan bukti pendukung) untuk kegiatan di atas telah diserahkan oleh unit dan diterima oleh Bagian Keuangan sesuai rincian di atas.';
   }
   var body = _pdTandaTerimaBody(judul, h.idPengajuan, h.judul, kolomKiri, kolomKanan, paragraf);
   _pdCetak('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Tanda Terima '+h.idPengajuan+'</title><style>'+_pdTandaTerimaCss()+'</style></head><body>'+body+'</body></html>');
