@@ -107,6 +107,9 @@
   .tbl-tx .tx-col-icon { text-overflow:clip; text-align:center; padding-left:4px; padding-right:4px; }
   .tbl-tx .tx-aksi { white-space:nowrap; }
   .tbl-tx .tx-aksi .btn { padding:.2rem .45rem; }
+  /* Angka rata-kanan (Debet/Kredit & TOTAL) TIDAK boleh patah ke baris kedua spt "1.172.069.504,0 / 0" --
+     kolom dilebarkan di colgroup + nowrap di sini sbg pengaman utk angka yg lebih besar lagi. */
+  .tbl td.text-end, .tbl th.text-end { white-space:nowrap; font-variant-numeric:tabular-nums; }
   .tx-drag-handle { cursor:grab; text-align:center; color:#c7cbd1; font-size:.85rem; transition:color .15s, background .15s; border-radius:4px; }
   .tx-drag-handle:active { cursor:grabbing; }
   .tx-drag-handle:hover { color:var(--maroon); background:var(--maroon-light); }
@@ -423,7 +426,7 @@
             <button type="button" class="btn btn-sm btn-outline-danger no-print d-none" id="btn-hapus-tx-terpilih" onclick="hapusTerpilihTransaksi()"><i class="fas fa-trash me-1"></i>Hapus Terpilih (<span id="jml-tx-terpilih">0</span>)</button>
           </div>
           <div class="table-responsive" id="wrap-transaksi-satupos"><table class="table tbl tbl-tx mb-0">
-            <colgroup><col style="width:32px;"><col style="width:28px;"><col style="width:42px;"><col style="width:118px;"><col><col style="width:135px;"><col style="width:135px;"><col style="width:110px;"><col style="width:104px;"></colgroup>
+            <colgroup><col style="width:32px;"><col style="width:28px;"><col style="width:42px;"><col style="width:118px;"><col><col style="width:165px;"><col style="width:165px;"><col style="width:110px;"><col style="width:104px;"></colgroup>
             <thead><tr id="thead-transaksi-row"><th class="no-print tx-col-icon"><input type="checkbox" onclick="toggleSemuaCheckbox(this,'.chk-tx')"></th><th class="no-print tx-col-icon" title="Geser untuk urutkan"><i class="fas fa-arrows-up-down" style="color:rgba(255,255,255,.55);font-size:.72rem;"></i></th><th class="tx-col-icon">No</th><th>Tanggal</th><th>Keterangan</th><th class="text-end">Debet</th><th class="text-end">Kredit</th><th class="tx-col-clip">Input Oleh</th><th class="no-print tx-col-icon">Aksi</th></tr></thead><tbody id="tbody-transaksi"></tbody>
           <tfoot><tr id="tfoot-transaksi-row"><td class="no-print"></td><td class="no-print"></td><td colspan="3">TOTAL</td><td id="tot-debet-pos" class="text-end">0</td><td id="tot-kredit-pos" class="text-end">0</td><td colspan="2"></td></tr></tfoot></table></div>
           <div id="wrap-transaksi-semuapos" class="d-none"></div>
@@ -538,7 +541,7 @@
       <p class="text-muted small mb-2">Tabel gabungan semua Unit &amp; Pos, urut tanggal — geser baris (ikon &#10021;) untuk menyamakan urutan persis dengan rekening koran/e-statement fisik dari bank. Perubahan tersimpan otomatis.</p>
       <div class="card"><div class="card-body">
         <div class="table-responsive"><table class="table tbl tbl-tx mb-0">
-          <colgroup><col style="width:36px;"><col style="width:28px;"><col style="width:118px;"><col><col style="width:135px;"><col style="width:135px;"><col style="width:72px;"><col style="width:104px;"></colgroup>
+          <colgroup><col style="width:36px;"><col style="width:28px;"><col style="width:118px;"><col><col style="width:165px;"><col style="width:165px;"><col style="width:72px;"><col style="width:104px;"></colgroup>
           <thead><tr><th class="tx-col-icon">No</th><th class="no-print tx-col-icon" title="Geser untuk urutkan"><i class="fas fa-arrows-up-down" style="color:rgba(255,255,255,.55);font-size:.72rem;"></i></th><th>Tanggal</th><th>Keterangan</th><th class="text-end">Debet</th><th class="text-end">Kredit</th><th>Unit</th><th class="no-print tx-col-icon">Aksi</th></tr></thead>
           <tbody id="tbody-rekkoran"></tbody>
           <tfoot><tr><td colspan="4">TOTAL</td><td id="tot-debet-rekkoran" class="text-end"></td><td id="tot-kredit-rekkoran" class="text-end"></td><td colspan="2"></td></tr></tfoot>
@@ -2508,7 +2511,7 @@ function _rekapCacheKey(){ return STATE.tahunAktif + '_' + document.getElementBy
 // SEMUA tempat tabel ini dirender (satu Pos, banyak Pos sekaligus punya
 // Bagian Keuangan, maupun mode Belum Terverifikasi) supaya kolom-kolomnya selalu
 // sejajar sama persis, tidak menyempit/melebar sendiri per tabel.
-var TX_COLGROUP = '<colgroup><col style="width:32px;"><col style="width:28px;"><col style="width:42px;"><col style="width:118px;"><col><col style="width:135px;"><col style="width:135px;"><col style="width:110px;"><col style="width:104px;"></colgroup>';
+var TX_COLGROUP = '<colgroup><col style="width:32px;"><col style="width:28px;"><col style="width:42px;"><col style="width:118px;"><col><col style="width:165px;"><col style="width:165px;"><col style="width:110px;"><col style="width:104px;"></colgroup>';
 var TX_THEAD = '<th class="no-print tx-col-icon"><input type="checkbox" onclick="toggleSemuaCheckbox(this,\'.chk-tx\')"></th><th class="no-print tx-col-icon" title="Geser untuk urutkan"><i class="fas fa-arrows-up-down" style="color:rgba(255,255,255,.55);font-size:.72rem;"></i></th><th class="tx-col-icon">No</th><th>Tanggal</th><th>Keterangan</th><th class="text-end">Debet</th><th class="text-end">Kredit</th><th class="tx-col-clip">Input Oleh</th><th class="no-print tx-col-icon">Aksi</th>';
 // 1 baris tabel Daftar Transaksi. kodePosDrag diisi KALAU baris ini boleh
 // digeser (drag & drop) untuk urutan manual — null berarti tidak bisa
@@ -7650,8 +7653,22 @@ function _pdDraftBaruSebagaiPseudoRow(){
     };
   });
 }
+// Urutan daftar: pengajuan yang BARU berubah (status/isi) di PALING ATAS. Memakai waktuUpdate dari server
+// (fallback tglPengajuan utk data/backend lama); diurut ulang HANYA saat PD.daftar diganti (memo per referensi array),
+// bukan di tiap ketikan pencarian.
+function pdDaftarUrutTerbaru(){
+  if(PD._urutRef === PD.daftar && PD._urutHasil) return PD._urutHasil;
+  var kunci = function(p){ return String(p.waktuUpdate || p.tglPengajuan || ''); };
+  PD._urutHasil = (PD.daftar||[]).slice().sort(function(a,b){
+    var ka = kunci(a), kb = kunci(b);
+    if(ka !== kb) return kb > ka ? 1 : -1;
+    return String(b.idPengajuan) > String(a.idPengajuan) ? 1 : -1;
+  });
+  PD._urutRef = PD.daftar;
+  return PD._urutHasil;
+}
 function pdDaftarTersaring(){
-  var hasil = PD.daftar;
+  var hasil = pdDaftarUrutTerbaru();
   if(PD.kategori!=='SEMUA'){
     var daftarStatus = PD_KATEGORI_STATUS[PD.kategori] || [];
     // FITUR BARU (atas permintaan "ketika ada defisit muncul baru lalu di
@@ -7722,7 +7739,7 @@ function pdDaftarTersaring(){
     // Fallback ke tglKeputusan (relevan utk DITOLAK, yang juga masuk
     // kategori "Selesai" tapi tidak pernah punya tglDicairkan), lalu
     // tglPengajuan sbg jaga-jaga terakhir.
-    var waktuSelesai = function(p){ return (p.tglDicairkan || p.tglKeputusan || p.tglPengajuan); };
+    var waktuSelesai = function(p){ return (p.waktuUpdate || p.tglDicairkan || p.tglKeputusan || p.tglPengajuan); };
     hasil = hasil.slice().sort(function(a,b){
       var ta = waktuSelesai(a) ? new Date(waktuSelesai(a)).getTime() : 0;
       var tb = waktuSelesai(b) ? new Date(waktuSelesai(b)).getTime() : 0;
@@ -8146,7 +8163,7 @@ function pdRenderDaftarTable(){
       + '<td class="text-nowrap"><b>'+p.idPengajuan+'</b><br><span class="badge-pd" style="background:'+bj[0]+';color:'+bj[1]+';">'+bj[2]+'</span></td>'
       + '<td class="pd-col-kegiatan">'+esc(p.judul)+(p.jumlahKomentar>0 ? ' <span class="text-muted small" title="Ada '+p.jumlahKomentar+' komentar"><i class="fas fa-comment-dots"></i> '+p.jumlahKomentar+'</span>' : '')+'</td><td>'+esc(p.diajukanOlehNama || p.diajukanOleh || p.kodeUnit)+'</td><td class="pd-col-tgl">'+tgl+'</td>'
       + kolomNominal
-      + '<td><span class="badge-pd '+bs[0]+'">'+labelStatusUtama+'</span></td>'
+      + '<td><span class="badge-pd '+bs[0]+'"'+(p.waktuUpdate?(' title="Terakhir diperbarui: '+esc(String(p.waktuUpdate).replace('T',' '))+'"'):'')+'>'+labelStatusUtama+'</span></td>'
       + '<td class="text-nowrap"><button class="btn btn-sm btn-outline-secondary me-1" onclick="pdBukaDetail(\''+p.idPengajuan+'\', this)" title="Lihat Detail"><i class="fas fa-list"></i></button>'
       // PERBAIKAN BUG NYATA: sebelumnya judul disisipkan LANGSUNG ke dalam
       // atribut onclick sebagai string JS berpagar kutip satu -- esc() cuma
